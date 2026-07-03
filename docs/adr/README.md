@@ -19,3 +19,4 @@ Write one for a **significant** and **costly-to-reverse** decision — datastore
 | # | Title | Status | Date |
 | --: | --- | --- | --- |
 | [0001](adr-0001-decline-markdown-frontmatter-standard.md) | Decline the Markdown Frontmatter Standard | Accepted | 2026-07-03 |
+| [0002](adr-0002-python-tooling-standard-local-deviations.md) | Python Tooling Standard — local deviations | Accepted | 2026-07-03 |
