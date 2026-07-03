@@ -2,7 +2,6 @@ import subprocess
 import sys
 from collections.abc import Sequence
 
-
 COMMANDS: tuple[tuple[str, ...], ...] = (
     ("uv", "run", "ruff", "format", "--check", "."),
     ("uv", "run", "ruff", "check", "."),

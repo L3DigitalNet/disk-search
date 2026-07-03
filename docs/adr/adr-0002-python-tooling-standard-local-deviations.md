@@ -77,7 +77,9 @@ Option 1 was rejected because a broken CI check and reversed hygiene are worse t
 
 ### Confirmation
 
-Repo state confirms the decision: `pyproject.toml` carries the standard's tool tables; `AGENTS.md` is tracked; `.vscode/` and `CLAUDE.md` remain in `.gitignore`; `.github/workflows/check.yml` is intentionally absent. **Revisit at the "scaffold the repo" milestone:** add the CI workflow and drive the verification gate green (this ends Deviation A). Deviation B persists as long as the public-hygiene convention holds.
+Repo state confirms the decision: `pyproject.toml` carries the standard's tool tables; `AGENTS.md` is tracked; `.vscode/` and `CLAUDE.md` remain in `.gitignore`.
+
+**Update (2026-07-03) — Deviation A retired.** The "scaffold the repo" task landed in the same session: `src/disk_search/` (version-only skeleton) + `tests/`, `uv.lock`, and `.github/workflows/check.yml` were added, and the full verification gate now runs **green** (`uv run python -m scripts.check`, exit 0). Deviation A (deferred gate/CI) no longer applies. **Deviation B remains in force** — `.vscode/` and `CLAUDE.md` stay git-ignored as long as the public-hygiene convention holds — so this ADR stays `active`.
 
 ## More Information
 

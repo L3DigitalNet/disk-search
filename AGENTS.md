@@ -5,13 +5,11 @@ Cross-agent entry point for this repository. It follows the **Python Tooling SSO
 canonical, tracked instruction source; `CLAUDE.md` and `docs/handoff.md` exist locally for
 Claude Code sessions but are **git-ignored and absent on a fresh clone** — do not rely on them.
 
-## Project status: design phase — configuration adopted, gate not yet live
+## Project status: scaffolded — toolchain live, feature implementation not started
 
-There is **no application code yet**. The toolchain is configured in `pyproject.toml`, but the
-`src/` package, `tests/`, `uv.lock`, the CI workflow, and the first green verification gate are
-created by the pending "scaffold the repo" task. Until then, `uv sync` and the gate below are
-**not yet runnable** (no `src/<package>` exists). Do not invent build/test commands beyond what
-`pyproject.toml` declares. Deviations from the standard are recorded in `docs/adr/`.
+The repo is scaffolded and the verification gate below is **live and green**. `src/disk_search`
+is a version-only skeleton — no features yet. Build features from here under the `src/` layout,
+adding real deps with `uv add`. Standard deviations are recorded in `docs/adr/` (ADR-0002).
 
 The planned stack (see `docs/specs/disk-search.md` and `docs/gap-analysis.md`): **Django** +
 server-rendered templates + HTMX, PostgreSQL (+ TimescaleDB), Scrapy, deployed to a single VM.
@@ -39,9 +37,9 @@ uv run coverage report
 uv run pip-audit
 ```
 
-Do not claim completion if any command fails. Once code exists, `scripts/check.py`
-(`uv run python -m scripts.check`) runs this sequence. **This gate is inert until the repo is
-scaffolded** — see above.
+Do not claim completion if any command fails. `scripts/check.py`
+(`uv run python -m scripts.check`) runs this sequence, and `.github/workflows/check.yml` runs it
+in CI on every push/PR to `main`.
 
 ## Dependency rules
 
