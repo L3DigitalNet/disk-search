@@ -1,3 +1,31 @@
+---
+schema_version: '1.1'
+id: tavily-brave-serper
+title: Deep Research on Tavily, Brave Search, and Serper for Retail and Resale Data Pipelines
+description: 'Layered acquisition strategy: official marketplace APIs (eBay Browse/Feed, Amazon SP-API) as source of truth, search APIs (Serper > Brave > Tavily) for discovery, and targeted extraction only for merchants without a usable public API.'
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- search-api
+- tavily
+- brave
+- serper
+- ebay
+- amazon
+- discovery
+- data-acquisition
+aliases: []
+related: []
+source: []
+confidence: high
+visibility: private
+license: null
+---
+
 # Deep Research on Tavily, Brave Search, and Serper for Retail and Resale Data Pipelines
 
 ## Executive findings

@@ -1,3 +1,30 @@
+---
+schema_version: '1.1'
+id: programmatic-identity-and-warranty-verification-for-used-enterprise-hdd-listings
+title: Programmatic Identity and Warranty Verification for Used Enterprise HDD Listings
+description: 'Verification sources for used and recertified drives: WD/Seagate/Toshiba warranty-lookup forms (no public API), model-number decoders, serial-format fraud checks, and SMART attribute buy/no-buy thresholds, with an end-to-end verification flow.'
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- warranty-verification
+- serial-number
+- smart-attributes
+- model-decoder
+- seagate
+- western-digital
+- toshiba
+aliases: []
+related: []
+source: []
+confidence: high
+visibility: private
+license: null
+---
+
 # Programmatic Identity and Warranty Verification for Used Enterprise HDD Listings
 
 ## Bottom line

@@ -1,3 +1,30 @@
+---
+schema_version: '1.1'
+id: pragmatic-architecture-for-low-volume-python-e-commerce-scraping
+title: Pragmatic Architecture for Low-Volume Python E-Commerce Scraping
+description: 'HTTP-first, structured-data-first, browser-last scraping architecture: Scrapy orchestrator, JSON-LD and hidden-JSON detection, Playwright and curl_cffi for the hard cases, a managed-API cost comparison, and a difficulty-to-technique decision tree.'
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- web-scraping
+- scrapy
+- playwright
+- curl-cffi
+- json-ld
+- anti-bot
+- e-commerce
+aliases: []
+related: []
+source: []
+confidence: high
+visibility: private
+license: null
+---
+
 # Pragmatic Architecture for Low-Volume Python E-Commerce Scraping
 
 ## Bottom line

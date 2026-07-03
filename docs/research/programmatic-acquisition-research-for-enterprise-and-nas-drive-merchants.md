@@ -1,3 +1,30 @@
+---
+schema_version: '1.1'
+id: programmatic-acquisition-research-for-enterprise-and-nas-drive-merchants
+title: Programmatic Acquisition Research for Enterprise and NAS Drive Merchants
+description: Per-merchant acquisition matrix for 17 non-API drive stores covering feed/affiliate/structured-data availability, anti-bot posture, and storefront platform, with a recommended feed > structured-data > scrape > skip approach prioritizing the recert specialists.
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- data-acquisition
+- marketplaces
+- serverpartdeals
+- goharddrive
+- affiliate-feeds
+- structured-data
+- anti-bot
+aliases: []
+related: []
+source: []
+confidence: high
+visibility: private
+license: null
+---
+
 # Programmatic Acquisition Research for Enterprise and NAS Drive Merchants
 
 ## Bottom line

@@ -1,3 +1,30 @@
+---
+schema_version: '1.1'
+id: recertified-enterprise-hard-drives-for-homelab-and-small-business-buyers
+title: Recertified Enterprise Hard Drives for Homelab and Small-Business Buyers
+description: What recertified/refurbished/renewed labels mean, a per-vendor warranty comparison, reliability evidence (Backblaze plus community data, with the recert-vs-new evidence gap flagged), red flags, and SMART/power-on-hour thresholds encoded as scoring penalties and bonuses.
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- recertified
+- refurbished
+- warranty
+- reliability
+- backblaze
+- smart-attributes
+- buyer-heuristics
+aliases: []
+related: []
+source: []
+confidence: medium
+visibility: private
+license: null
+---
+
 # Recertified Enterprise Hard Drives for Homelab and Small-Business Buyers
 
 ## Executive summary

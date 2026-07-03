@@ -1,3 +1,30 @@
+---
+schema_version: '1.1'
+id: opinionated-core-stack-recommendations-for-a-python-drive-price-monitor
+title: Opinionated Core Stack Recommendations for a Python Drive-Price Monitor
+description: 'Resolves the stack TBD markers: Django with server-rendered templates plus HTMX, PostgreSQL 18 (no TimescaleDB until warranted), and uv for environment and dependency management, for a single-maintainer data-heavy CRUD and dashboard app.'
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- stack
+- django
+- postgresql
+- uv
+- htmx
+- python
+- architecture
+aliases: []
+related: []
+source: []
+confidence: high
+visibility: private
+license: null
+---
+
 # Opinionated Core Stack Recommendations for a Python Drive-Price Monitor
 
 ## Bottom line

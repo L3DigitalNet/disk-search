@@ -1,3 +1,30 @@
+---
+schema_version: '1.1'
+id: entity-resolution-for-cross-marketplace-hard-drive-and-ssd-price-tracking
+title: Entity Resolution for Cross-Marketplace Hard Drive and SSD Price Tracking
+description: Canonical-product-key design anchored on brand plus normalized MPN (GTIN/ASIN/ePID as aliases), a dual physical-key vs sellable-variant model with condition at the offer layer, hybrid rules+NER+LLM title parsing, and open-source ER tooling.
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- entity-resolution
+- product-matching
+- mpn
+- gtin
+- record-linkage
+- title-parsing
+- blocking
+aliases: []
+related: []
+source: []
+confidence: high
+visibility: private
+license: null
+---
+
 # Entity Resolution for Cross-Marketplace Hard Drive and SSD Price Tracking
 
 ## Bottom line

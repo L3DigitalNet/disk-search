@@ -1,3 +1,30 @@
+---
+schema_version: '1.1'
+id: us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor
+title: US Scraping and Data-Retention Landscape for a Retail HDD Price Monitor
+description: 'US legal footing for scraping public price data: CFAA post-hiQ and Van Buren, contract/ToS vs CFAA, browsewrap vs clickwrap, copyright of facts vs expression, per-API retention limits, and robots.txt weight, with a risk-tiered retention policy.'
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- legal
+- web-scraping
+- cfaa
+- terms-of-service
+- copyright
+- data-retention
+- compliance
+aliases: []
+related: []
+source: []
+confidence: medium
+visibility: private
+license: null
+---
+
 # US Scraping and Data-Retention Landscape for a Retail HDD Price Monitor
 
 **As of July 3, 2026**, the safest framing for your tool is this: in the United States, scraping **truly public product pages** without logging in, without bypassing technical controls, and without collecting personal data is **materially lower CFAA risk than it was before _Van Buren_ and _hiQ_**. But that does **not** make it “generally legal” in the broad business sense. The main residual exposure for a commercial price-monitor is usually **contract / terms-of-service**, **platform-specific API license limits**, and **copyright or IP issues around storing expressive content and images**, not just CFAA. That is especially true once a site sends a cease-and-desist, imposes bot defenses, requires login, or offers an API with stricter storage terms.

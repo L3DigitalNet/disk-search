@@ -1,3 +1,30 @@
+---
+schema_version: '1.1'
+id: drive-deal-tracker-research-baselines-tools-shucking-and-timing
+title: 'Drive Deal Tracker Research: Baselines, Tools, Shucking, and Timing'
+description: July 2026 USD-per-TB baseline tables for new and recertified enterprise HDDs and SSDs by capacity and tier, sweet-spot capacities, a competitor-tool landscape (diskprices, Keepa, camelcamelcamel), the shucking market, and seasonal timing signals.
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- price-baselines
+- usd-per-tb
+- shucking
+- diskprices
+- keepa
+- seasonality
+- benchmarking
+aliases: []
+related: []
+source: []
+confidence: high
+visibility: private
+license: null
+---
+
 # Drive Deal Tracker Research Baselines Tools Shucking And Timing
 
 ## What matters most right now

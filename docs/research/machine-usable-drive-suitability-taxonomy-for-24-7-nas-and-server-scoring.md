@@ -1,3 +1,31 @@
+---
+schema_version: '1.1'
+id: machine-usable-drive-suitability-taxonomy-for-24-7-nas-and-server-scoring
+title: Machine-Usable Drive Suitability Taxonomy for 24/7 NAS and Server Scoring
+description: A scoring-oriented attribute schema and tier ladder (desktop/NAS/enterprise) for HDDs and SSDs covering CMR vs SMR detection, workload and endurance ratings, power-loss protection, and form factors, plus a model-family-to-tier reference table.
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- drive-taxonomy
+- cmr
+- smr
+- nas
+- enterprise
+- dwpd
+- tbw
+- scoring
+aliases: []
+related: []
+source: []
+confidence: high
+visibility: private
+license: null
+---
+
 # Machine-Usable Drive Suitability Taxonomy for 24/7 NAS and Server Scoring
 
 ## What your scoring engine should optimize for

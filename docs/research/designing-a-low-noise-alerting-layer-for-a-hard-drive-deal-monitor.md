@@ -1,3 +1,30 @@
+---
+schema_version: '1.1'
+id: designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor
+title: Designing a Low-Noise Alerting Layer for a Hard-Drive Deal Monitor
+description: Stateful per-watch/per-listing alerting with dedup, debounce, hysteresis, and digest lanes; transactional email (Postmark/SES) over raw SMTP; Pushover/Telegram before SMS; with a SQL alert-rule data model and deliverability checklist.
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- alerting
+- notifications
+- email-deliverability
+- dkim
+- dedup
+- postmark
+- pushover
+aliases: []
+related: []
+source: []
+confidence: high
+visibility: private
+license: null
+---
+
 # Designing a Low-Noise Alerting Layer for a Hard-Drive Deal Monitor
 
 ## Bottom line

@@ -1,3 +1,30 @@
+---
+schema_version: '1.1'
+id: principled-deal-score-for-hard-drive-listings
+title: Principled Deal Score for Hard-Drive Listings
+description: A weighted geometric-mean deal score over four normalized subscores (price cheapness-percentile, Bayesian plus Wilson seller trust, fitness rubric, availability) with non-compensatory caps, default weights, explainability, and a worked example.
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- scoring
+- deal-score
+- normalization
+- bayesian
+- wilson-score
+- geometric-mean
+- explainability
+aliases: []
+related: []
+source: []
+confidence: high
+visibility: private
+license: null
+---
+
 # Principled Deal Score for Hard-Drive Listings
 
 ## Executive recommendation

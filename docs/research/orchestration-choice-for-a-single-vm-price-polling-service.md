@@ -1,3 +1,30 @@
+---
+schema_version: '1.1'
+id: orchestration-choice-for-a-single-vm-price-polling-service
+title: Orchestration Choice for a Single-VM Price-Polling Service
+description: Recommends APScheduler in a systemd-supervised poller with PostgreSQL state over Celery/Prefect/Airflow (over-engineered at this scale), with per-source token-bucket rate limiting, retry and failure isolation, and a testable pipeline-stage architecture.
+doc_type: research
+status: active
+created: '2026-07-03'
+updated: '2026-07-03'
+reviewed: null
+owner: chris
+tags:
+- orchestration
+- scheduling
+- apscheduler
+- rate-limiting
+- systemd
+- pipeline
+- single-vm
+aliases: []
+related: []
+source: []
+confidence: high
+visibility: private
+license: null
+---
+
 # Orchestration choice for a single-VM price-polling service
 
 ## Recommended default
