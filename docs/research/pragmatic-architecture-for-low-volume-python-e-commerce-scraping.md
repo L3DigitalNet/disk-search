@@ -1,0 +1,101 @@
+# Pragmatic Architecture for Low-Volume Python E-Commerce Scraping
+
+## Bottom line
+
+For the mix of targets you described, the right default is **HTTP-first, structured-data-first, browser-last**. Use Scrapy as the orchestrator and crawler, keep most sites on raw HTTP fetches plus JSON/HTML parsing, add Playwright only for the minority of pages where the data is genuinely unavailable without a browser, and treat “needs residential rotation / CAPTCHA solving / stealth anti-bot tooling” as your **stop or outsource** threshold, not your normal path. That recommendation follows from the current tool stack: Scrapy remains strong for scheduling, retry, throttling, caching, and robots handling; `scrapy-playwright` can selectively route only marked requests through a browser; Playwright gives you first-class request/response inspection for discovery; and modern anti-bot products increasingly combine TLS fingerprints with client-side telemetry, which means browser-grade realism can matter on hard targets but does not belong everywhere.
+
+The most important architectural mistake to avoid is assuming “React/Next/Shopify/Magento” automatically means “use a browser.” In 2026, many storefronts still expose the product data you need in the initial HTML via JSON-LD, in serialized bootstrap payloads such as Next.js `__NEXT_DATA__`, or via stable storefront JSON endpoints such as Shopify’s product Ajax endpoint. A browser is often best used once for reconnaissance and endpoint discovery, then removed from steady-state collection.
+
+Version-sensitive notes matter here. The Scrapy docs you should anchor to are currently 2.16; `scrapy-playwright`’s README currently requires Python 3.10+, Scrapy 2.7+, and Playwright 1.40+; and pricing/service bundles for managed APIs are moving targets, so the cost figures below should be read as **public list prices as of July 3, 2026**, not durable procurement quotes.
+
+## When HTTP is enough and when a browser is justified
+
+The right decision criterion is not “does the page use JavaScript,” but **“can I get the canonical product fields without executing the page as a browser?”** If a raw GET returns the product title, SKU, price, availability, or variant data either directly in HTML, in `application/ld+json`, in a serialized data blob, or from an obvious JSON endpoint, plain HTTP is enough and will be cheaper, faster, and easier to keep stable than any browser path. Google’s product structured-data docs explicitly show price and availability encoded in product markup; Schema.org’s `Offer` type defines `availability`; Shopify officially exposes `/{locale}/products/{handle}.js`; and Next.js Pages Router still serializes page data into `__NEXT_DATA__` JSON in the HTML.
+
+A **real browser** is justified when the page you need is truly assembled client-side and the data is not recoverable from the initial response, or when key values appear only after user actions such as selecting a variant, opening a delivery estimator, or waiting for post-load XHR/fetch responses. Playwright is particularly good here because it lets you subscribe to request/response events and wait for specific API calls with `page.expect_response()`, which makes it useful not only for rendering but for discovering the site’s real data source.
+
+The browser threshold rises again on protected sites. Cloudflare explicitly documents JA3/JA4 TLS fingerprinting. DataDome documents combining server-side signals such as headers, IP reputation, and traffic patterns with client-side browser/device telemetry. HUMAN documents sensor collection via DOM/BOM/WebAssembly and device/browser features. In practice that means a plain HTTP client may fail even at low rate when the site expects a full browser profile, but it also means that once you are fighting those systems, you are no longer in the “simple scraper” zone.
+
+That is why I would use four practical tiers, not two. **Tier one:** raw HTTP plus JSON/HTML parsing. **Tier two:** raw HTTP plus fingerprint-aware client such as `curl_cffi` if the only failure mode looks network-layer or TLS-profile related. **Tier three:** a real browser, ideally Playwright, for rendering or one-time endpoint discovery. **Tier four:** managed unblocker/browser API for a small number of high-value hard targets, only if there is no decent official API and the economics still work. `curl_cffi` explicitly exists to impersonate browser TLS/JA3 and HTTP/2 fingerprints, but even its README effectively implies that TLS fingerprinting alone is not enough for the hardest anti-bot stacks; that aligns with the Cloudflare/DataDome/HUMAN docs.
+
+My practical recommendation between Playwright and Selenium is straightforward: **prefer Playwright unless you already have Selenium/WebDriver infrastructure you want to reuse**. Selenium remains the standard WebDriver stack and drives browsers natively, but Playwright’s current Python docs emphasize browser automation across Chromium/WebKit/Firefox, built-in event/network handling, and auto-waiting behavior that makes data-collection flows less brittle. That is an inference from product shape, not a benchmark claim, but it is the pragmatic choice for a new Python scraping project in 2026.
+
+## Structured data should be your first extractor
+
+Your cheapest win is to make every spider run a **payload discovery pass** before it ever falls back to CSS/XPath selectors. Start by scanning `<script type="application/ld+json">` blocks for `Product`, `Offer`, and `AggregateOffer`, because those schemas can already give you title, identifiers, price, currency, availability, review aggregates, seller, and sale-price structure. Google’s merchant-listing docs show active versus struck-through pricing inside `Offer`, and Schema.org defines availability semantics on `Offer`.
+
+Next, scan for **hidden bootstrap JSON**. For Next.js Pages Router sites, a script with `__NEXT_DATA__` is particularly valuable because Next.js documents that page data is serialized there for client hydration. That makes many “JS-heavy” sites recoverable from a raw HTTP response with no browser at all. The caveat is that this applies to the Pages Router path described by Next.js; the App Router streams data differently, so some newer Next.js builds may require network inspection instead.
+
+After that, check for **platform-specific storefront payloads**. Shopify officially exposes `GET /{locale}/products/{product-handle}.js`, returning product JSON with money fields in the buyer’s presentment currency. Adobe Commerce exposes GraphQL product/catalog queries, and its frontend docs also document `text/x-magento-init` and `data-mage-init` patterns that often leak structured configuration data into the page. Those are much better anchors than brittle descendant CSS selectors.
+
+The extraction order I would recommend is this: **JSON-LD → platform JSON endpoint → hidden bootstrap JSON → stable HTML selectors → browser reconnaissance → browser steady-state**. That order is not written in any one product doc; it is the practical synthesis of the structured-data docs plus current storefront platform patterns. The reason it works is simple: every step downward increases fragility, compute cost, and anti-bot surface area.
+
+For low-volume monitoring specifically, I would not jump to LLM-style extraction unless you are scraping prose-heavy pages where the target fields are semantically present but not structurally marked. Firecrawl’s own docs position `/scrape` with JSON mode as LLM-based extraction from a known URL, which is useful, but for **exact price and stock monitoring** a first-party JSON endpoint or deterministic structured-data parser is usually the safer contract. That conclusion is an engineering judgment, but it matches the distinction in Firecrawl’s docs between markdown/JSON extraction and explicit structured extraction.
+
+## The current tooling landscape for Python
+
+### Open-source and self-hosted tools
+
+| Tool | What it is | Best use in your stack | Cash cost | Effort | Reliability for product monitoring |
+|---|---|---|---|---|---|
+| Scrapy | Crawl/scrape framework with scheduling, middleware, retries, caching, robots handling | Your default orchestrator for most sites | Software free; your own compute | Medium upfront, low ongoing once modeled | High on easy/structured sites |
+| `scrapy-playwright` | Scrapy download handler that selectively uses Playwright | Keep Scrapy as the core; browser only for marked requests | Software free; your own compute | Medium | High on JS-needed pages, but expensive per page relative to HTTP |
+| Playwright | Real browser automation for Chromium/WebKit/Firefox | Reconnaissance, endpoint discovery, occasional rendered pages | Software free; your own compute | Medium | High where rendering/interactions are truly required |
+| Selenium | W3C WebDriver browser automation | Only if you already have WebDriver habits or infra | Software free; your own compute | Medium to high | Good, but usually not my first pick for a new Python scraping stack |
+| `curl_cffi` | HTTP client that can impersonate browser TLS/JA3/HTTP2 fingerprints | Cheap fallback for non-JS sites blocked at the HTTP/TLS layer | Software free; your own compute | Low to medium | Good for some network-layer mismatches; not a substitute for browser telemetry or JS execution |
+
+The key architecture point is that **`curl_cffi` is not a replacement for Scrapy**; it is a targeted fallback. Scrapy should still own crawl policy, storage, retry, throttling, and per-site extraction logic. If you make `curl_cffi` your main path, you lose the main reason to use Scrapy in the first place. The practical use case is narrower: “normal raw HTTP should work here, but the site behaves differently when the client fingerprint is obviously not browser-like.”
+
+### Managed scraping APIs and browsers
+
+The table below mixes documented pricing with my judgment on effort/reliability. The **cost figures are public list prices, often annual-billed or tier-dependent**, and should be treated as directional, not contractual. Reliability judgments are inferences from each product’s documented feature surface, not independent lab benchmarks.
+
+| Service | Public entry pricing | What the docs say it abstracts | Hobby-scale read |
+|---|---|---|---|
+| ScraperAPI | Hobby plan: **$49/mo** for **100,000 API credits**; Startup **$149/mo** for **1,000,000**; features include JS rendering, premium residential/mobile IPs, “advanced bypassing,” parsing/structured-data APIs, crawler access. | Proxies, headless browsers, CAPTCHAs, parsing, crawler features. | Good first managed fallback if you want “single endpoint, fewer moving parts.” Cheaper than ZenRows at the floor, but credits are less transparent than pure per-request pricing. |
+| ZenRows | Developer plan **$69/mo**; **250K basic** and **10K protected** results. Cost multipliers: JS ×5, premium proxies ×10, both ×25; examples: **$0.28/1K basic**, **$1.40/1K JS**, **$2.80/1K premium**, **$7.00/1K both**. | Universal Scraper API, Scraping Browser, residential proxies. | Very usable self-serve pricing for mixed easy/protected targets. Better cost transparency than some competitors. |
+| Zyte API | **$5 free credit**. PAYG HTTP tiers run **$0.13–$1.27 per 1,000** successful requests; browser tiers **$1.01–$16.08 per 1,000**; standard plans can be no-commitment or commitment-based; automatic extraction adds per-field cost. | Automatic request-type/tier selection, browser or HTTP, only charges for successful responses, extraction add-ons. | Probably the most interesting managed fallback for a Scrapy user, because it is cheap for easy HTTP pages and can escalate to browser only when needed. Hard pages can still get expensive fast. |
+| Bright Data Web Scraper / Web Unlocker | Free tier **5K**; PAYG **$1.5/1K** successful records for Web Scraper, **$1.5/1K** requests for Web Unlocker. Unlocker says it handles blocks and CAPTCHAs. | Successful-request billing, unlimited concurrency, unlocker/browser-grade anti-block handling. | Strong but overkill for many hobby projects. Use only for a few stubborn, high-value targets where the economics still make sense. |
+| Oxylabs Web Scraper API | Free trial **up to 2,000 results**; Micro **$49/mo**; example pricing on the Web Scraper API page: **Amazon $0.50/1K**, **Other $1.15/1K**, **JS $1.35/1K**; Web Unblocker starts from **$3/GB** on current pricing page. | Public web data scraping, browser automation, unblocker, premium proxy stack. | Similar position to Bright Data: serious capability, but I would reserve it for a small hard-target set, not as the universal default. |
+| Firecrawl | Free **1,000 pages/mo**; Hobby **$16/mo** for **5,000** pages; Standard **$83/mo** for **100,000**; Interact costs **2 credits per browser minute**; scrape/crawl/map/monitor cost **1 credit per page**. | Scrape, crawl, search, agent, markdown/JSON output, structured extraction, real Chromium rendering. | Cheapest polished monthly entry point. Great for “give me content/JSON from URLs.” Less ideal as the primary engine for precise, deterministic price/stock polling unless you carefully constrain outputs and verify them. |
+
+For your exact use case, the managed-service shortlist is not “which is best overall,” but **which one best covers the expensive tail** while leaving the cheap path local. On that criterion, I would put **Zyte API** first if you want a flexible, usage-sensitive fallback; **ScraperAPI** first if you want the simplest self-serve “just make this URL work” experience; **ZenRows** first if you want clearer feature-cost math; and **Bright Data/Oxylabs** only when you have a very small set of hard targets that are worth paying to unblock. I would treat **Firecrawl** as a different category: useful when your real goal is clean extraction from dynamic pages, but not automatically the best fit for exact e-commerce monitoring. That ranking is an inference from docs and pricing, not a benchmark result.
+
+## Good-faith operating practices and the stop signals
+
+The polite baseline is simple: **obey robots where your user-agent is covered, run slowly, randomize modestly, back off hard on distress signals, and cache aggressively**. RFC 9309 defines robots as the standard mechanism sites use to request crawler behavior, and Scrapy supports respecting robots, per-domain delays, randomized delays, AutoThrottle, retries, and HTTP cache middleware out of the box. AutoThrottle defaults conservatively around one concurrent request per site; `DOWNLOAD_DELAY` sets a floor; randomized delay exists specifically to avoid statistically obvious request timing; and Scrapy’s retry middleware now includes `429` among default retry codes.
+
+For personal/small-business monitoring, I would err even more conservative than Scrapy’s defaults on retailer PDPs: think in terms of **single-digit daily checks per SKU**, small per-domain concurrency, and explicit exponential backoff when you see `429`, `503`, or challenge pages. That specific cadence is my recommendation, not a doc value, but it follows from how Scrapy’s throttling and retry model is built and from the general purpose of robots and crawl-rate management.
+
+On headers, the good-faith approach is not an arms race of rotating fake identities. It is to send a **stable, plausible header set** and let your crawler behave consistently. Scrapy uses the user-agent for robots matching, and `curl_cffi` can impersonate browser signatures where a site’s HTTP stack expects a modern browser profile. But if your project only works when you progress from stable headers to heavy identity rotation, challenge-token farming, or CAPTCHA-solving, that is a signal that the site does not want this access pattern and that your architecture should change.
+
+That leads to the “stop” threshold. The current commercial ecosystem openly sells CAPTCHA solving, unblockers, adaptive retries, proxy rotation, and stealth handling. Bright Data’s Unlocker explicitly markets blocks/CAPTCHAs handling; Zyte markets built-in CAPTCHA/browser features; ScraperAPI markets headless browsers, proxies, and CAPTCHA handling. For large commercial data collection those tools can be legitimate procurement choices. For the **good-faith, low-volume monitoring** use case you stated, I would treat the need for those features as the line where you either switch to an official API/partner feed or decide the site is simply not worth scraping.
+
+That matters especially for Amazon and similar marketplaces. Amazon’s current associate-side API terms restrict use to participation in the Associates Program, prohibit use of program content with data-mining or similar extraction tools, and also prohibit access for aggregating, analyzing, extracting, or repurposing product advertising content outside the licensed scope. Separately, the legacy PA-API docs say PA-API stopped accepting new customers and was deprecated in favor of Creators API in 2026. Newegg’s developer portal, by contrast, is clearly a **Marketplace** API for seller operations, not a general consumer catalog API. In other words: for those very large retailers, “use the API or skip” is not only technically pragmatic; it is often the only sane path.
+
+## Decision tree and the recommended default stack
+
+### Decision tree
+
+Use this as the default progression for each new domain:
+
+- **The raw HTML already contains the fields you need** — visible values, JSON-LD `Product`/`Offer`, or a serialized bootstrap blob. Use **Scrapy + HTTP + parser only**. Do not add a browser.
+- **The page shell is JS-driven, but the real data comes from a JSON endpoint or framework payload** such as Shopify product Ajax, Next.js `__NEXT_DATA__`, Adobe Commerce GraphQL, or `x-magento-init`. Use **one-time Playwright reconnaissance** if needed, then move steady-state collection back to **plain HTTP against the JSON source**.
+- **The data only appears after browser execution or interaction**, but the site is not aggressively protected. Use **Playwright selectively**, ideally through `scrapy-playwright`, and keep the rest of the domain on normal Scrapy requests.
+- **Normal HTTP gets blocked, but the data endpoint itself is still non-JS and the site seems to care mainly about client fingerprinting.** Try **`curl_cffi`** as a narrow fallback before you deploy a real browser.
+- **The site requires challenge passing, anti-bot tokening, persistent browser/device telemetry, heavy proxy rotation, or CAPTCHA-solving to keep working.** For your use case, that is the **use-api / managed-service-for-a-few-URLs / skip-it** tier. Do not make it the default architecture.
+
+### Recommended default Python stack
+
+My recommended default stack is:
+
+| Layer | Recommendation | Why |
+|---|---|---|
+| Crawl/orchestration | **Scrapy 2.16** | Best control plane for queues, retries, throttling, robots, and HTTP caching. |
+| Browser fallback | **Playwright via `scrapy-playwright`** | Lets you keep browser usage selective and integrated into the Scrapy workflow; only marked requests need browser execution. |
+| HTTP fingerprint fallback | **`curl_cffi` as a sidecar probe, not the main engine** | Useful when raw HTTP should work but a site dislikes a non-browser client fingerprint. |
+| Extraction strategy | **Structured-data-first module** | Parse JSON-LD, Next.js, Shopify Ajax, Magento/Adobe payloads before using DOM selectors. |
+| Managed fallback | **Zyte API or ScraperAPI**, optionally ZenRows | Best balance for hobby-scale “small hard tail, large easy base” usage. |
+| Hard-stop policy | **If it needs residential rotation/CAPTCHA solving to be routine, stop** | That is where cost, maintenance, and compliance risk stop making sense for your stated use case. |
+
+If I had to compress that into one sentence: **build around Scrapy, keep a structured-data detector in front of every parser, use Playwright for discovery and only occasionally for steady-state, use `curl_cffi` only for the narrow HTTP-fingerprint gap, and outsource or skip the tiny set of retailer targets that clearly do not want automated access.**

@@ -2,9 +2,9 @@
 
 ## Executive recommendation
 
-For this use case, I would not use a plain weighted sum. The design I recommend is simpler and more defensible: score **price** relative to a recent comparable cohort using a **cheapness percentile**; convert seller reputation into a cross-marketplace **trust score** with **Bayesian shrinkage** and a **Wilson lower bound**; score **fitness-for-purpose** with an explicit rubric for enterprise/NAS suitability, warranty, and condition; keep **availability** as a bounded operational factor; and combine the four with a **weighted geometric mean**, then apply a small number of explicit **caps** for true veto conditions such as SMR-for-enterprise or used/no-returns. That gives you a score that is self-adjusting as market prices move, harder to game, and much easier to explain listing-by-listing than a black-box ranking or an undocumented weighted sum. Percentile-based normalization is a non-parametric alternative to average-based normalization for skewed distributions, and the weighted product model is the standard multiplicative MCDM analogue of a weighted geometric mean. citeturn9view17turn24view4turn24view5turn24view6
+For this use case, I would not use a plain weighted sum. The design I recommend is simpler and more defensible: score **price** relative to a recent comparable cohort using a **cheapness percentile**; convert seller reputation into a cross-marketplace **trust score** with **Bayesian shrinkage** and a **Wilson lower bound**; score **fitness-for-purpose** with an explicit rubric for enterprise/NAS suitability, warranty, and condition; keep **availability** as a bounded operational factor; and combine the four with a **weighted geometric mean**, then apply a small number of explicit **caps** for true veto conditions such as SMR-for-enterprise or used/no-returns. That gives you a score that is self-adjusting as market prices move, harder to game, and much easier to explain listing-by-listing than a black-box ranking or an undocumented weighted sum. Percentile-based normalization is a non-parametric alternative to average-based normalization for skewed distributions, and the weighted product model is the standard multiplicative MCDM analogue of a weighted geometric mean.
 
-The most important design choice is this: treat **price as a relative signal**, not an absolute one. Hard-coded “good if below $X/TB” thresholds age badly in a falling market. A recent reference-set percentile for the same capacity/tier makes the score automatically track the market, which is exactly the logic percentile normalization was introduced for in other skewed, fast-moving domains. citeturn9view17turn10view5
+The most important design choice is this: treat **price as a relative signal**, not an absolute one. Hard-coded “good if below $X/TB” thresholds age badly in a falling market. A recent reference-set percentile for the same capacity/tier makes the score automatically track the market, which is exactly the logic percentile normalization was introduced for in other skewed, fast-moving domains.
 
 My default weights for a **value-focused enterprise-drive buyer** are:
 
@@ -13,23 +13,23 @@ My default weights for a **value-focused enterprise-drive buyer** are:
 - **Seller trust:** 0.15  
 - **Availability:** 0.10  
 
-That weighting says “deal first,” but still makes it hard for a cheap, ill-suited, or risky listing to float to the top. The geometric mean enforces that more naturally than an arithmetic mean because weak dimensions cannot be fully washed out by one strong dimension. citeturn24view4turn16search0
+That weighting says “deal first,” but still makes it hard for a cheap, ill-suited, or risky listing to float to the top. The geometric mean enforces that more naturally than an arithmetic mean because weak dimensions cannot be fully washed out by one strong dimension.
 
 ## Normalizing heterogeneous signals
 
 There are really two different normalization problems here. One is **statistical normalization** for continuous, messy variables like $/TB. The other is **semantic normalization** for already bounded or rubric-like variables such as stock state, warranty tier, or condition.
 
-For raw continuous features, the standard options behave very differently. **Min-max scaling** is intuitive and bounded, but it depends directly on the current minimum and maximum, so one new extreme rescales every other listing. **Z-scoring** is the classical \((x-\mu)/\sigma\), but standardization relies on the mean and standard deviation and is explicitly sensitive to outliers. **Robust scaling** swaps those for the median and IQR, which makes it substantially more stable when the distribution is skewed or heavy-tailed. **Quantile transforms** go further: they use the empirical CDF to map values to a uniform or normal target distribution and reduce the impact of marginal outliers, but they are nonlinear and can distort linear relationships. citeturn22search0turn9view1turn23view0turn9view2turn23view1turn9view3turn23view2
+For raw continuous features, the standard options behave very differently. **Min-max scaling** is intuitive and bounded, but it depends directly on the current minimum and maximum, so one new extreme rescales every other listing. **Z-scoring** is the classical \((x-\mu)/\sigma\), but standardization relies on the mean and standard deviation and is explicitly sensitive to outliers. **Robust scaling** swaps those for the median and IQR, which makes it substantially more stable when the distribution is skewed or heavy-tailed. **Quantile transforms** go further: they use the empirical CDF to map values to a uniform or normal target distribution and reduce the impact of marginal outliers, but they are nonlinear and can distort linear relationships.
 
-For **right-skewed positive variables** like $/TB, a **log transform** is the right first instinct. Both methodological summaries and applied examples note that logarithmic transformation is commonly used for positively skewed data and has a normalizing effect on positively skewed distributions. In other words, if you want a distance-from-typical metric, compute it on **log($/TB)**, not on raw $/TB. citeturn24view0turn24view1
+For **right-skewed positive variables** like $/TB, a **log transform** is the right first instinct. Both methodological summaries and applied examples note that logarithmic transformation is commonly used for positively skewed data and has a normalizing effect on positively skewed distributions. In other words, if you want a distance-from-typical metric, compute it on **log($/TB)**, not on raw $/TB.
 
-That said, for the **actual price score**, I would not stop at log-then-z-score. I would use a **cohort-relative percentile rank**. Percentile/rank normalization is non-parametric, robust to skew, bounded by construction, and easy to explain: “this listing is cheaper than 88% of comparable recent listings.” If you want an auxiliary diagnostic for spacing, keep a **robust log-margin** alongside it: how many IQRs below the cohort median the listing sits. But the ranking signal should be percentile-based. citeturn9view17turn6search1turn23view1turn23view2
+That said, for the **actual price score**, I would not stop at log-then-z-score. I would use a **cohort-relative percentile rank**. Percentile/rank normalization is non-parametric, robust to skew, bounded by construction, and easy to explain: “this listing is cheaper than 88% of comparable recent listings.” If you want an auxiliary diagnostic for spacing, keep a **robust log-margin** alongside it: how many IQRs below the cohort median the listing sits. But the ranking signal should be percentile-based.
 
-For bounded rubric variables, do not overcomplicate things. **Availability**, **condition**, **verified warranty tier**, and **enterprise/NAS suitability** are better treated as explicit 0–1 rubrics than as learned continuous transforms. That keeps them audit-friendly and avoids pretending that sparse categorical metadata is a smooth numeric distribution. Interpretable scoring systems are valuable precisely because humans can inspect the rules and see where the score came from. citeturn24view6turn18search5
+For bounded rubric variables, do not overcomplicate things. **Availability**, **condition**, **verified warranty tier**, and **enterprise/NAS suitability** are better treated as explicit 0–1 rubrics than as learned continuous transforms. That keeps them audit-friendly and avoids pretending that sparse categorical metadata is a smooth numeric distribution. Interpretable scoring systems are valuable precisely because humans can inspect the rules and see where the score came from.
 
 ## Making price relative to a moving baseline
 
-The clean approach is to compute the price score against a **reference set of comparable listings**, not against all hard drives. In the bibliometrics literature, percentile normalization is explicitly defined relative to a **reference set** of similar items rather than to a single global mean; the same logic transfers well here. Your reference set should be as homogeneous as you can make it while still preserving enough sample size. citeturn9view17turn10view5
+The clean approach is to compute the price score against a **reference set of comparable listings**, not against all hard drives. In the bibliometrics literature, percentile normalization is explicitly defined relative to a **reference set** of similar items rather than to a single global mean; the same logic transfers well here. Your reference set should be as homogeneous as you can make it while still preserving enough sample size.
 
 For hard drives, the default cohort key should be:
 
@@ -65,15 +65,15 @@ price_margin_i = (median_C(y) - y_i) / IQR_C(y)
 
 That gives you a sentence like: “priced at the 12th percentile of recent 16TB enterprise-refurb listings, about 0.9 IQR below cohort median on log $/TB.”
 
-If you are tempted to use raw min-max or raw z-scores here, that is where I would push back. Min-max is too hostage to window extremes, and raw z-scores are too sensitive to skew and outliers. Log-plus-percentile is the more durable design for used-storage marketplaces. citeturn22search0turn23view0turn23view1turn23view2turn24view0turn24view1
+If you are tempted to use raw min-max or raw z-scores here, that is where I would push back. Min-max is too hostage to window extremes, and raw z-scores are too sensitive to skew and outliers. Log-plus-percentile is the more durable design for used-storage marketplaces.
 
 ## Normalizing seller reputation across marketplaces
 
 This is the hardest part conceptually, because marketplace reputation systems do not mean the same thing.
 
-On **eBay**, the public signals include the **percentage of positive ratings**, the **overall feedback score**, and the **detailed seller ratings**. eBay states that the headline percentage under the username is the share of buyers who had a positive experience, and the bracketed score next to the username is how many buyers have left feedback. eBay also exposes detailed 1–5 star seller ratings for item description, communication, shipping time, and shipping charges. citeturn19view0turn12view4
+On **eBay**, the public signals include the **percentage of positive ratings**, the **overall feedback score**, and the **detailed seller ratings**. eBay states that the headline percentage under the username is the share of buyers who had a positive experience, and the bracketed score next to the username is how many buyers have left feedback. eBay also exposes detailed 1–5 star seller ratings for item description, communication, shipping time, and shipping charges.
 
-On **Amazon seller feedback**, buyers use a **5-star system** in which **4 or 5 stars are positive, 3 is neutral, and 1 or 2 are negative**. Amazon also states that seller feedback scores are calculated for **30-day, 90-day, 365-day, and lifetime** windows, and that displayed percentages are rounded. citeturn2search0turn14search2turn14search6
+On **Amazon seller feedback**, buyers use a **5-star system** in which **4 or 5 stars are positive, 3 is neutral, and 1 or 2 are negative**. Amazon also states that seller feedback scores are calculated for **30-day, 90-day, 365-day, and lifetime** windows, and that displayed percentages are rounded.
 
 Those are not directly comparable, so the first step is to convert everything into a common latent quantity:
 
@@ -101,7 +101,7 @@ Star-only marketplaces:
 
 That last mapping is not a platform definition; it is an engineering approximation that places average stars onto a 0–1 positive-equivalent scale. If, later, you accumulate outcome labels such as return rate, DOA rate, or dispute rate, you can replace that linear mapping with a marketplace-specific calibration curve.
 
-Then do **Bayesian shrinkage** on \(p_{\text{obs}}\). In the Beta-Binomial model, a Beta prior stays Beta after observing binomial data, and the posterior mean is \((\alpha + y)/(\alpha+\beta+n)\). That gives you exactly the sample-size discount you want for thinly rated sellers. citeturn24view2turn24view3
+Then do **Bayesian shrinkage** on \(p_{\text{obs}}\). In the Beta-Binomial model, a Beta prior stays Beta after observing binomial data, and the posterior mean is \((\alpha + y)/(\alpha+\beta+n)\). That gives you exactly the sample-size discount you want for thinly rated sellers.
 
 Use:
 
@@ -117,7 +117,7 @@ Prior for established marketplaces:
 p_post = (α0 + y) / (α0 + β0 + n)
 ```
 
-Now add a **Wilson lower bound** so the trust score is not just a posterior mean, but also reflects uncertainty conservatively. Brown, Cai, and DasGupta recommend Wilson among the closed-form alternatives and show that the standard Wald interval performs poorly, especially at small or extreme proportions. citeturn25view0turn25view1turn25view2
+Now add a **Wilson lower bound** so the trust score is not just a posterior mean, but also reflects uncertainty conservatively. Brown, Cai, and DasGupta recommend Wilson among the closed-form alternatives and show that the standard Wald interval performs poorly, especially at small or extreme proportions.
 
 Use the lower bound:
 
@@ -143,15 +143,15 @@ other marketplace, no visible ratings: s_seller = 0.50
 
 That is the one place where you should be explicit that you are using a conservative policy prior rather than hidden math.
 
-One more practical point: score **verified warranty**, not just claimed warranty. WD states that no limited warranty is provided unless the drive was purchased from an authorized distributor or reseller, and Seagate states the same principle for consumer warranty coverage. WD also explicitly excludes products not sold as new and products not used for their intended function, including desktop drives used in an enterprise environment. That means warranty and suitability belong in your fitness rubric, but only when they are actually supportable from listing evidence. citeturn26view0turn5search1
+One more practical point: score **verified warranty**, not just claimed warranty. WD states that no limited warranty is provided unless the drive was purchased from an authorized distributor or reseller, and Seagate states the same principle for consumer warranty coverage. WD also explicitly excludes products not sold as new and products not used for their intended function, including desktop drives used in an enterprise environment. That means warranty and suitability belong in your fitness rubric, but only when they are actually supportable from listing evidence.
 
 ## Combining factors without losing discipline
 
 This is where the weighted geometric mean earns its keep.
 
-A **weighted arithmetic mean** is fully compensatory: a massive price win can cancel a terrible seller or a fundamentally wrong drive class. That is often too forgiving for marketplace hardware. The **weighted product model**, by contrast, is explicitly multiplicative: it multiplies normalized criteria raised to their weights, so weak factors bite harder. That behavior is usually much closer to how an experienced buyer actually thinks about risky storage listings. citeturn24view4turn16search0
+A **weighted arithmetic mean** is fully compensatory: a massive price win can cancel a terrible seller or a fundamentally wrong drive class. That is often too forgiving for marketplace hardware. The **weighted product model**, by contrast, is explicitly multiplicative: it multiplies normalized criteria raised to their weights, so weak factors bite harder. That behavior is usually much closer to how an experienced buyer actually thinks about risky storage listings.
 
-Use **hard caps sparingly**. Non-compensatory logic is appropriate when a factor is a real veto rather than a tradeoff variable. Munda’s work on non-compensatory composite indicators is the right conceptual reference here: some dimensions should be allowed to stop a ranking from going higher, rather than merely subtracting a few points. citeturn24view5
+Use **hard caps sparingly**. Non-compensatory logic is appropriate when a factor is a real veto rather than a tradeoff variable. Munda’s work on non-compensatory composite indicators is the right conceptual reference here: some dimensions should be allowed to stop a ranking from going higher, rather than merely subtracting a few points.
 
 For this domain, my default caps are:
 
@@ -161,7 +161,7 @@ For this domain, my default caps are:
 
 Everything else should stay soft. Stock state, moderate warranty differences, or a merely okay seller should lower the score continuously, not snap it off at the knees.
 
-I would **not** use TOPSIS as the primary production score. TOPSIS is a ranking method over a finite set of alternatives, based on distance from a positive and negative ideal solution, and it can be useful when you are comparing a batch shortlist. But it is less suitable as a portable listing-level score because the result depends on the current candidate matrix, and the method has known ranking pathologies in multidimensional settings. For a deal monitor, you want a score that means roughly the same thing today, tomorrow, and across scans; a geometric-mean score with explicit rubrics does that better. citeturn21view2turn9view15
+I would **not** use TOPSIS as the primary production score. TOPSIS is a ranking method over a finite set of alternatives, based on distance from a positive and negative ideal solution, and it can be useful when you are comparing a batch shortlist. But it is less suitable as a portable listing-level score because the result depends on the current candidate matrix, and the method has known ranking pathologies in multidimensional settings. For a deal monitor, you want a score that means roughly the same thing today, tomorrow, and across scans; a geometric-mean score with explicit rubrics does that better.
 
 ## Keeping the score explainable
 
@@ -174,7 +174,7 @@ An interpretable scoring system should let a user answer four questions immediat
 - **Is the drive actually fit for my use case?**
 - **Was the score capped by a veto condition?**
 
-That is exactly why a glass-box scoring system is preferable here. Rudin’s work on scoring systems makes the broader point: where people need to inspect and trust a decision, interpretable models are not a cosmetic feature; they are the right model class. citeturn24view6
+That is exactly why a glass-box scoring system is preferable here. Rudin’s work on scoring systems makes the broader point: where people need to inspect and trust a decision, interpretable models are not a cosmetic feature; they are the right model class.
 
 So each listing should expose a structured explanation payload alongside the 0–100 score. A good presentation would be:
 
@@ -274,7 +274,7 @@ Final
   deal_score = round(100 * min(base, cap))
 ```
 
-This is a weighted product model with explicit non-compensatory caps. It aligns with the methodological literature on multiplicative MCDM, accommodates Wilson/Beta-Binomial trust estimation, and remains directly inspectable. citeturn24view4turn24view2turn25view0turn24view5
+This is a weighted product model with explicit non-compensatory caps. It aligns with the methodological literature on multiplicative MCDM, accommodates Wilson/Beta-Binomial trust estimation, and remains directly inspectable.
 
 ### Worked example
 
