@@ -62,6 +62,12 @@ Gaps #7, #8, #10, #12 are product/scoping decisions rather than research questio
 
 **Research:** [`auth-for-self-hosted-single-maintainer-python-app.md`](research/2026-07-03-auth-for-self-hosted-single-maintainer-python-app.md).
 
+#### User Comments
+
+**Status:** Rejected
+
+**Reasoning:** The internet-facing web app should have no secret or sensitive data baked into it. There will still be some basic auth to access. I don't see a security risk in using a single user account with a strong password.
+
 ### 2. `.env` secrets model contradicts the OpenBao standard, with no runtime-injection story
 
 **Gap:** The spec repeatedly says secrets live in a committed-excluded `.env`, but the org standard is **OpenBao as the credential store** (the spec even names OpenBao paths). It never answers **how the deployed app obtains secrets at runtime** — a real contradiction, sharpened by the repo being public.
@@ -76,6 +82,10 @@ Gaps #7, #8, #10, #12 are product/scoping decisions rather than research questio
 - **Confirm:** whether the Proxmox VM has a **vTPM** — it determines whether `systemd-creds --with-key=tpm2` is available as a fallback for rarely-rotated static secrets, or whether that reduces to host-key-only encryption.
 
 **Research:** [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md) §3.
+
+#### User Comments
+
+**Status:** Further clarification needed
 
 ### 3. No currency or international landed-cost normalization, yet the scoring unit is `USD/TB`
 
@@ -92,6 +102,12 @@ Gaps #7, #8, #10, #12 are product/scoping decisions rather than research questio
 
 **Research:** [`currency-conversion-and-landed-cost-estimation…md`](research/2026-07-03-currency-conversion-and-landed-cost-estimation-for-cross-border-drive-price-scoring.md).
 
+#### User Comments
+
+**Status:** Accepted with changes
+
+**Reasoning:** Normalize all to USD, but do not apply a fixed international overhead. Instead, flag international listings and let the user decide how to treat them. It is unlikely that the user will be able to purchase from international sellers (additional costs from shipping likely to apply and potential customs duties), so they should be aware of the potential for additional costs.
+
 ### 4. Deployment & process/service-management mechanics are a black box
 
 **Gap:** "GitHub Actions → automatic deployment to Hetzner on merge to main" states the _what_, never the _how_: transport, how the web app + workers run as services, how CI reaches a non-public VM.
@@ -107,6 +123,12 @@ Gaps #7, #8, #10, #12 are product/scoping decisions rather than research questio
 - **Migrations:** run **before** restart, **expand/contract** (backward-compatible with the still-running old code) — a process discipline the migration tool won't enforce.
 
 **Research:** [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md) §1–4.
+
+#### User Comments
+
+**Status:** Additional clarification needed
+
+**Reasoning:** This is a public repo. GitHub recommends not using self-hosted runners for public repos. We will use the `ubuntu-latest` GitHub-hosted runner to build and test the code, then use `rsync` over Tailscale SSH to deploy to the private VM.
 
 ---
 
@@ -129,6 +151,12 @@ Gaps #7, #8, #10, #12 are product/scoping decisions rather than research questio
 
 **Research:** [`postgresql-backup-disaster-recovery-single-vm.md`](research/2026-07-03-postgresql-backup-disaster-recovery-single-vm.md).
 
+#### User Comments
+
+**Status:** Additional clarification needed
+
+**Reasoning:** There are existing backup processes in place for Hetzner CTs and VMs. We will need to confirm that the existing backup processes are sufficient for our needs. If not, we will implement a backup strategy as described above. The disk-search VM will have to be added to the existing backup processes.
+
 ### 6. No application self-observability (distinct from deal alerts)
 
 **Gap:** Deal alerts tell the _user_ about drives; nothing tells the _operator_ that the app is down, the VM is out of disk (raw payloads grow), a scheduled scrape stopped running, or alert emails aren't actually being delivered. Pending prompt #9 covers per-source pipeline retries — not fleet health.
@@ -143,6 +171,12 @@ Gaps #7, #8, #10, #12 are product/scoping decisions rather than research questio
 - **Must-have alerts:** disk-space threshold on the VM; email-delivery confirmation (bounce/deferral) so a silent SMTP failure surfaces.
 
 **Research:** [`lightweight-observability-and-scraper-health-monitoring.md`](research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md).
+
+#### User Comments
+
+**Status:** Additional clarification needed
+
+**Reasoning:** There are existing monitoring processes in place for Hetzner CTs and VMs. We will need to confirm that the existing monitoring processes are sufficient for our needs. If not, we will implement a monitoring strategy as described above. The disk-search VM will have to be added to the existing monitoring processes.
 
 ### 7. UI/UX is specified only as a one-line feature
 
@@ -160,6 +194,12 @@ Gaps #7, #8, #10, #12 are product/scoping decisions rather than research questio
   4. **Price-history view** — per canonical product, over time.
   5. **Listing state controls** — `interested` / `purchased` / `dismissed` / `snoozed`, so acted-on and rejected listings stop cluttering the dashboard and feed back into alert dedup.
 - **Purchase tracking** (lightweight): record what was bought at what price to measure the tool's realized value.
+
+#### User Comments
+
+**Status:** Additional clarification needed
+
+**Reasoning:** Additional research in `docs/research/` may provide more information on the UI/UX. The proposed solution above is a good starting point, but we will need to confirm the final page inventory and flows before building.
 
 ### 8. No v1 scope boundary, phasing, or success criteria
 
@@ -180,6 +220,12 @@ Gaps #7, #8, #10, #12 are product/scoping decisions rather than research questio
 
 Each milestone gets a written acceptance check before it's "done."
 
+#### User Comments
+
+**Status:** Accepted with changes
+
+**Reasoning:** I largely agree with the proposed solution. I would like to see a more detailed breakdown of the milestones, including specific tasks and deliverables for each milestone. I would also like to see a more detailed acceptance criteria for each milestone, including specific metrics and thresholds that must be met in order for the milestone to be considered complete. I will likely be using the `spec-pipeline` plugin from the L3DigitalNet Claude-Code-Plugins repo/marketplace for final spec authoring and phased development.
+
 ### 9. No testing strategy for scrapers
 
 **Gap:** CI names "testing workflows" but the spec never says **how** to test scrapers against sites that change and fight bots. Untested scrapers rot silently.
@@ -194,6 +240,12 @@ Each milestone gets a written acceptance check before it's "done."
 - **Runtime validation:** **Pydantic v2** per-record validation + per-source `last_success_at` / consecutive-failure counters + a count-vs-rolling-average assertion; alert when a source returns 0 or malformed results N runs in a row. (Shares the `scraper_runs` table from gap #6.)
 
 **Research:** [`lightweight-observability-and-scraper-health-monitoring.md`](research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md).
+
+#### User Comments
+
+**Status:** Accepted with caveat
+
+**Reasoning:** Looks good, but check new research in `docs/research/` for any additional information that may be relevant to the testing strategy. The proposed solution above is a good starting point, but we will need to confirm the final testing strategy before building.
 
 ---
 
@@ -212,6 +264,12 @@ Each milestone gets a written acceptance check before it's "done."
 - **Track actuals:** the `scraper_runs` table (gap #6) already captures per-source call counts — surface monthly spend against budget.
 - **Confirm current pricing** of Serper/Brave/Tavily/AgentMail tiers before fixing the ceiling (not researched here; a quick lookup at build time).
 
+#### User Comments
+
+**Status:** Additional consideration needed
+
+**Reasoning:** We will have to research costs and come up with reasonable daily/weekly/monthly budgets for each source. Also consider strategies to rely on free feeds and structured-data parsing wherever possible to reduce costs (potentially spot check via search APIs). We will need to confirm the final budget model before building.
+
 ### 11. Shipping (and tax) not folded into the `$/TB` score
 
 **Gap:** `$/TB` on item price alone misranks a cheap drive with high shipping — even domestically.
@@ -226,6 +284,10 @@ Each milestone gets a written acceptance check before it's "done."
 
 **Research:** [`currency-conversion-and-landed-cost-estimation…md`](research/2026-07-03-currency-conversion-and-landed-cost-estimation-for-cross-border-drive-price-scoring.md).
 
+#### User Comments
+
+**Status:** Accepted
+
 ### 12. Cold-start: relative scoring has no history on day one
 
 **Gap:** The moving-baseline / percentile scoring that pending prompt #4 will design needs accumulated history that doesn't exist at launch.
@@ -237,6 +299,12 @@ Each milestone gets a written acceptance check before it's "done."
 - **Seed baselines** from the external reference tools that pending prompt #5 will catalogue (diskprices.com, camelcamelcamel/Keepa, r/DataHoarder threads) to provide an initial `$/TB` reference per capacity/tier until enough internal history accrues.
 - **Absolute-threshold fallback** during the warm-up window, switching to the self-adjusting percentile baseline once a source has ≥ N observations per (capacity, tier).
 - **Mark scores "provisional"** in the UI until the baseline is data-backed, so early scores aren't over-trusted.
+
+#### User Comments
+
+**Status:** Additional research needed
+
+**Reasoning:** Research in `docs/research/` may provide more information on the cold-start scoring.
 
 ---
 
