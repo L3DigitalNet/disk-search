@@ -1,0 +1,117 @@
+# Disk Search
+
+**What it is:** A search tool that monitors websites like eBay, ServerPartDeals, Amazon, Newegg, and other online marketplaces for hard disk drives (HDDs) and solid-state drives (SSDs). It alerts users when specific models or brands become available or drop in price. It should locate deals and provide a quantitative score based on price, availability, and seller reputation.
+
+## Audience
+
+This tool is designed for my personal/business use to assist with monitoring and purchasing hard disk drives and solid-state drives for L3Digital assets. It will be featured such that it is convenient for me to use. The first version will not spend development time on making it user-friendly for others, cross-compability, and other considerations that a distributed tool might require; however, it will be designed in a way that it can be easily extended to support other users in the future if the tool proves useful.
+
+## Features
+
+- **Real-time (or near real-time) Monitoring:** Continuously or frequently scans multiple online marketplaces for hard disk drives and solid-state drives.
+- **Score System:** Assigns a score to each listing to help users quickly identify the best deals.
+  - _Price:_ Lower prices receive higher scores. Measured in USD per TB.
+  - _Availability:_ In-stock items receive higher scores than out-of-stock items.
+  - _Seller Reputation:_ Sellers with higher ratings and positive feedback receive higher scores.
+  - _Applicability for Intended Use:_ Scores can also consider the drive's specifications (e.g., speed, capacity, warranty) to ensure it meets user needs (server Enterprise/NAS grade drives preferred).
+  - _Overall Score:_ Combines the above factors into a single score to rank listings.
+- **Alert System:** Sends notifications via email, SMS, or push notifications when a desired hard disk drive or solid-state drive is found or when a price drop occurs.
+- **Database of Listings:** Maintains a database of current and past listings to track price trends and availability over time. Also permits sorting and filtering based on user preferences (e.g., brand, capacity, interface type).
+- **User Interface:** Provides a user-friendly web-based interface for users to input their desired specifications, set alert preferences, search and filter the database, etc.
+- **Integration with Marketplaces:** Directly integrates with popular online marketplaces to fetch listings and updates in real-time where possible. Fallback to periodic scraping if APIs are not available.
+- **Historical Data Analysis:** Offers insights into price trends and availability patterns over time, helping users make informed purchasing decisions.
+
+## Marketplaces to Monitor
+
+| Rank | Site | Best use | Source type | Conditions to consider | Trust posture | Ranking rule for tool |
+| --: | --- | --- | --- | --- | --- | --- |
+| 1 | Western Digital Store / WD Recertified | WD NAS/enterprise HDDs | Manufacturer-direct | New, recertified | Very high | Prefer for WD Red, Gold, Ultrastar, and WD factory recertified drives. |
+| 2 | Seagate Store / Seagate Recertified | Seagate NAS/enterprise HDDs | Manufacturer-direct | New, recertified | Very high | Prefer for IronWolf, Exos, and Seagate factory recertified drives. |
+| 3 | ServerPartDeals | Recertified enterprise HDDs | Storage-specialist reseller | Recertified, used, new | High | Best non-manufacturer source for recertified enterprise HDD value. |
+| 4 | B&H Photo Video | New drives from known brands | Major authorized retailer | New, open-box, used | High | Prefer for new drives when price is competitive and seller is B&H. |
+| 5 | CDW | Business/enterprise purchasing | Business VAR | New | High | Prefer when compatibility, procurement reliability, or business sourcing matters more than lowest price. |
+| 6 | Insight | Business/enterprise purchasing | Business VAR | New | High | Similar to CDW; use for business-grade sourcing and supported part numbers. |
+| 7 | Newegg | New drives, deals | Marketplace/retailer | New, open-box, marketplace | Medium-high with filters | Rank high only when sold by Newegg, manufacturer, or trusted specialist seller. |
+| 8 | Amazon | New drives, fast availability | Marketplace/retailer | New, renewed, marketplace | Medium-high with filters | Rank high only when sold by Amazon, manufacturer, or trusted specialist seller; penalize unknown sellers. |
+| 9 | PCNation | New drives, exact SKU sourcing | VAR / reseller | New | Medium-high | Good for part-number shopping; rank below larger VARs unless price/availability wins. |
+| 10 | Wiredzone | Server/storage ecosystem parts | Server-specialist reseller | New, server-compatible parts | Medium-high | Prefer when Supermicro/server compatibility is important. |
+| 11 | goHardDrive | Budget recertified HDDs | Storage reseller | Recertified, used | Medium | Good deal source; require clear seller warranty and condition labeling. |
+| 12 | TechMikeNY | Refurbished servers and parts | Refurbished server specialist | Used, refurbished | Medium | Better for complete servers or server parts than standalone critical storage. |
+| 13 | ETB Technologies | Refurbished enterprise parts | Refurbished enterprise reseller | Used, refurbished | Medium | Stronger option for UK/EU buyers; region-dependent ranking. |
+| 14 | Bargain Hardware | Refurbished enterprise hardware | Refurbished enterprise reseller | Used, refurbished | Medium | Useful UK/EU refurb source; rank higher only for regional availability. |
+| 15 | HardDrivesDirect | Exact enterprise/OEM part numbers | Specialty parts reseller | New, refurbished, legacy parts | Medium-low | Use when exact OEM part matching matters; not first choice for bulk NAS builds. |
+| 16 | ServerMonkey | Refurbished server parts | Refurbished server reseller | Used, refurbished | Medium-low | Useful for refurb server builds; penalize for standalone drive purchases unless warranty is acceptable. |
+| 17 | SaveMyServer | Refurbished servers/storage | Refurbished server reseller | Used, refurbished | Medium-low | Use as fallback for refurb hardware; rank depends heavily on warranty and geography. |
+| 18 | The Server Store | Refurbished servers/storage | Refurbished server reseller | Used, refurbished | Medium-low | Better for systems than drives; fallback source. |
+| 19 | Memory4Less | Legacy/OEM storage parts | Specialty parts reseller | New old stock, refurbished, hard-to-find parts | Low-medium | Use mainly for hard-to-find parts; not preferred for large storage purchases. |
+| 20 | eBay | Used/recertified deal hunting | Marketplace | Used, recertified, seller-dependent | Variable | Only rank individual listings highly when seller reputation, warranty, condition, and return policy are strong. |
+
+## Software and Tooling Stack
+
+- **Programming Language:** Python (for backend processing, web scraping, and data analysis).
+- **Web Framework:** _TBD_
+- **Database:** _TBD_
+- **Notification System:** Emails sent to `chris@l3digital.net` at minimum, with potential for SMS or push notifications.
+- **Web Scraping Libraries:** Scrapy. Additional options to be considered based on the specific requirements of each marketplace.
+
+## Environment and Deployment
+
+- **GitHub Repository:** `[L3DigitalNet public repo](https://github.com/L3DigitalNet/disk-search)`
+  - _Branching Strategy:_ Main branch for stable releases, development branch for ongoing work, and feature branches for new features or bug fixes.
+  - _Commit Guidelines:_ Follow conventional commit messages for clarity and consistency. Commit directly to branches, do not use Pull Requests for personal development work unless collaborating with others.
+  - _Note_: This project lives in my Organization account on GitHub because I am intending to use this to purchase hard drives for L3Digital. The repository is public, but sensitive information such as API keys and credentials will be stored in a `.env` file and not committed to the repository.
+- **Local Clone:** `~/projects/disk-search`
+- **Server Configuration:**
+  - _Location:_ Hetzner dedicated server
+  - _Containerization:_ VM in Proxmox
+  - _Operating System:_ Debian 13
+  - _Web Server:_ NGINX for serving the web application and handling HTTPS.
+  - _Database:_ PostgreSQL or MySQL (to be determined based on requirements); will live in the same VM as the web application for simplicity.
+  - _Environment Management:_ _TBD_ (`uv`?)
+- **CI/CD Pipeline:** GitHub Actions for automated testing and deployment.
+  - _Runner:_ Existing Ubuntu runner on GitHub Actions.
+  - _Workflows:_ Separate workflows for testing, building, and deployment.
+  - _Live Deployment:_ Automatic deployment to the Hetzner server upon successful merge to the main branch.
+- **Access:**
+  - _Address:_ `https://disk-search.l3digital.net`
+  - _Security:_ HTTPS via NGINX and Let's Encrypt.
+  - _Authentication:_ User authentication for secure access.
+
+### Special Considerations
+
+- **Public Repository:** The repository will be public, but sensitive information such as API keys and credentials will be stored in a `.env` file and not committed to the repository.
+
+## Accounts, APIs, Credentials, and Services
+
+**Resources:**
+
+- `docs/research/tavily-brave-serper.md` - Research on search APIs and their capabilities.
+
+### AgentMail
+
+**API:**
+
+- _Key Name:_ AGENTMAIL_API_BEARER_TOKEN
+- _Key/Value Location:_ Stored in `.env` file, not committed to the repository.
+- _OpenBao Path:_ `secret/api-keys/ai/agentmail`
+  - Also contains the agent inbox email address; likely not needed for v1 but may be useful for future versions.
+- _Usage:_
+
+  ```bash
+  curl https://api.agentmail.to/v0/inboxes/l3d%40agentmail.to/messages/%3CPH0PR05MB8240E972D7241D4BB5298116EDF42%40PH0PR05MB8240.namprd05.prod.outlook.com%3E \
+  		-H "Authorization: Bearer {{AGENTMAIL_API_BEARER_TOKEN}}"
+  ```
+
+### eBay
+
+**API:** See OpenBao path `secret/api-keys/commerce/ebay` for eBay API credentials and usage.
+
+### Brave Search, Serper, Tavily
+
+See OpenBao path `secret/api-keys/search/` ; will need to create new API keys for each search API and store them in OpenBao for Tavily API credentials and usage.
+
+`docs/research/tavily-brave-serper.md` contains research on search APIs and their capabilities.
+
+## Out of Scope
+
+- The tool will not handle payment processing or facilitate transactions between buyers and sellers. It will only collect, store, and provide information and alerts regarding hard disk drives and solid-state drives.
