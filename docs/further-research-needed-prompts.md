@@ -1,16 +1,18 @@
-# Further Research Needed — ChatGPT Deep Research Prompts
+# Further Research — Deep Research Prompts & Completed Reports
 
-Ready-to-paste prompts for ChatGPT **Deep Research** to fill gaps in [`disk-search.md`](specs/disk-search.md). Each prompt is self-contained (Deep Research can't see this repo), states the gap it fills, and dictates an output shape you can fold back into the spec.
+> **Status (2026-07-03): all 12 prompts have been run.** Each one now maps to a completed report under [`docs/research/`](research/). This document is no longer a to-run queue — it is a **completion tracker**: the original prompt text is kept verbatim (provenance + re-runnable), and a status banner above each prompt links its report, states the headline finding, and flags any residual gap. The next step is to **reconcile these findings back into [`disk-search.md`](specs/disk-search.md)** (resolve the `_TBD_` markers), not to run more research.
 
-**Scope note:** Existing research in [`docs/research/tavily-brave-serper.md`](research/tavily-brave-serper.md) already covers the Tavily/Brave/Serper search APIs and the **official** eBay Browse/Feed, Amazon SP-API, and Newegg Marketplace APIs. These prompts deliberately avoid re-treading that ground and target the untouched areas: the other 17 marketplaces, the scoring math, drive-grading domain knowledge, legal footing, and the undecided stack (`_TBD_` markers).
+These prompts were written for ChatGPT **Deep Research**. Each is self-contained (Deep Research can't see this repo), states the gap it fills, and dictates an output shape to fold back into the spec.
 
-Paste one prompt at a time. Feed the returned reports back to me and I'll reconcile them into `disk-search.md`.
+**Scope note:** Research in [`docs/research/tavily-brave-serper.md`](research/tavily-brave-serper.md) covers the Tavily/Brave/Serper search APIs and the **official** eBay Browse/Feed, Amazon SP-API, and Newegg Marketplace APIs. The 12 prompts below deliberately targeted the untouched areas: the other 17 marketplaces, the scoring math, drive-grading domain knowledge, legal footing, and the undecided stack (`_TBD_` markers) — all now answered. Additional operational reports (auth, CD, backups, observability, currency/landed-cost) also landed under `docs/research/` and are tracked in [`gap-analysis.md`](gap-analysis.md), not here.
+
+**Residual open items** (none require a new research prompt): confirm JSON-LD presence live per-merchant at implementation (#1); no rigorous recert-vs-new reliability study exists — inherent domain gap (#3); Amazon SP-API fit for a public price monitor and the Serper data-rights chain are take-to-counsel questions (#7).
 
 ## Table of Contents
 
 - [Further Research Needed — ChatGPT Deep Research Prompts](#further-research-needed--chatgpt-deep-research-prompts)
   - [Table of Contents](#table-of-contents)
-  - [Topic Gap in disk-search.md](#topic-gap-in-disk-searchmd)
+  - [Completion status](#completion-status)
   - [1. Data acquisition for the 17 non-API marketplaces](#1-data-acquisition-for-the-17-non-api-marketplaces)
   - [2. HDD/SSD grading \& "applicability" taxonomy](#2-hddssd-grading--applicability-taxonomy)
   - [3. Recertified / refurbished enterprise-drive risk \& warranty landscape](#3-recertified--refurbished-enterprise-drive-risk--warranty-landscape)
@@ -27,26 +29,30 @@ Paste one prompt at a time. Feed the returned reports back to me and I'll reconc
 
 ---
 
-The 12 topics, mapped to the gaps they fill:
+## Completion status
 
-## Topic Gap in disk-search.md
+The 12 topics, the gap each filled, and the report that now answers it. **All 12 are complete (✅).** "Residual" flags the honestly-scoped open questions the reports surfaced — none is a new research prompt.
 
-- 🔴 1 Data acquisition for the 17 non-API merchants Only eBay/Amazon/Newegg had acquisition research
-- 🔴 2 HDD/SSD grading taxonomy (CMR/SMR, workload, endurance) "Applicability" scoring factor had no defined attributes
-- 🔴 3 Recertified-drive risk & warranty landscape The tool's core value thesis, entirely unresearched
-- 🟡 4 Quantitative multi-factor scoring model Five factors named, zero methodology
-- 🟡 5 Price benchmarks ($/TB baselines) & prior art No idea what a "good deal" is, or what tools exist
-- 🟡 6 Cross-marketplace entity resolution Price-history DB has no "same drive" matching
-- 🔴 7 Legal/ToS footing for scraping + storage Public business repo scraping 20 sites, no analysis
-- 🟢 8 Anti-bot scraping architecture "Scrapy" named; no plan for protected sites
-- 🟢 9 Scheduling/orchestration "Near-real-time" promised, no scheduler
-- 🟡 10 Framework/DB/env stack decision The three explicit _TBD_ markers
-- 🟢 11 Notification/alerting design & deliverability AgentMail named; no dedup/fatigue/deliverability
-- 🟢 12 Warranty/serial verification data sources No way to verify used-drive claims
+| # | Topic (gap it filled) | Status | Report | Residual |
+| --: | --- | :--: | --- | --- |
+| 1 | Data acquisition, 17 non-API merchants | ✅ | [acquisition](research/programmatic-acquisition-research-for-enterprise-and-nas-drive-merchants.md) | JSON-LD unconfirmed for most merchants — verify live |
+| 2 | HDD/SSD grading & applicability taxonomy | ✅ | [taxonomy](research/machine-usable-drive-suitability-taxonomy-for-24-7-nas-and-server-scoring.md) | none |
+| 3 | Recertified-drive risk & warranty | ✅ | [recert](research/recertified-enterprise-hard-drives-for-homelab-and-small-business-buyers.md) | no rigorous recert-vs-new study exists (domain gap) |
+| 4 | Quantitative multi-factor scoring model | ✅ | [scoring](research/principled-deal-score-for-hard-drive-listings.md) | none |
+| 5 | Price baselines ($/TB) & prior art | ✅ | [baselines](research/drive-deal-tracker-research-baselines-tools-shucking-and-timing.md) | none |
+| 6 | Cross-marketplace entity resolution | ✅ | [entity-res](research/entity-resolution-for-cross-marketplace-hard-drive-and-ssd-price-tracking.md) + [db](research/database-architecture.md) | none |
+| 7 | Legal/ToS footing for scraping + storage | ✅ | [legal](research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md) | SP-API fit & Serper rights → counsel |
+| 8 | Anti-bot scraping architecture | ✅ | [scraping](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md) | none |
+| 9 | Scheduling / orchestration | ✅ | [orchestration](research/orchestration-choice-for-a-single-vm-price-polling-service.md) | none |
+| 10 | Framework/DB/env stack (`_TBD_` ×3) | ✅ | [stack](research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md) | none — pending spec update |
+| 11 | Notification/alerting design | ✅ | [alerting](research/designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor.md) | none |
+| 12 | Warranty/serial verification sources | ✅ | [verify](research/programmatic-identity-and-warranty-verification-for-used-enterprise-hdd-listings.md) | no public warranty API exists (answered negative) |
 
 ---
 
 ## 1. Data acquisition for the 17 non-API marketplaces
+
+> **✅ Answered** — [`programmatic-acquisition-…`](research/programmatic-acquisition-research-for-enterprise-and-nas-drive-merchants.md). No broadly usable public retail product API exists across the 17 merchants; best next integrations are **ServerPartDeals** (clean Shopify), **goHardDrive** (crawlable legacy HTML), **WD/Seagate Recertified** (first-party but JS-heavy), and **B&H** (crawlable + affiliate). Full per-merchant matrix delivered (all 17 covered, all five dimensions). **Residual:** JSON-LD/schema.org presence is only inferred ("likely") for most merchants — confirm live during implementation.
 
 **Gap it fills:** The spec lists 20 marketplaces but only eBay/Amazon/Newegg have documented acquisition paths. The manufacturer stores and specialty resellers have zero research — no answer on whether feeds, structured data, or clean scraping exist.
 
@@ -64,6 +70,8 @@ Prioritize the recertified-drive specialists (WD/Seagate recertified stores, Ser
 
 ## 2. HDD/SSD grading & "applicability" taxonomy
 
+> **✅ Answered** — [`machine-usable-drive-suitability-taxonomy`](research/machine-usable-drive-suitability-taxonomy-for-24-7-nas-and-server-scoring.md). Establishes the tier ladder (desktop < NAS < NAS Pro < enterprise/datacenter for HDDs; client < NAS < enterprise for SSDs), treats **device-managed SMR as a hard reject** for NAS/RAID and **missing PLP as a major SSD penalty**, and delivers a scoring-oriented attribute schema (universal/HDD/SSD field tables) + model-family→tier reference table + explicit parse-vs-lookup split. **Residual:** none.
+
 **Gap it fills:** The scoring system has an "Applicability for Intended Use" factor favoring "server Enterprise/NAS grade" drives, but the spec never defines the machine-readable attributes that classify a drive. Without this taxonomy the scorer can't be built.
 
 ```text
@@ -77,6 +85,8 @@ Deliver: a scoring-oriented attribute schema (field name, data type, how to sour
 ---
 
 ## 3. Recertified / refurbished enterprise-drive risk & warranty landscape
+
+> **✅ Answered** — [`recertified-enterprise-hard-drives`](research/recertified-enterprise-hard-drives-for-homelab-and-small-business-buyers.md). The label alone is weak evidence — **provenance, warranty backing, serial verification, and arrival SMART/FARM data are the strong signals**. Delivers a term taxonomy (recert/refurb/renewed/pull/NOS), per-vendor warranty comparison table, SMART attribute + power-on-hour thresholds, red flags, and an encodable scoring penalty/bonus table with hard-stop rules. **Residual:** no rigorous public study isolates factory-recertified vs new enterprise reliability (the report honestly substitutes Backblaze/community data); WD/Toshiba recert-process detail is thinner than Seagate's.
 
 **Gap it fills:** The tool's entire value thesis is buying recertified enterprise HDDs, but there's no research on what "recertified" actually means, how the risk compares to new, or how warranty terms differ by vendor — all of which should feed the score and buyer guidance.
 
@@ -92,6 +102,8 @@ Deliver actionable buyer heuristics I can encode as scoring penalties/bonuses (e
 
 ## 4. Quantitative multi-factor scoring model design
 
+> **✅ Answered** — [`principled-deal-score`](research/principled-deal-score-for-hard-drive-listings.md). Recommends a **weighted geometric-mean (weighted product)** model over four normalized subscores — price cheapness-percentile, Bayesian + Wilson seller trust, rubric-based fitness, availability — with explicit **non-compensatory caps** (e.g. SMR/no-return vetoes), default weights **0.50 / 0.25 / 0.15 / 0.10**, a glass-box explanation payload, and a four-listing worked example. Rejects TOPSIS as the primary score with rationale. **Residual:** none.
+
 **Gap it fills:** The spec names five scoring factors (price/$per-TB, availability, seller reputation, applicability, overall) but gives no methodology for normalizing and combining them. This is the core algorithm and is entirely unspecified.
 
 ```text
@@ -105,6 +117,8 @@ Deliver a concrete recommended scoring formula with each sub-score's normalizati
 ---
 
 ## 5. Price benchmarking, $/TB baselines & existing reference tools
+
+> **✅ Answered** — [`drive-deal-tracker-…-baselines-tools-shucking-and-timing`](research/drive-deal-tracker-research-baselines-tools-shucking-and-timing.md). Provides **July 2026 $/TB baseline tables** for HDDs (8–28 TB, new vs recert) and enterprise SSDs (by endurance tier/interface/condition), identifies sweet spots (**new 18–24 TB, recert 20–28 TB**), and surveys the tool/community landscape with API notes (Keepa = paid API; diskprices/camel/PCPartPicker = no public API, parseable HTML/unofficial wrappers) plus shucking and seasonal-timing guidance. **Residual:** none (tool notes are qualitative, not endpoint schemas — as asked).
 
 **Gap it fills:** Scoring on price requires knowing what a _good_ $/TB is per tier/capacity, and whether prior art exists to borrow from or integrate. The spec assumes $/TB but provides no baselines or awareness of competitors.
 
@@ -120,6 +134,8 @@ Deliver a $/TB baseline reference table by capacity and tier, a competitor/tool 
 
 ## 6. Cross-marketplace product entity resolution
 
+> **✅ Answered** — [`entity-resolution-…`](research/entity-resolution-for-cross-marketplace-hard-drive-and-ssd-price-tracking.md) + [`database-architecture`](research/database-architecture.md). Recommends a surrogate `canonical_product_id` anchored on **brand + exact normalized MPN** (GTIN/ASIN/ePID as aliases, not canonical keys), a **dual physical-key vs sellable-variant-key** model that puts condition at the offer layer, a hybrid rules + NER + LLM-fallback title parser, and multi-pass blocking with a conservative match-decision flow; names OSS ER tools (Splink, dedupe, Magellan, Ditto, pyJedAI, …). The DB report supplies the concrete schema (`drive_model`, `drive_alias`, `listing`, `offer_snapshot`, `pg_trgm`). **Residual:** none.
+
 **Gap it fills:** A price-history database is useless if "the same drive" appears as different rows per merchant. The spec's database section never addresses matching listings to a canonical product — the hardest data-engineering problem here.
 
 ```text
@@ -133,6 +149,8 @@ Deliver a recommended canonical-product-key design, a title-parsing approach, an
 ---
 
 ## 7. Legal & Terms-of-Service footing for scraping and price monitoring
+
+> **✅ Answered** — [`us-scraping-and-data-retention-landscape`](research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md). Public **factual** price collection is materially lower CFAA risk post-Van Buren/hiQ (adds Sullivan 2025, DOJ policy, Bright Data cases); the decisive work is **source-by-source contract/API-term governance**, avoiding technical circumvention, minimizing expressive-content retention, and enforcing the strictest per-source TTL in code. Delivers the risk-tiered summary, per-source "what I can store / how long" table (Amazon PA/Creators + SP-API, eBay, Google, Serper), and a retention policy. **Residual:** SP-API's fit for a public price monitor and Serper's rights-chain are flagged **for counsel**, not for more research.
 
 **Gap it fills:** The tool scrapes ~20 commercial sites and stores their data in a **public** GitHub-org repo tied to a business. The spec has no legal analysis — a material risk given business use, and it constrains what can be stored/retained.
 
@@ -148,6 +166,8 @@ Deliver a risk-tiered summary (lower-risk vs higher-risk practices), a per-sourc
 
 ## 8. Anti-bot-resilient scraping architecture for e-commerce
 
+> **✅ Answered** — [`pragmatic-architecture-…-scraping`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md). **HTTP-first, structured-data-first, browser-last:** Scrapy as orchestrator, a structured-data detector (JSON-LD → platform JSON → bootstrap JSON) in front of every parser, Playwright via `scrapy-playwright` for occasional rendering, `curl_cffi` for the narrow TLS-fingerprint gap, and outsource/skip targets needing residential rotation or CAPTCHA solving. Delivers a difficulty→technique decision tree, a managed-API cost table (ScraperAPI/ZenRows/Zyte/Bright Data/Oxylabs/Firecrawl), and a default stack. **Residual:** none.
+
 **Gap it fills:** The spec names Scrapy but nothing about how to actually retrieve pages from sites that fight scrapers (most large retailers). This is a make-or-break infrastructure decision left blank.
 
 ```text
@@ -162,6 +182,8 @@ Deliver a decision tree (site difficulty → recommended technique), a tool comp
 
 ## 9. Scheduling, orchestration & pipeline architecture (Python)
 
+> **✅ Answered** — [`orchestration-choice-…`](research/orchestration-choice-for-a-single-vm-price-polling-service.md). Use **APScheduler 3.11.x** in a dedicated systemd-supervised poller with PostgreSQL for state; cron/systemd-timers is the leaner floor, and Celery/RQ/Dramatiq/Prefect/Dagster/Airflow are explicitly flagged **over-engineered** for ~20 sources on one VM. Covers per-source rate-limit modeling (two-level token buckets, per-domain concurrency caps, phase offset + jitter, adaptive 429/503 cooldown), retry/failure-isolation (Postgres dead-letter + circuit breaker), a pipeline-stage sketch with partial-rerun boundaries, and observation-vs-alert dedup. **Residual:** none.
+
 **Gap it fills:** The spec promises "real-time or near-real-time monitoring" but specifies nothing about _how_ recurring jobs run — the scheduler/orchestration layer that turns scrapers into a monitoring service is absent.
 
 ```text
@@ -175,6 +197,8 @@ Deliver a recommended default (with a one-line justification for why the heavier
 ---
 
 ## 10. Web framework, database & environment-management stack decision
+
+> **✅ Answered** — [`opinionated-core-stack-recommendations`](research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md). Resolves all three `_TBD_` markers: **Django** (server-rendered templates + HTMX, over FastAPI/Flask) for a CRUD/dashboard/auth/ingestion app, **PostgreSQL 18** (JSONB + full-text; **no** TimescaleDB and no partitioning until the price-history table demands it), and **uv** for env/dependency management. **Residual:** none — but the spec still lists these as undecided; reconcile into [`disk-search.md`](specs/disk-search.md) and update CLAUDE.md's "FastAPI or Django (undecided)" note.
 
 **Gap it fills:** Fills the three explicit `_TBD_` markers in the spec (Web Framework, Database engine, Environment Management) with a reasoned recommendation rather than a coin flip.
 
@@ -194,6 +218,8 @@ Deliver a clear recommendation for each of the three with the key tradeoff state
 
 ## 11. Notification & alerting design, deliverability, and dedup
 
+> **✅ Answered** — [`designing-a-low-noise-alerting-layer`](research/designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor.md). Use a **stateful per-watch/per-listing** model with dual-fingerprint dedup, debounce/cooldown, enter-vs-recover hysteresis, instant-vs-hourly-digest lanes, and per-watch + global rate caps; send email via a **transactional provider (Postmark preferred, SES for cost)** rather than raw SMTP from Hetzner, with **Pushover/Telegram push before SMS**. Delivers a SQL watch/observation/state/notification data model + two-stage matcher, a deliverability checklist (SPF/DKIM/DMARC), and provider/channel comparison tables. **Residual:** none.
+
 **Gap it fills:** The spec wants email/SMS/push alerts (via AgentMail) but says nothing about alert-fatigue control, deliverability, or dedup — the difference between a useful alerter and a spam cannon.
 
 ```text
@@ -208,6 +234,8 @@ Deliver an alert-rule data model sketch, a dedup/debounce/digest strategy, a del
 
 ## 12. Manufacturer & specialty-reseller warranty/serial-verification data sources
 
+> **✅ Answered** — [`programmatic-identity-and-warranty-verification`](research/programmatic-identity-and-warranty-verification-for-used-enterprise-hdd-listings.md). **No vendor publishes a documented public warranty API** — use official web forms with caching (Toshiba Asia batches up to 150 serials; Seagate `verify.seagate.com` label validation is the strongest anti-counterfeit signal; WD is most legally constrained), paired with per-vendor model decoders (Seagate ST cheat sheet, Toshiba "Meaning of Model Number," WD family pages) and conservative SMART scoring (197/198 ≠ 0 → reject; 5/187/188 → major downgrade; 199 → caution; POH → pricing context). Delivers the verification-sources table, decoders, and end-to-end flow. **Residual:** the "warranty API" expectation is answered **in the negative** (none exists).
+
 **Gap it fills:** Deep-dive companion to prompts 1 and 3: to score used/recert listings and warn about scams, the tool needs programmatic ways to verify drive identity and warranty from a serial or model number — sources the spec never mentions.
 
 ```text
@@ -220,21 +248,21 @@ Deliver: a table of verification sources (source, what it returns, input require
 
 ---
 
-## Suggested priority order
+## Reconciliation order (research → spec)
 
-If running these sequentially, this order front-loads the decisions that unblock the most design work:
+All 12 prompts are run; the work now is folding their findings into [`disk-search.md`](specs/disk-search.md). This order front-loads the decisions that unblock the most design/scaffolding work — the same priority that once front-loaded the research now front-loads the spec updates.
 
-| Priority | Prompt | Why first |
+| Priority | Prompt | What it resolves in the spec |
 | --: | --- | --- |
-| 🔴 1 | **#1** Data acquisition (17 merchants) | Determines what's even buildable per source. |
-| 🔴 2 | **#7** Legal/ToS footing | Gates what you may store/retain; business + public repo raises stakes. |
-| 🔴 3 | **#2** Drive grading taxonomy | The scorer can't exist without the attribute schema. |
-| 🟡 4 | **#4** Scoring model design | Core algorithm; depends on #2 and #3. |
-| 🟡 5 | **#3** Recert risk & warranty | Feeds scoring penalties/bonuses and buyer guidance. |
-| 🟡 6 | **#10** Stack decision (framework/DB/env) | Resolves the three `_TBD_` markers; unblocks scaffolding. |
-| 🟡 7 | **#6** Entity resolution | Hardest data-engineering problem; needed before price-history is meaningful. |
-| 🟢 8 | **#9** Scheduling/orchestration | Turns scrapers into a service. |
+| 🔴 1 | **#10** Stack decision (framework/DB/env) | Resolves the three `_TBD_` markers → **Django + PostgreSQL 18 + uv**; unblocks scaffolding. Also update CLAUDE.md's "FastAPI or Django (undecided)". |
+| 🔴 2 | **#1** Data acquisition (17 merchants) | Sets the per-source acquisition tier (feed > structured-data > scrape > skip) for the marketplace table. |
+| 🔴 3 | **#7** Legal/ToS footing | Sets the data-retention/acquisition policy; SP-API & Serper items flagged for counsel. |
+| 🔴 4 | **#2** Drive grading taxonomy | Supplies the attribute schema the "Applicability" scoring factor needs. |
+| 🟡 5 | **#4** Scoring model design | Defines the composite-score formula, weights, and gates. Depends on #2 and #3. |
+| 🟡 6 | **#3** Recert risk & warranty | Feeds scoring penalties/bonuses and buyer guidance. |
+| 🟡 7 | **#6** Entity resolution | Defines the canonical-product key + persistence schema for price-history. |
+| 🟢 8 | **#9** Scheduling/orchestration | Specifies APScheduler + the fetch→…→alert pipeline stages. |
 | 🟢 9 | **#8** Anti-bot scraping architecture | Companion to #1 for the scrape-only sources. |
-| 🟢 10 | **#5** Price baselines & prior art | Calibrates scoring and checks for reusable tools. |
-| 🟢 11 | **#11** Notification/alerting design | Independent; can come late. |
+| 🟢 10 | **#5** Price baselines & prior art | Calibrates scoring baselines; confirms no tool to reuse. |
+| 🟢 11 | **#11** Notification/alerting design | Alert-rule data model + deliverability setup. |
 | 🟢 12 | **#12** Warranty/serial verification | Enhancement to #3; nice-to-have for v1. |
