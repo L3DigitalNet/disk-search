@@ -49,7 +49,7 @@ Read **[Open questions](#open-questions)** for anything that still needs a call.
     - [OQ8 — Scraper testing finalization](#oq8--scraper-testing-finalization)
       - [Agent notes](#agent-notes-7)
       - [My Comments](#my-comments-7)
-    - [OQ9 — Acquisition cadence \& stewardship posture](#oq9--acquisition-cadence--stewardship-posture)
+    - [OQ9 — Acquisition cadence, throttle \& skip policy](#oq9--acquisition-cadence-throttle--skip-policy)
       - [Agent notes](#agent-notes-8)
       - [My Comments](#my-comments-8)
     - [OQ10 — Reliability / resilient acquisition](#oq10--reliability--resilient-acquisition)
@@ -89,9 +89,9 @@ Ten decisions remain. **OQ1–OQ8** are the still-open parts of the original gap
 | **OQ4** | DB placement | gap #5 | own Postgres in the disk-search CT vs the shared datastores CT |
 | **OQ5** | Off-box heartbeat | gap #6 | add to off-site GMK Uptime Kuma vs a free healthchecks.io monitor |
 | **OQ6** | Final UI inventory + dismiss→suppress | gap #7 | confirm pages; decide if a user _dismiss_ silences re-alerts; purchase-tracking scope |
-| **OQ7** | Running-cost budget model | gap #10 | build-time pricing pass + per-source poll budgets |
+| **OQ7** | Running-cost budget model | gap #10 | pricing pass ✅ (2026-07-03 → ~$8–15/mo search-API envelope; AgentMail free); residual = encode per-source poll budgets at build |
 | **OQ8** | Scraper testing finalization | gap #9 | per-tier canary frequencies; synthetic vs real cassettes per source |
-| **OQ9** | Acquisition cadence & stewardship | principles §1+5 | periodic rate-limited polling + tier ladder; reword the spec's "real-time" framing |
+| **OQ9** | Acquisition cadence, throttle & skip | principles §1+5 | per-source cadence numbers + adaptive back-off thresholds + tier-ladder skip cutoff (no spec reword — real-time-where-tolerated is in scope) |
 | **OQ10** | Reliability / resilient acquisition | principle §4 | per-source isolation, retry/backoff, circuit-break, health alerts |
 
 ---
@@ -213,13 +213,30 @@ _(none yet)_
 
 - **Free-feed-first is confirmed viable:** no target merchant exposes a paid-only retail API; nearly all expose free structured/HTML data a self-hosted Scrapy parser reads at zero per-call cost. **eBay Browse + Feed** and **Amazon SP-API** (if seller-authorized) are **free official feeds** — do not re-poll them via paid search APIs. Scraping itself is free compute on the CT. The only unavoidable recurring paid costs are occasional search-API discovery calls, AgentMail, and backup object storage.
 - **Search APIs are discovery/spot-check only** — never promote a search hit to a trusted offer without validating against the official API or merchant page.
+- **Pricing pass — verified 2026-07-03 (Claude web research against vendor pricing pages).** Marginal per-call cost, assuming monthly free tiers exhausted:
+
+  | Service | Marginal cost | Free tier | Storage / caching rights |
+  | --- | --- | --- | --- |
+  | **Serper** | **$0.001**/query (one-time $50 / 50k-credit pack; credits expire 6 mo) | 2,500 credits, one-time | No vendor restriction found |
+  | **Brave Search** | **$5.00/1k** ($0.005/query); $5/mo auto-credit ≈ 1k free | ≈ 1k/mo via the $5 credit | **Standard plan does _not_ grant storage rights** — persisting Brave's own result JSON needs an **Enterprise "contact us"** plan (historically ~$45/1k, a **stale 2025** figure — get a quote) |
+  | **Tavily** | **$0.008**/basic search ($0.016 advanced) — dearest of the three | 1,000 credits/mo (recurring) | Marketed for RAG; no explicit persist clause found |
+  | **AgentMail** | **$0** at this volume | 3,000 emails/mo, 100/day cap | — |
+
+  **Bottom line:** ≈ **$8–15/mo** for the three search APIs combined **if traffic is weighted toward Serper** (~5× cheaper than Brave, ~8× than Tavily) — inside the **$10–20 target**. An even 1k/1k/1k split ≈ $14/mo; leaning on Brave/Tavily for the bulk breaches $20. **AgentMail is effectively free** — alert volume sits far under both caps; the $20 Developer tier is only forced by >100 emails/day or by needing a custom sending domain (deliverability).
+
+- **Brave storage-rights is an _architecture_ constraint, not just a cost:** use Brave — and, to be safe, Serper/Tavily too — **purely as a discovery/URL source; do not persist the search provider's own snippets/JSON.** The scraper then fetches and stores the _listing page's_ own content, which is outside the provider's licensing scope. This keeps the cheap $5/1k Brave tier sufficient and dovetails with the discovery-only rule above. Confirm Serper/Tavily ToS before persisting their raw results.
+- **Watch items:** Brave's storage-rights price is now Enterprise-only (no public number; the ~$45/1k is a stale 2025 indicative figure) — get a live quote before relying on it. **Tavily** was announced as acquired by Nebius (2026-02-10) — re-verify its pricing before build. **This pricing pass answers OQ7's build-time-pricing fork;** the residual is a build-time config task (encode per-source poll budgets within the ~$8–15/mo envelope), not an open research question.
 - **Managed-scraping APIs avoided for this merchant set** (free structured data covers it); reference list prices are date-sensitive — re-verify at build.
 - **The per-source budget record already has a home:** the orchestration research's **two-level token buckets** (per-source + per-domain, `cadence`/`jitter`/`rate`/`burst`) _are_ the poll-budget mechanism — reuse them. Recommended cadence: single-digit daily checks per SKU; circuit-break chronically failing sources.
 - Research: [`programmatic-acquisition-research-for-enterprise-and-nas-drive-merchants.md`](research/programmatic-acquisition-research-for-enterprise-and-nas-drive-merchants.md), [`tavily-brave-serper.md`](research/tavily-brave-serper.md), [`pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md), [`orchestration-choice-for-a-single-vm-price-polling-service.md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md).
 
 #### My Comments
 
-_(none yet)_
+**Search:** I have active accounts for each search service and I keep them topped up with funds. This question will require additional research to find the current per-call pricing for each service and to verify Brave's storage-rights plan requirement. Since I use these services elsewhere we will assume that any monthly free tier limits have already been exceeded and that we will be paying for any calls made. I feel that I will be comfortable with $10 to $20 per month total for all three services combined, but will reconsider after additional research (to be performed by Claude).
+
+**AgentMail:** AgentMail is free; research the free tier limits, but it is unlikely to be a problem.
+
+**Backup Costs:** The backup object storage costs are already budgeted as part of my general server costs, but I will verify that the current plan is sufficient for the expected data volume. No further action is needed for this, but I will keep an eye on it.
 
 ---
 
@@ -233,34 +250,45 @@ _(none yet)_
 - **Do not commit real cassettes for retention-restricted sources** (Amazon PA/Creators 24 h TTL, Google/Serper "transient only", stored images) — use **synthetic/hand-crafted fixtures**; real recorded cassettes are fine for the recert specialists. **Scrub cassettes of PII before commit** (a compliance requirement).
 - **Classify failure type** in the counter layer — recoverable **parser rot** vs **now-anti-bot-protected** (a soft-block often returns HTTP 200 + challenge/empty body). The latter is a _stop/escalate_ decision, not a fix.
 - Shares the `scraper_runs` table with [OQ5](#oq5--off-box-heartbeat) / gap #6.
+- **Queued for ChatGPT Deep Research** (owner, 2026-07-03): prompt **#13** in [`further-research-needed-prompts.md`](further-research-needed-prompts.md) covers exactly this build-time finalization (risk-weighted per-tier canary frequencies; synthetic-vs-real cassette assignment per source). OQ8 stays **open** pending that report.
 - Research: [`lightweight-observability-and-scraper-health-monitoring.md`](research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md), [`pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md), [`us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md`](research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md).
 
 #### My Comments
 
-_(none yet)_
+Agent comments look good, but I want to conduct a full deep research with ChatGPT looking into this. Add an entry and prompt to `docs/further-research-needed-prompts.md`.
 
 ---
 
-### OQ9 — Acquisition cadence & stewardship posture
+### OQ9 — Acquisition cadence, throttle & skip policy
 
-**From:** General Design Principles audit (folds findings #1 + #5). **Decision needed:** the spec's "**real-time / continuously scans**" framing (Features; "Integration with Marketplaces") conflicts with the **Stewardship** and **Engineered-to-Needs** principles and the settled periodic-polling design. Decide and document the acquisition policy, then reword those spec lines to match:
+**From:** General Design Principles audit (folds findings #1 + #5). **Principles-level wording settled:** the old "Stewardship & Responsibility" principle was replaced in the spec with **"Moderate Aggressive Usage"** ([`disk-search.md:21`](specs/disk-search.md)). **Owner posture (2026-07-03):** poll as aggressively — up to real-time/continuous — as each source _tolerates_, and moderate **only** when a service-side protection or red-line would be crossed. The spec's "real-time (or near real-time)" Features framing is therefore **consistent and stays as-is — no reword** (the earlier "reword the real-time framing" task is **withdrawn**). **Decision needed:** the concrete numbers that operationalize "aggressive but self-moderating":
 
-- periodic, **rate-limited** cadence (research: single-digit daily checks per SKU) — not continuous/real-time;
-- the **tier ladder** — official APIs → machine-readable structured data → headless scrape → **skip** a hostile source rather than fight it;
-- ToS / robots posture and per-source politeness (jitter, two-level token buckets).
-
-Mostly settled by research; the open part is the concrete per-source cadence/politeness numbers and confirming the skip policy.
+- **per-source cadence** — target poll frequency per source/tier (research floor: single-digit daily checks per SKU; go faster where the source tolerates it);
+- **adaptive throttle / back-off** — which signals mark an approaching red-line (HTTP 429/503, soft-block challenge, latency spikes) and the cooldown they trigger, so aggressiveness self-limits _before_ tripping a protection;
+- **skip policy** — the tier-ladder cutoff (official API → structured data → headless scrape → **skip**) for a source that cannot be polled without crossing a red-line.
 
 #### Agent notes
 
-- The reword targets [`disk-search.md`](specs/disk-search.md) Features ("Real-time (or near real-time) Monitoring… Continuously… scans") and "Integration with Marketplaces" ("real-time where possible").
-- The cadence + rate-limit mechanism is already designed: the orchestration research's **two-level token buckets** (per-source + per-domain; `cadence`/`jitter`/`rate`/`burst`) — shared with [OQ7](#oq7--running-cost-budget-model-build-time-pricing-pass). Recommended cadence: single-digit daily per SKU; circuit-break chronically failing sources.
+- **No spec reword needed** (owner, 2026-07-03): real-time/continuous polling _where the source tolerates it_ is within "Moderate Aggressive Usage" — be aggressive, moderate only when a service protection/red-line would be crossed. This supersedes the earlier note that Features L25/L35 must be reworded; that task is **withdrawn**.
+- The cadence + throttle mechanism is already designed: the orchestration research's **two-level token buckets** (per-source + per-domain; `cadence`/`jitter`/`rate`/`burst`) set **aggressively**, plus an **adaptive 429/503 cooldown** that pulls them back as a protection is approached — shared with [OQ7](#oq7--running-cost-budget-model-build-time-pricing-pass) (same budget mechanism) and [OQ10](#oq10--reliability--resilient-acquisition) (same circuit-breaker substrate). Research floor: single-digit daily per SKU; circuit-break chronically failing sources.
 - The tier ladder and "**skip** rather than fight anti-bot" is the settled acquisition posture (gap #10 / OQ7 and the scraping research).
 - Research: [`orchestration-choice-for-a-single-vm-price-polling-service.md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md), [`pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md), [`us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md`](research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md).
 
 #### My Comments
 
-_(none yet)_
+I have changed the spec to remove:
+
+```text
+- **Stewardship & Responsibility:** The tool should be designed to minimize the impact on the marketplaces it monitors, avoiding excessive requests or scraping that could be considered abusive or violate terms of service.
+```
+
+and replaced it with:
+
+```text
+- **Moderate Aggressive Usage:** The tool should be designed to avoid excessive requests or scraping that could be considered abusive or violate terms of service or result in rate limiting.
+```
+
+Update the open question to reflect that the spec has been updated to remove the Stewardship & Responsibility language and replace it with Moderate Aggressive Usage. The open question is now focused on confirming the per-source cadence/politeness numbers and confirming the skip policy.
 
 ---
 
@@ -274,13 +302,13 @@ _(none yet)_
 
 #### Agent notes
 
-- Ties into [OQ5](#oq5--off-box-heartbeat) (off-box heartbeat) and [OQ8](#oq8--scraper-testing-finalization) (failure-type classification — parser-rot vs anti-bot); the `scraper_runs` table (gap #6 / gap #9) is the shared substrate.
+- **Status (2026-07-03):** both dependencies are moving — [OQ5](#oq5--off-box-heartbeat) is **settled** (off-box heartbeat = the off-site GMK Uptime Kuma) and [OQ8](#oq8--scraper-testing-finalization) is **queued for Deep Research** (prompt #13; parser-rot-vs-anti-bot failure classification). OQ10 stays **open** until OQ8 lands that failure model; the resilience substrate itself — per-source failure isolation, retry/backoff, circuit-break (`paused_pending_fix`), and the `scraper_runs` table (gap #6 / gap #9) — is already settled and only needs wiring.
 - Circuit-break state (`paused_pending_fix`) is from the orchestration research; the count-vs-rolling-average + empty-result assertion (gap #9) is the silent-failure detector.
 - Research: [`orchestration-choice-for-a-single-vm-price-polling-service.md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md), [`lightweight-observability-and-scraper-health-monitoring.md`](research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md).
 
 #### My Comments
 
-_(none yet)_
+See [OQ5](#oq5--off-box-heartbeat) and [OQ8](#oq8--scraper-testing-finalization) for the shared substrate. Then update or close this question based on the decisions made in those two questions.
 
 ---
 

@@ -1,6 +1,6 @@
 # Further Research — Deep Research Prompts & Completed Reports
 
-> **Status (2026-07-03): all 12 prompts have been run.** Each one now maps to a completed report under [`docs/research/`](research/). This document is no longer a to-run queue — it is a **completion tracker**: the original prompt text is kept verbatim (provenance + re-runnable), and a status banner above each prompt links its report, states the headline finding, and flags any residual gap. The next step is to **reconcile these findings back into [`disk-search.md`](specs/disk-search.md)** (resolve the `_TBD_` markers), not to run more research.
+> **Status (2026-07-03): the original 12 prompts have all been run** — each maps to a completed report under [`docs/research/`](research/). **One follow-up prompt — [#13](#13-scraper-testing-finalization--per-tier-canaries--cassette-strategy) — is newly queued and not yet run** (owner-requested, from [`open-questions.md` OQ8](open-questions.md#oq8--scraper-testing-finalization)). For the 12, this document is a **completion tracker**: the original prompt text is kept verbatim (provenance + re-runnable), and a status banner above each links its report, states the headline finding, and flags any residual gap. Prompt #13 instead carries a **⏳ Queued** banner. Next steps: **reconcile the 12 findings back into [`disk-search.md`](specs/disk-search.md)** (resolve the `_TBD_` markers) **and run #13** when ready.
 
 These prompts were written for ChatGPT **Deep Research**. Each is self-contained (Deep Research can't see this repo), states the gap it fills, and dictates an output shape to fold back into the spec.
 
@@ -25,13 +25,14 @@ These prompts were written for ChatGPT **Deep Research**. Each is self-contained
   - [10. Web framework, database \& environment-management stack decision](#10-web-framework-database--environment-management-stack-decision)
   - [11. Notification \& alerting design, deliverability, and dedup](#11-notification--alerting-design-deliverability-and-dedup)
   - [12. Manufacturer \& specialty-reseller warranty/serial-verification data sources](#12-manufacturer--specialty-reseller-warrantyserial-verification-data-sources)
+  - [13. Scraper-testing finalization — per-tier canaries \& cassette strategy](#13-scraper-testing-finalization--per-tier-canaries--cassette-strategy)
   - [Reconciliation order (research → spec)](#reconciliation-order-research--spec)
 
 ---
 
 ## Completion status
 
-The 12 topics, the gap each filled, and the report that now answers it. **All 12 are complete (✅).** "Residual" flags the honestly-scoped open questions the reports surfaced — none is a new research prompt.
+The 12 original topics, the gap each filled, and the report that now answers it. **All 12 are complete (✅).** "Residual" flags the honestly-scoped open questions the reports surfaced. **Row 13 is a newly-queued follow-up prompt (⏳ not yet run)**, added 2026-07-03 to take [OQ8](open-questions.md#oq8--scraper-testing-finalization) (scraper-testing finalization) into ChatGPT Deep Research.
 
 | # | Topic (gap it filled) | Status | Report | Residual |
 | --: | --- | :-: | --- | --- |
@@ -47,6 +48,7 @@ The 12 topics, the gap each filled, and the report that now answers it. **All 12
 | 10 | Framework/DB/env stack (`_TBD_` ×3) | ✅ | [stack](research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md) | none — pending spec update |
 | 11 | Notification/alerting design | ✅ | [alerting](research/designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor.md) | none |
 | 12 | Warranty/serial verification sources | ✅ | [verify](research/programmatic-identity-and-warranty-verification-for-used-enterprise-hdd-listings.md) | no public warranty API exists (answered negative) |
+| 13 | Scraper-testing finalization ([OQ8](open-questions.md#oq8--scraper-testing-finalization)) | ⏳ Queued | _pending run_ | build-time params: risk-weighted per-tier canary frequencies + synthetic-vs-real cassette assignment |
 
 ---
 
@@ -244,6 +246,32 @@ I'm building a tool that evaluates used/recertified enterprise hard-drive listin
 Research: (1) Western Digital, Seagate, and Toshiba warranty-status lookup services — do they have public/undocumented web endpoints or APIs that return warranty status, expiration, and product model from a serial number, and what are the terms/rate realities of using them at low volume; (2) how to decode/validate WD, Seagate, and Toshiba model numbers and part numbers into capacity, tier, interface, and generation (published decoders or community references); (3) whether serial-number format/validation can catch obviously fake or grey-market listings; (4) what SMART data (power-on hours, reallocated sectors, etc.) a listing might disclose and how to interpret it for a buy/no-buy signal; (5) any third-party services or datasets (e.g. drive-info APIs, community model databases) that map model numbers to full specs so I don't hand-maintain a lookup table.
 
 Deliver: a table of verification sources (source, what it returns, input required, access method, rate/terms caveats), model-number decoder references per manufacturer, and a recommended verification flow for a listing. Cite official warranty portals and community decoder references; be explicit about what's official vs reverse-engineered vs unavailable.
+```
+
+---
+
+## 13. Scraper-testing finalization — per-tier canaries & cassette strategy
+
+> **⏳ Queued (2026-07-03)** — not yet run. Owner-requested follow-up to [`open-questions.md` OQ8](open-questions.md#oq8--scraper-testing-finalization). The scraper-testing _stack_ is already settled (vcrpy + syrupy + per-tier contract canary + Pydantic v2, plus five research-confirmed amendments — see [OQ8](open-questions.md#oq8--scraper-testing-finalization) / resolved gap #9); this prompt finalizes the **build-time parameters** research left as judgment calls.
+
+**Gap it fills:** OQ8's two open build-time decisions — the concrete **per-extraction-tier canary frequencies** (risk-weighted down the JSON-LD → platform-JSON → hidden-bootstrap → HTML-selector ladder) and the **per-source synthetic-vs-real cassette assignment** (bounded by each source's data-retention/ToS terms) — have no single authoritative source; they need a focused cross-source synthesis before the test suite is built.
+
+```text
+I'm finalizing the automated test strategy for a low-volume Python web-scraping service (Scrapy-based) that monitors ~20 e-commerce sources (manufacturer recertified-drive stores, storage-specialist resellers, eBay/Amazon/Newegg, refurbished-server sellers) for hard-drive prices and availability. This is good-faith personal/small-business monitoring, not high-frequency abuse. My testing STACK is already decided: vcrpy cassettes (record-once, replay-in-CI) for deterministic offline parse tests, syrupy snapshot assertions on parsed output, Pydantic v2 per-record runtime validation, and a scheduled production "contract canary" that checks each source's live structured data against an expected shape. Each source is parsed with a tiered extractor: JSON-LD / schema.org first, then platform JSON (Shopify products.json, Next.js __NEXT_DATA__, Magento patterns), then hidden bootstrap JSON, then brittle HTML selectors as a last resort. I need to finalize the BUILD-TIME PARAMETERS this stack leaves open.
+
+Research and recommend, with citations and dates on anything version- or terms-sensitive:
+
+(1) CANARY FREQUENCY PER EXTRACTION TIER. Given that JSON-LD and first-party JSON endpoints break far less often than HTML selectors, what risk-weighted monitoring cadence per tier is defensible for a low-volume monitor? How do I detect a tier silently DEGRADING — e.g. a source dropping its JSON-LD and forcing a fallback down to HTML — as opposed to a hard break? Recommend concrete frequencies (or a formula) per tier and the signal that should trip an alert.
+
+(2) COMMIT-REAL vs SYNTHETIC CASSETTES, PER SOURCE. Which sources' recorded HTTP cassettes can I legally/ethically COMMIT to a PUBLIC git repository, versus which must use synthetic/hand-crafted fixtures? Map this to the data-retention and terms constraints of the major sources — Amazon Product Advertising / Creators API content, Google- or Serper-derived data, stored product images, and general "transient use only" clauses — versus the more permissive recert specialists (ServerPartDeals, goHardDrive, WD/Seagate recert stores). Give a decision rule I can apply per source.
+
+(3) PII / SENSITIVE-DATA SCRUBBING. What exactly must a cassette be scrubbed of before commit (request/response headers, cookies, auth tokens, API keys, seller PII, buyer-location context), and how do I automate that in vcrpy (before_record_request / before_record_response filters, filter_headers, filter_query_parameters)? Provide a config sketch.
+
+(4) FAILURE CLASSIFICATION. How should the test/monitoring layer distinguish recoverable "parser rot" (the site's markup changed) from "now anti-bot protected" (a soft-block that often returns HTTP 200 plus a challenge page or an empty body) — since the latter is a stop/escalate decision, not a code fix? Give concrete, codable signals for each class (status codes, body-shape assertions, challenge fingerprints, rolling-average / zero-result checks).
+
+(5) CI WIRING. How do I wire all of this into GitHub Actions without flakiness: replay-only in CI (never live network calls), a snapshot-update workflow, and how a broken PRODUCTION canary should surface (fail the scheduled job / open an issue / send an alert) WITHOUT blocking unrelated code PRs?
+
+Deliver: a per-tier canary-frequency table with the risk rationale; a per-source "commit real cassette vs synthetic fixture" decision table for the source list above; a vcrpy scrubbing checklist plus a short config sketch; a failure-classification decision tree (parser-rot vs anti-bot vs transient); and a recommended CI wiring. Cite tool docs (vcrpy, syrupy, Scrapy, Pydantic v2) and the relevant API/site terms; date anything that is version- or terms-sensitive.
 ```
 
 ---

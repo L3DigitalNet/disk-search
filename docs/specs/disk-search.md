@@ -18,7 +18,7 @@ This tool is designed for my personal/business use to assist with monitoring and
 - **Maintainability:** The codebase should be clean, well-documented, and follow best practices to ensure that it can be easily maintained and updated over time.
 - **Reliability:** The tool should be robust and handle errors gracefully, ensuring that it continues to function even when encountering issues with marketplace APIs or network connectivity.
 - **Security:** The tool should handle sensitive information (e.g., API keys, credentials) securely and follow best practices for authentication and authorization. These should never be committed to the public repository, hard-coded, or otherwise exposed.
-- **Stewardship & Responsibility:** The tool should be designed to minimize the impact on the marketplaces it monitors, avoiding excessive requests or scraping that could be considered abusive or violate terms of service.
+- **Moderate Aggressive Usage:** The tool should be designed to avoid excessive requests or scraping that could be considered abusive or violate terms of service or result in rate limiting.
 
 ## Features
 
