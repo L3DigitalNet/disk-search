@@ -27,3 +27,4 @@ Write one for a **significant** and **costly-to-reverse** decision — datastore
 | [0007](adr-0007-datastore-postgresql-timescaledb.md) | Datastore — PostgreSQL as system-of-record + TimescaleDB | Accepted | 2026-07-03 |
 | [0008](adr-0008-currency-landed-cost-normalization.md) | Currency & landed-cost normalization | Accepted | 2026-07-03 |
 | [0009](adr-0009-secrets-runtime-openbao-agent.md) | Secrets runtime — local OpenBao Agent on the CT | Accepted | 2026-07-03 |
+| [0010](adr-0010-canonical-data-model.md) | Canonical data model — product/variant identity ladder | Accepted | 2026-07-03 |
