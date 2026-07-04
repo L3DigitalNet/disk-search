@@ -43,7 +43,7 @@ related:
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
-| 0.1 | 2026-07-04 | Claude (consolidation, owner-directed) | Initial consolidation of the original spec (`docs/archived/hw-radar.md`), ADRs 0001–0014, and the resolved/open question record into SPEC-0000. |
+| 0.1 | 2026-07-04 | Claude (consolidation, owner-directed) | Initial consolidation of the original spec (`docs/archived/hw-radar.md`), ADRs 0001–0017, and the resolved/open question record into SPEC-0000. |
 
 **Spec lifecycle:** This document is **living until `approved`**, then **change-controlled**: post-approval edits require a new revision row and, for scope-affecting changes, re-approval by the owner. Implementation deviations are recorded in the [Deviations Log](#deviations-log-light), not silently patched into requirements. When replaced, set `status: superseded` and `superseded_by:` in the frontmatter.
 
@@ -61,7 +61,7 @@ Hardware Radar is a search-and-monitoring tool that watches ~20 online marketpla
 
 - **Who has the problem:** the single owner/maintainer, buying drives for L3Digital assets. The tool is built for personal/business use and optimized for the owner's convenience; the first version deliberately does not spend effort on multi-user friendliness or cross-compatibility.
 - **The outcome:** the owner can see, in one place, the current best drive deals across the monitored merchants, understand _why_ each deal scored what it did, and get a low-noise email when a watch-worthy deal appears or a price drops.
-- **First-release scope:** drives (HDD/SSD) only; single account; the six-milestone MVP plan in §19. Extensibility to more users, marketplaces, scoring criteria, alert channels, and hardware types (RAM, GPUs) must remain possible without a rewrite (§2.4 of the General Design Principles, structurally satisfied by [ADR 0010](../adr/adr-0010-canonical-data-model.md)).
+- **First-release scope:** drives (HDD/SSD) only; single account; the six-milestone MVP plan in §19. Extensibility to more users, marketplaces, scoring criteria, alert channels, and hardware types (RAM, GPUs) must remain possible without a rewrite (the **Extensibility & Expandability** principle in §1's General Design Principles, structurally satisfied by [ADR 0010](../adr/adr-0010-canonical-data-model.md)).
 - **Compounding value:** the **accumulating price-history database is the tool's moat** — repeated price observations over time enable the cohort-relative scoring ([ADR 0011](../adr/adr-0011-composite-deal-score.md)) and historical trend analysis, and are the primary reason backup coverage is load-bearing ([ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md)).
 
 **General Design Principles** (carried verbatim in intent from the original spec — they bound every decision below):
@@ -961,7 +961,7 @@ Maintained by the **implementer** during the build (Appendix B). Any divergence 
 ### Project References
 
 - **ADRs:** [`docs/adr/`](../adr/README.md) — ADR 0001–0017 (frontmatter `related.adrs`); the authoritative decision record.
-- **Question record:** [`docs/open-questions.md`](../open-questions.md) (open — OQ16–OQ20) · [`docs/resolved-questions.md`](../resolved-questions.md) (settled RQ1–RQ6, gaps 1–12, resolved OQ1–OQ15).
+- **Question record:** [`docs/open-questions.md`](../open-questions.md) (none open — next is OQ21) · [`docs/resolved-questions.md`](../resolved-questions.md) (settled RQ1–RQ6, gaps 1–12, resolved OQ1–OQ20).
 - **Research corpus:** [`docs/research/index.md`](../research/index.md) (generated index — do not hand-edit) — in-depth context behind decisions; **not** imported wholesale here. Time-sensitive facts in reports are dated — re-verify before relying.
 - **Toolchain contract:** `AGENTS.md` (Python Tooling SSOT Standard; verification gate).
 - **Prior spec:** `docs/archived/hw-radar.md` (superseded by this document).
