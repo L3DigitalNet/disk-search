@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory holds the project's **Architecture Decision Records (ADRs)** — the durable, reviewable memory of *why* the system is built the way it is. Each ADR captures one significant, hard-to-reverse decision: the context that forced it, the options considered, the choice made, and the consequences.
+This directory holds the project's **Architecture Decision Records (ADRs)** — the durable, reviewable memory of _why_ the system is built the way it is. Each ADR captures one significant, hard-to-reverse decision: the context that forced it, the options considered, the choice made, and the consequences.
 
 ## Conventions
 
@@ -20,3 +20,8 @@ Write one for a **significant** and **costly-to-reverse** decision — datastore
 | --: | --- | --- | --- |
 | [0001](adr-0001-decline-markdown-frontmatter-standard.md) | Decline the Markdown Frontmatter Standard | Accepted | 2026-07-03 |
 | [0002](adr-0002-python-tooling-standard-local-deviations.md) | Python Tooling Standard — local deviations | Accepted | 2026-07-03 |
+| [0003](adr-0003-deploy-as-lxc-container.md) | Deploy as a dedicated LXC container (not a VM) | Accepted | 2026-07-03 |
+| [0004](adr-0004-web-framework-django-htmx.md) | Web framework — Django + templates + HTMX | Accepted | 2026-07-03 |
+| [0005](adr-0005-single-account-session-auth.md) | Single-account session authentication | Accepted | 2026-07-03 |
+| [0006](adr-0006-cd-rsync-over-tailscale-ssh.md) | CD via GitHub-hosted runner + rsync over Tailscale SSH | Accepted | 2026-07-03 |
+| [0007](adr-0007-datastore-postgresql-timescaledb.md) | Datastore — PostgreSQL as system-of-record + TimescaleDB | Accepted | 2026-07-03 |

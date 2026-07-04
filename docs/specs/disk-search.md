@@ -63,11 +63,12 @@ This tool is designed for my personal/business use to assist with monitoring and
 - **Local Clone:** `~/projects/disk-search`
 - **Server Configuration:**
   - _Location:_ Hetzner dedicated server
-  - _Containerization:_ VM in Proxmox
+  - _Containerization:_ **Dedicated LXC container** in Proxmox (not a VM), per the homelab dedicated-LXC standard.
   - _Operating System:_ Debian 13
   - _Web Server:_ NGINX for serving the web application and handling HTTPS.
-  - _Database:_ PostgreSQL or MySQL (to be determined based on requirements); will live in the same VM as the web application for simplicity.
+  - _Database:_ **PostgreSQL (system-of-record) + TimescaleDB** for the price-history observation workload (ADR 0007); lives in the same LXC container as the web application for simplicity.
   - _Environment Management:_ _TBD_ (`uv`?)
+  - _Backup & Monitoring:_ Reuses the existing Hetzner CT infrastructure. **Backup** — file-level restic (local + offsite) plus an hourly logical DB dump; coverage is a hardcoded allowlist, so at provisioning wire the CT's data paths into `backup-restic.sh` and its DB into `backup-dumps.sh`. Inherited RPO is ≤1 h with no PITR; layer pgBackRest + WAL archiving inside the CT if the price-history data needs tighter recovery (open-question #9). **Monitoring** — the host health check auto-discovers the CT; add an off-box heartbeat (no off-site watchdog currently exists) and keep in-app scraper-health. Detail: gap-analysis #5/#6.
 - **CI/CD Pipeline:** GitHub Actions for automated testing and deployment.
   - _Runner:_ Existing Ubuntu runner on GitHub Actions.
   - _Workflows:_ Separate workflows for testing, building, and deployment.
