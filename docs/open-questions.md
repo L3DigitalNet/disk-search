@@ -147,7 +147,8 @@ A second driver is coupled to this: TimescaleDB ([ADR 0007](adr/adr-0007-datasto
 
 #### Agent notes
 
-- **Owner direction (2026-07-03):** don't pick an RPO in the abstract — **first author a backup-requirements doc** (RPO, PITR, and the TimescaleDB dump/restore constraints) for disk-search in the private **`homelab` repo**, coordinated with the existing Hetzner backup strategy; then evaluate the inherited **≤1 h RPO / no-PITR** against those documented requirements and expand only if they demand it. **Non-blocking** — can land in parallel with or after deploy, **but must precede the first backup being taken.** _(Requirements-doc task — OQ stays open until the doc is written and the RPO call is made.)_
+- **Owner direction (2026-07-03):** don't pick an RPO in the abstract — **first author a backup-requirements doc** (RPO, PITR, and the TimescaleDB dump/restore constraints) for disk-search in the private **`homelab` repo**, coordinated with the existing Hetzner backup strategy; then evaluate the inherited **≤1 h RPO / no-PITR** against those documented requirements and expand only if they demand it. **Non-blocking** — can land in parallel with or after deploy, **but must precede the first backup being taken.**
+- **Requirements doc written (2026-07-04):** `homelab/docs/plans/2026-07-04-disk-search-backup-requirements.md` (verified live against `backup-dumps.sh`/`backup-restic.sh`). **Headline finding:** disk-search is the fleet's **first TimescaleDB consumer**, but every existing dump is plain `pg_dump --format=custom` with no hypertable awareness → a naïve allowlist entry **restores incorrectly**. So the real work is **TimescaleDB-correct dumps + wiring coverage, not tighter RPO** — the inherited **≤1 h RPO / no-PITR is accepted for v1** (revisit if OQ9 sets sub-hourly polling). Own-CT Postgres (OQ4) matches the CT 109/112/114 pattern. _(OQ3 stays open pending the owner's confirmation of the doc's §7 decisions — RPO, join-B2-tier-1, logical-vs-physical — and the provisioning-time wiring.)_
 - **Fallback design if tighter RPO/PITR is wanted:** pgBackRest physical backup + continuous WAL archiving on-CT (`repo1`) with a second repo (`repo2`) on S3-compatible storage (Backblaze B2 or Hetzner Storage Box), pgBackRest AES-256 encryption → PITR + offsite 3-2-1. Supplement with a weekly `pg_dumpall`.
 - TimescaleDB: **physical** backups (pgBackRest / `pg_basebackup`) need no special handling; only logical (`pg_dump`) backups carry hypertable caveats — prefer physical.
 - Keep the **monthly restore-test** discipline regardless — an untested backup is a hope. **Patch PostgreSQL/tooling** (recent `pg_dump`/`pg_basebackup`/`pg_rewind` CVEs live in the tools).
@@ -245,7 +246,13 @@ _(none yet)_
 
 #### My Comments
 
-**Search:** I have active accounts for each search service and I keep them topped up with funds. This question will require additional research to find the current per-call pricing for each service and to verify Brave's storage-rights plan requirement. Since I use these services elsewhere we will assume that any monthly free tier limits have already been exceeded and that we will be paying for any calls made. I feel that I will be comfortable with $10 to $20 per month total for all three services combined, but will reconsider after additional research (to be performed by Claude).
+**Search:**
+
+Resolved comments:
+
+```markdown
+I have active accounts for each search service and I keep them topped up with funds. This question will require additional research to find the current per-call pricing for each service and to verify Brave's storage-rights plan requirement. Since I use these services elsewhere we will assume that any monthly free tier limits have already been exceeded and that we will be paying for any calls made. I feel that I will be comfortable with $10 to $20 per month total for all three services combined, but will reconsider after additional research (to be performed by Claude).
+```
 
 **AgentMail:** AgentMail is free; research the free tier limits, but it is unlikely to be a problem.
 
