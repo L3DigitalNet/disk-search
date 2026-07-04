@@ -72,7 +72,7 @@ Option 1 was rejected outright: a public repo should not run a self-hosted runne
 
 resolved-questions.md gap #4 records this decision (superseding the earlier self-hosted-runner proposal). Confirmed when the workflow deploys on merge with zero manual steps, holds no OpenBao credential (secrets are templated on the CT by the local Agent — gap #2), and a rollback to the previous SHA is demonstrated.
 
-## Open Question
+## Resolved sub-question — ephemeral-runner tailnet auth
 
 The **ephemeral-runner tailnet auth mechanism** is **settled (2026-07-04, verified against the live ACL):** the **Tailscale OAuth client** at OpenBao `secret/infra/tailscale-oauth` (purpose "GitHub Actions CI/CD deploy via Tailscale"), minting an ephemeral `tag:ci` node via `tailscale/github-action` v4 (resolved-questions.md OQ2). One forward dependency: the tailnet grants are still wildcard, so when the wildcard→scoped ACL migration lands, add an explicit `tag:ci → hw-radar CT:22` grant. This ADR's CD decision holds regardless.
 

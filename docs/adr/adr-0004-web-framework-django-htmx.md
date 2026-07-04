@@ -75,4 +75,4 @@ The spec's framework `_TBD_` is resolved to Django, and resolved-questions.md re
 ## More Information
 
 - Research: [`opinionated-core-stack-recommendations…`](../research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md).
-- Related decisions: ADR 0005 (single-account auth, built on `contrib.auth`), ADR 0003 (CT deployment). Confirm against pending research prompt #10's final framework write-up before scaffolding.
+- Related decisions: ADR 0005 (single-account auth, built on `contrib.auth`), ADR 0003 (CT deployment). (Research prompt #10 — the framework write-up this ADR draws on — is answered; no confirmation is outstanding.)
