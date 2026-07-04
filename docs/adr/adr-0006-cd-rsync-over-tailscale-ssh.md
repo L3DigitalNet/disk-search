@@ -20,7 +20,7 @@ aliases: []
 related:
   - 'docs/adr/README.md'
   - 'docs/specs/hw-radar.md'
-  - 'docs/open-questions.md'
+  - 'docs/resolved-questions.md'
   - 'docs/research/2026-07-03-github-actions-cd-private-debian-vm.md'
 supersedes: []
 superseded_by: null
@@ -70,11 +70,11 @@ Option 1 was rejected outright: a public repo should not run a self-hosted runne
 
 ### Confirmation
 
-open-questions.md gap #4 records this decision (superseding the earlier self-hosted-runner proposal). Confirmed when the workflow deploys on merge with zero manual steps, holds no OpenBao credential (secrets are templated on the CT by the local Agent — gap #2), and a rollback to the previous SHA is demonstrated.
+resolved-questions.md gap #4 records this decision (superseding the earlier self-hosted-runner proposal). Confirmed when the workflow deploys on merge with zero manual steps, holds no OpenBao credential (secrets are templated on the CT by the local Agent — gap #2), and a rollback to the previous SHA is demonstrated.
 
 ## Open Question
 
-The **ephemeral-runner tailnet auth mechanism** is **settled (2026-07-04, verified against the live ACL):** the **Tailscale OAuth client** at OpenBao `secret/infra/tailscale-oauth` (purpose "GitHub Actions CI/CD deploy via Tailscale"), minting an ephemeral `tag:ci` node via `tailscale/github-action` v4 (open-questions.md OQ2). One forward dependency: the tailnet grants are still wildcard, so when the wildcard→scoped ACL migration lands, add an explicit `tag:ci → hw-radar CT:22` grant. This ADR's CD decision holds regardless.
+The **ephemeral-runner tailnet auth mechanism** is **settled (2026-07-04, verified against the live ACL):** the **Tailscale OAuth client** at OpenBao `secret/infra/tailscale-oauth` (purpose "GitHub Actions CI/CD deploy via Tailscale"), minting an ephemeral `tag:ci` node via `tailscale/github-action` v4 (resolved-questions.md OQ2). One forward dependency: the tailnet grants are still wildcard, so when the wildcard→scoped ACL migration lands, add an explicit `tag:ci → hw-radar CT:22` grant. This ADR's CD decision holds regardless.
 
 ## More Information
 

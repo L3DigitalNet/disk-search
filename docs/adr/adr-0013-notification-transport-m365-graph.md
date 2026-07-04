@@ -20,7 +20,7 @@ aliases: []
 related:
   - 'docs/adr/README.md'
   - 'docs/specs/hw-radar.md'
-  - 'docs/open-questions.md'
+  - 'docs/resolved-questions.md'
   - 'docs/research/free-outbound-email-path-for-low-volume-alerts.md'
   - 'docs/research/choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md'
 supersedes: []
@@ -44,7 +44,7 @@ MADR status: **accepted**.
 
 Deal alerts are the product's payload; they **must not spam-folder**. The spec standardized on **AgentMail**, and earlier research ([`choosing-an-outbound-email-path`](../research/choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md)) recommended a paid transactional provider (Postmark primary, SES fallback). But the owner set a hard constraint: **no paid email service right now** — the v1 transport must be free. Two facts frame the choice: the deploy host (Hetzner) **blocks outbound ports 25/465**, so self-hosted SMTP is out; and hosted free tiers have proven **volatile** (SendGrid killed its free plan in 2025; MailerSend cut its free allowance 83% in Oct 2025). Volume is tiny: well under 100 emails/day to effectively one recipient.
 
-Research [`free-outbound-email-path-for-low-volume-alerts`](../research/free-outbound-email-path-for-low-volume-alerts.md) surveyed the free options (open-questions.md OQ13).
+Research [`free-outbound-email-path-for-low-volume-alerts`](../research/free-outbound-email-path-for-low-volume-alerts.md) surveyed the free options (resolved-questions.md OQ13).
 
 ## Considered Options
 
@@ -79,4 +79,4 @@ Implementation confirmation (M4): a single qualifying price drop sends **exactly
 
 - **Supersedes** the spec's AgentMail-primary lean and the earlier Postmark-primary research recommendation **for the free v1 case** (both retained as fallback/upgrade paths, not deleted).
 - **M365 Graph reference:** `~/projects/agent-configs/global/claude/context/m365-graph.md` (read when wiring mail); credentials at OpenBao `secret/apps/microsoft365`.
-- **Findings:** open-questions.md **OQ13**; research [`free-outbound-email-path`](../research/free-outbound-email-path-for-low-volume-alerts.md) + [`choosing-an-outbound-email-path`](../research/choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md).
+- **Findings:** resolved-questions.md **OQ13**; research [`free-outbound-email-path`](../research/free-outbound-email-path-for-low-volume-alerts.md) + [`choosing-an-outbound-email-path`](../research/choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md).

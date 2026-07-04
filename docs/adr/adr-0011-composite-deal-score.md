@@ -20,7 +20,7 @@ aliases: []
 related:
   - 'docs/adr/README.md'
   - 'docs/specs/hw-radar.md'
-  - 'docs/open-questions.md'
+  - 'docs/resolved-questions.md'
   - 'docs/research/principled-deal-score-for-hard-drive-listings.md'
   - 'docs/research/drive-deal-scoring-model-test-results.md'
 supersedes: []
@@ -44,7 +44,7 @@ MADR status: **accepted**.
 
 The spec's `## Scoring System` section was **empty**: the tool's whole purpose is to rank listings 0–100 for a value-focused enterprise/recert buyer, but the aggregation math, the factors, their weights, and the disqualifiers were never specified. The score must be (a) **self-adjusting** as street prices move (2026 is an abnormal, supply-constrained market — hard-coded "good below $X/TB" thresholds age badly), (b) **explainable** listing-by-listing (a glass box the owner can inspect and override), and (c) **hard to game** by a single strong dimension.
 
-Research report [`principled-deal-score-for-hard-drive-listings`](../research/principled-deal-score-for-hard-drive-listings.md) delivered a concrete design; per the owner's directive, it was **validated against mock data before ratification** — see [`drive-deal-scoring-model-test-results`](../research/drive-deal-scoring-model-test-results.md) (open-questions.md OQ11).
+Research report [`principled-deal-score-for-hard-drive-listings`](../research/principled-deal-score-for-hard-drive-listings.md) delivered a concrete design; per the owner's directive, it was **validated against mock data before ratification** — see [`drive-deal-scoring-model-test-results`](../research/drive-deal-scoring-model-test-results.md) (resolved-questions.md OQ11).
 
 ## Considered Options
 
@@ -86,4 +86,4 @@ The mock-data test ([`drive-deal-scoring-model-test-results`](../research/drive-
 
 - **Fills** the previously-empty spec `## Scoring System`; maps onto milestone **M2**.
 - **Subscore internals** settled elsewhere: price (shipping/tax folded into `$/TB`, gap #11; cold-start warm-up, gap #12), fitness (suitability taxonomy, recert risk), seller (cross-marketplace Bayesian+Wilson).
-- **Findings:** open-questions.md **OQ11**; research [`principled-deal-score`](../research/principled-deal-score-for-hard-drive-listings.md) + [test results](../research/drive-deal-scoring-model-test-results.md).
+- **Findings:** resolved-questions.md **OQ11**; research [`principled-deal-score`](../research/principled-deal-score-for-hard-drive-listings.md) + [test results](../research/drive-deal-scoring-model-test-results.md).

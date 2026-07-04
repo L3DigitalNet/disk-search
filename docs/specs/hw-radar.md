@@ -74,7 +74,7 @@ This tool is designed for my personal/business use to assist with monitoring and
 - **GitHub Repository:** `[L3DigitalNet public repo](https://github.com/L3DigitalNet/hw-radar)`
   - _Branching Strategy:_ Main branch for stable releases, development branch for ongoing work, and feature branches for new features or bug fixes.
   - _Commit Guidelines:_ Follow conventional commit messages for clarity and consistency. Commit directly to branches, do not use Pull Requests for personal development work unless collaborating with others.
-  - _Note_: This project lives in my Organization account on GitHub because I am intending to use this to purchase hard drives for L3Digital. The repository is public; secrets (API keys, credentials) are **never committed, hard-coded, or exposed**. In production the app resolves them from **OpenBao at runtime** via a local OpenBao Agent ([open-questions.md](../open-questions.md) gap #2 / OQ1); a local `.env` is used **for development only**.
+  - _Note_: This project lives in my Organization account on GitHub because I am intending to use this to purchase hard drives for L3Digital. The repository is public; secrets (API keys, credentials) are **never committed, hard-coded, or exposed**. In production the app resolves them from **OpenBao at runtime** via a local OpenBao Agent ([resolved-questions.md](../resolved-questions.md) gap #2 / OQ1); a local `.env` is used **for development only**.
 - **Local Clone:** `~/projects/hw-radar`
 - **Server Configuration:**
   - _Location:_ Hetzner dedicated server
@@ -83,7 +83,7 @@ This tool is designed for my personal/business use to assist with monitoring and
   - _Web Server:_ NGINX for serving the web application and handling HTTPS.
   - _Database:_ **PostgreSQL (system-of-record) + TimescaleDB** for the price-history observation workload ([ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)); lives in the same LXC container as the web application for simplicity.
   - _Environment Management:_ uv ([ADR 0002](../adr/adr-0002-python-tooling-standard-local-deviations.md)).
-  - _Backup & Monitoring:_ Reuses the existing Hetzner CT infrastructure — file-level restic (local + offsite) + hourly DB dumps, and monitoring auto-discovers the container. Provisioning must add the CT to the backup allowlist, and an off-box heartbeat is still needed. Caveats (≤1 h RPO, no PITR, TimescaleDB dump handling): [ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md) and [open-questions.md](../open-questions.md) gap #5/#6.
+  - _Backup & Monitoring:_ Reuses the existing Hetzner CT infrastructure — file-level restic (local + offsite) + hourly DB dumps, and monitoring auto-discovers the container. Provisioning must add the CT to the backup allowlist, and an off-box heartbeat is still needed. Caveats (≤1 h RPO, no PITR, TimescaleDB dump handling): [ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md) and [resolved-questions.md](../resolved-questions.md) gap #5/#6.
 - **CI/CD Pipeline:** GitHub Actions for automated testing and deployment.
   - _Runner:_ GitHub-hosted `ubuntu-latest` runner — not self-hosted ([ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md)).
   - _Workflows:_ Separate workflows for testing, building, and deployment.

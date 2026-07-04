@@ -22,7 +22,7 @@ related:
   - 'docs/adr/README.md'
   - 'docs/adr/adr-0006-cd-rsync-over-tailscale-ssh.md'
   - 'docs/specs/hw-radar.md'
-  - 'docs/open-questions.md'
+  - 'docs/resolved-questions.md'
   - 'docs/research/orchestration-choice-for-a-single-vm-price-polling-service.md'
   - 'docs/research/orchestration-engine-reconfirmation-2026.md'
 supersedes: []
@@ -49,7 +49,7 @@ The recurring pipeline (`fetch → parse → normalize → entity-resolve → sc
 1. The acquisition design (OQ7/OQ9/OQ10) requires **shared, in-memory, fast-mutating state** across sources — per-source and per-domain **two-level token buckets**, an adaptive 429/503 cooldown, and a **circuit-breaker** whose `paused_pending_fix` state must be visible to whatever decides "is this source eligible right now."
 2. **ADR 0006 said "periodic scrapes run under systemd timers, not an in-process scheduler."** That was written for stateless, independent jobs — before the orchestration research established that these scrape jobs are **not** independent (they share admission budgets and breaker state). So there is a live contradiction to resolve.
 
-Research [`orchestration-choice-for-a-single-vm-price-polling-service`](../research/orchestration-choice-for-a-single-vm-price-polling-service.md) recommended APScheduler; [`orchestration-engine-reconfirmation-2026`](../research/orchestration-engine-reconfirmation-2026.md) re-confirmed it a day later against the 2026 ecosystem (open-questions.md OQ12).
+Research [`orchestration-choice-for-a-single-vm-price-polling-service`](../research/orchestration-choice-for-a-single-vm-price-polling-service.md) recommended APScheduler; [`orchestration-engine-reconfirmation-2026`](../research/orchestration-engine-reconfirmation-2026.md) re-confirmed it a day later against the 2026 ecosystem (resolved-questions.md OQ12).
 
 ## Considered Options
 
@@ -85,4 +85,4 @@ Implementation confirmation (M1/M5): the poller runs as one `Active` systemd ser
 
 - **Amends** [ADR 0006](adr-0006-cd-rsync-over-tailscale-ssh.md) (the "timers for scrapes" sentence). Does **not** reopen ADR 0006's deployment mechanics.
 - **Unblocks** OQ7 (search self-governance), OQ9 (cadence/back-off), OQ10 (resilience) — all assume this in-process model.
-- **Findings:** open-questions.md **OQ12**; research [`orchestration-choice`](../research/orchestration-choice-for-a-single-vm-price-polling-service.md) + [`orchestration-engine-reconfirmation-2026`](../research/orchestration-engine-reconfirmation-2026.md).
+- **Findings:** resolved-questions.md **OQ12**; research [`orchestration-choice`](../research/orchestration-choice-for-a-single-vm-price-polling-service.md) + [`orchestration-engine-reconfirmation-2026`](../research/orchestration-engine-reconfirmation-2026.md).

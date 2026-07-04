@@ -21,6 +21,7 @@ related:
   - 'docs/adr/README.md'
   - 'docs/specs/hw-radar.md'
   - 'docs/open-questions.md'
+  - 'docs/resolved-questions.md'
   - 'docs/research/database-architecture.md'
 supersedes: []
 superseded_by: null

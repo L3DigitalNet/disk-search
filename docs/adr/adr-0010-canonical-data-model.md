@@ -22,6 +22,7 @@ related:
   - 'docs/adr/README.md'
   - 'docs/specs/hw-radar.md'
   - 'docs/open-questions.md'
+  - 'docs/resolved-questions.md'
   - 'docs/research/database-architecture.md'
   - 'docs/research/entity-resolution-for-cross-marketplace-hard-drive-and-ssd-price-tracking.md'
   - 'docs/research/machine-usable-drive-suitability-taxonomy-for-24-7-nas-and-server-scoring.md'

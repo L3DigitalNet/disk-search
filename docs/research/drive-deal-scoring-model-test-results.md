@@ -29,7 +29,7 @@ license: null
 
 ## Why this document exists
 
-This is the **pre-ADR sanity test** for [OQ11](../open-questions.md#oq11--composite-scoring-model-adopt-research-4). The scoring algorithm in
+This is the **pre-ADR sanity test** for [OQ11](../resolved-questions.md#oq11--composite-scoring-model-adopt-research-4). The scoring algorithm in
 [`principled-deal-score-for-hard-drive-listings.md`](principled-deal-score-for-hard-drive-listings.md) is
 concrete and ADR-ready, but the owner's directive was: *before* ratifying it in an ADR, **run it against
 mock data and confirm it rates items that are expected to be high or low correctly.** This report is that
@@ -184,7 +184,7 @@ accept as designed; document that the trust veto is a genuine-disqualifier gate,
 4. **Keep** the `s_price` floor (finding 3) and the strong seller prior (finding 4) as-is; document both as
    deliberate.
 5. **Store** the per-subscore explanation payload as a first-class output (already assumed by
-   [OQ6](../open-questions.md#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking)'s
+   [OQ6](../resolved-questions.md#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking)'s
    listing-detail "why it matched" view). The payloads emitted by this harness are the exact shape to persist.
 6. **Defer** absolute-calibration tuning of the middle band (finding 1) until real observations exist — the
    model's *shape* is right; its *constants* are cheap to re-fit later.

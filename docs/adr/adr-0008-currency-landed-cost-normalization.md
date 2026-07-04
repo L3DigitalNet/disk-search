@@ -21,7 +21,7 @@ aliases: []
 related:
   - 'docs/adr/README.md'
   - 'docs/specs/hw-radar.md'
-  - 'docs/open-questions.md'
+  - 'docs/resolved-questions.md'
   - 'docs/research/2026-07-03-currency-conversion-and-landed-cost-estimation-for-cross-border-drive-price-scoring.md'
 supersedes: []
 superseded_by: null
@@ -60,7 +60,7 @@ The research report [`currency-conversion-and-landed-cost-estimation…`](../res
 
 ## Decision Outcome
 
-Chosen option: **Option 1.** Owner-accepted 2026-07-03 (with changes), resolving open-questions.md gaps #3 and #11.
+Chosen option: **Option 1.** Owner-accepted 2026-07-03 (with changes), resolving resolved-questions.md gaps #3 and #11.
 
 **FX.** Use **Frankfurter** — ECB-anchored, free, no API key, MIT-licensed, self-hostable — refreshed once per day. Normalize every price to USD, and store `fx_rate`, `fx_pair`, `fx_rate_date`, and `fx_source` **on each `observation`** (ADR 0007), not just on the current listing. Stamping the rate per observation is what makes a historical score reproducible and auditable: re-deriving last month's `$/TB` uses the rate that was actually applied, not today's.
 
@@ -76,14 +76,14 @@ Option 2 was rejected: a hardcoded percentage is **false precision** — the rea
 - **Good** — Frankfurter adds no API key, no cost, and no vendor lock-in (self-hostable, MIT).
 - **Bad (accepted)** — cross-border listings are **not fully comparable**: the buyer must manually weigh the flagged extra cost. This is deliberate — the tool's own analysis is that a cross-border purchase is rarely worthwhile, so surfacing the risk beats fabricating precision.
 - **VAT footgun (must be handled in ingestion)** — UK/EU VAT should be **zero-rated on export**, but many storefronts display **VAT-inclusive** shelf prices pre-checkout. The scraper must not treat a VAT-inclusive shelf price as the export price, or it will over-state the true USD cost of an international listing.
-- **Neutral** — this ADR fixes the _normalization contract_, not the deal-score math (cohort percentile, warm-up, cohort key) — that is a separate, still-to-be-folded scoring decision (open-questions.md gap #12).
+- **Neutral** — this ADR fixes the _normalization contract_, not the deal-score math (cohort percentile, warm-up, cohort key) — that is a separate, still-to-be-folded scoring decision (resolved-questions.md gap #12).
 
 ### Confirmation
 
-The spec's `$/TB` scoring and cross-border handling reflect this decision, and gaps #3 and #11 in open-questions.md are recorded settled. Implementation-time confirmation (M1/M2): every non-USD listing carries a stored `fx_rate` + `fx_rate_date` and a normalized USD price; international listings are flagged; domestic listings with known shipping fold it into `$/TB`; a VAT-inclusive foreign shelf price is not mistaken for the export price.
+The spec's `$/TB` scoring and cross-border handling reflect this decision, and gaps #3 and #11 in resolved-questions.md are recorded settled. Implementation-time confirmation (M1/M2): every non-USD listing carries a stored `fx_rate` + `fx_rate_date` and a normalized USD price; international listings are flagged; domestic listings with known shipping fold it into `$/TB`; a VAT-inclusive foreign shelf price is not mistaken for the export price.
 
 ## More Information
 
 - Research: [`currency-conversion-and-landed-cost-estimation…`](../research/2026-07-03-currency-conversion-and-landed-cost-estimation-for-cross-border-drive-price-scoring.md) — FX-source comparison, US de-minimis/tariff status (dated 2026-07-03 — re-verify before relying on the tariff specifics), and the VAT-on-export footgun.
-- Related: **ADR 0007** (the `observation` schema these FX fields live on), open-questions.md **gap #3** (currency) and **gap #11** (shipping in `$/TB`), and the still-open scoring math (**gap #12**) that consumes the normalized USD price.
+- Related: **ADR 0007** (the `observation` schema these FX fields live on), resolved-questions.md **gap #3** (currency) and **gap #11** (shipping in `$/TB`), and the still-open scoring math (**gap #12**) that consumes the normalized USD price.
 - **Time-sensitive:** the de-minimis-suspended / tariff-in-flux facts carry a 2026-07-03 date — re-verify before shipping any UI copy that quotes duty status.

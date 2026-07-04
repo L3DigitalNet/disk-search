@@ -21,7 +21,7 @@ tags:
 aliases: []
 related:
 - orchestration-choice-for-a-single-vm-price-polling-service
-- ../open-questions.md
+- ../resolved-questions.md
 - ../adr/adr-0006-cd-rsync-over-tailscale-ssh.md
 source: []
 confidence: high
@@ -33,7 +33,7 @@ license: null
 
 ## Scope and relationship to the prior report
 
-This report re-confirms, rather than replaces, [`orchestration-choice-for-a-single-vm-price-polling-service.md`](orchestration-choice-for-a-single-vm-price-polling-service.md) (2026-07-03). That report is still the primary reference for the *design* — token-bucket fields, retry/backoff policy, pipeline-stage sketch, and idempotency rules all stand unchanged. This report answers four narrower questions raised in [OQ12](../open-questions.md#oq12--orchestration-engine-apscheduler-vs-systemd-timers): whether the tool choice itself still holds a day later, what changed in the ecosystem, whether an in-process model is consistent with the project's design principles, and how to resolve the live wording contradiction against ADR 0006.
+This report re-confirms, rather than replaces, [`orchestration-choice-for-a-single-vm-price-polling-service.md`](orchestration-choice-for-a-single-vm-price-polling-service.md) (2026-07-03). That report is still the primary reference for the *design* — token-bucket fields, retry/backoff policy, pipeline-stage sketch, and idempotency rules all stand unchanged. This report answers four narrower questions raised in [OQ12](../resolved-questions.md#oq12--orchestration-engine-apscheduler-vs-systemd-timers): whether the tool choice itself still holds a day later, what changed in the ecosystem, whether an in-process model is consistent with the project's design principles, and how to resolve the live wording contradiction against ADR 0006.
 
 ## Recommendation, restated with more force
 
@@ -100,4 +100,4 @@ The one legitimate tension is that an in-process model puts scheduling logic, ad
 - Redis security advisories: CVE-2025-49844 ("RediShell") https://redis.io/blog/security-advisory-cve-2025-49844/ ; CVE-2025-21605 https://redis.io/blog/security-advisory-cve-2025-21605/
 - Prior report: [`orchestration-choice-for-a-single-vm-price-polling-service.md`](orchestration-choice-for-a-single-vm-price-polling-service.md)
 - [`ADR 0006`](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md) (the "systemd timers for scrapes" line under reconciliation)
-- [`OQ12`](../open-questions.md#oq12--orchestration-engine-apscheduler-vs-systemd-timers)
+- [`OQ12`](../resolved-questions.md#oq12--orchestration-engine-apscheduler-vs-systemd-timers)

@@ -21,7 +21,7 @@ aliases: []
 related:
   - 'docs/adr/README.md'
   - 'docs/specs/hw-radar.md'
-  - 'docs/open-questions.md'
+  - 'docs/resolved-questions.md'
   - 'docs/research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md'
   - 'docs/research/per-source-polling-cadence-and-skip-policy.md'
 supersedes: []
@@ -45,7 +45,7 @@ MADR status: **accepted**.
 
 The spec named only "**Scrapy. Additional options to be considered**" — under-specified for a set of ~20 merchants that range from plain HTML storefronts to JS-assembled and anti-bot-protected pages. What concrete tools handle each difficulty level, and how much of that stack must ship in v1? A specific owner question also needed answering: **would we actually use Playwright, and can it scrape headlessly without an AI agent/LLM?**
 
-Research [`pragmatic-architecture-for-low-volume-python-e-commerce-scraping`](../research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md) supplied the difficulty→technique decision tree and the default stack (open-questions.md OQ14).
+Research [`pragmatic-architecture-for-low-volume-python-e-commerce-scraping`](../research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md) supplied the difficulty→technique decision tree and the default stack (resolved-questions.md OQ14).
 
 ## Considered Options
 
@@ -84,5 +84,5 @@ Implementation confirmation: M1's five sources yield normalized listings on plai
 ## More Information
 
 - **Fills** the spec's under-specified "Web Scraping Libraries" line and names the tools per acquisition tier.
-- **Shares** the skip cutoff with open-questions.md **OQ9** (same tier-ladder hard-stop) and the failure classification with **OQ8**.
-- **Findings:** open-questions.md **OQ14**; research [`pragmatic-architecture`](../research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md).
+- **Shares** the skip cutoff with resolved-questions.md **OQ9** (same tier-ladder hard-stop) and the failure classification with **OQ8**.
+- **Findings:** resolved-questions.md **OQ14**; research [`pragmatic-architecture`](../research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md).

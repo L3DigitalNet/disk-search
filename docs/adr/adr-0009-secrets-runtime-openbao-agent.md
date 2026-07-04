@@ -20,7 +20,7 @@ aliases: []
 related:
   - 'docs/adr/README.md'
   - 'docs/specs/hw-radar.md'
-  - 'docs/open-questions.md'
+  - 'docs/resolved-questions.md'
   - 'docs/research/2026-07-03-github-actions-cd-private-debian-vm.md'
 supersedes: []
 superseded_by: null
@@ -45,12 +45,12 @@ MADR status: **accepted**.
 
 The org standard is **OpenBao as the credential store**; the spec, however, originally said secrets live in a committed-excluded `.env`, and never answered the load-bearing question: **how does the deployed app obtain secrets at runtime** without a plaintext secret at rest? The contradiction is sharpened by two facts already decided:
 
-- Hardware Radar deploys as an **LXC container**, which has **no per-container vTPM** (shared host kernel), so `systemd-creds --with-key=tpm2` hardware-bound storage is unavailable (ADR 0003; open-questions.md RQ3/RQ5).
+- Hardware Radar deploys as an **LXC container**, which has **no per-container vTPM** (shared host kernel), so `systemd-creds --with-key=tpm2` hardware-bound storage is unavailable (ADR 0003; resolved-questions.md RQ3/RQ5).
 - CD runs from a **GitHub-hosted runner on a public repo** (ADR 0006), so **CI can hold no OpenBao credential** — anything the workflow can read, the public world's threat model must assume is reachable.
 
 So the app needs live secrets, the container can't hardware-bind them, and the delivery pipeline can't carry them. What resolves secrets at runtime, and how does the bootstrap credential (the AppRole `secret_id`) reach the box?
 
-The research report [`github-actions-cd-private-debian-vm`](../research/2026-07-03-github-actions-cd-private-debian-vm.md) §3 covers the runtime-injection pattern; the live pattern was verified against the Hetzner infrastructure while resolving open-questions.md OQ1.
+The research report [`github-actions-cd-private-debian-vm`](../research/2026-07-03-github-actions-cd-private-debian-vm.md) §3 covers the runtime-injection pattern; the live pattern was verified against the Hetzner infrastructure while resolving resolved-questions.md OQ1.
 
 ## Considered Options
 
@@ -61,7 +61,7 @@ The research report [`github-actions-cd-private-debian-vm`](../research/2026-07-
 
 ## Decision Outcome
 
-Chosen option: **Option 1.** Settled and **verified against the live infrastructure** while resolving open-questions.md OQ1 — Hardware Radar onboards as the _next_ `bao-services` consumer, the exact pattern already running for the LiteLLM service (the wave-1 reference consumer).
+Chosen option: **Option 1.** Settled and **verified against the live infrastructure** while resolving resolved-questions.md OQ1 — Hardware Radar onboards as the _next_ `bao-services` consumer, the exact pattern already running for the LiteLLM service (the wave-1 reference consumer).
 
 **Runtime path.** A local **OpenBao Agent** (`bao-agent`) runs on the hw-radar CT under its own hardened systemd unit. It **AppRole-auto-auths** against the **Hetzner-local `bao-services` store** (not a remote store reached over the tailnet) and **templates secrets to a tmpfs render path** (convention: `/run/bao-agent/hw-radar.env`, root-owned, app-group-readable, gone on reboot). App services depend on that unit via `After=`. There is **no plaintext `.env` at rest** and no secret baked into a unit file. The `role_id` ships in the CT config-management; it is not a secret.
 
@@ -84,10 +84,10 @@ Option 2 was **rejected (and explicitly withdrawn from the spec)**: it would pla
 
 ### Confirmation
 
-open-questions.md **OQ1** is recorded settled (verified live), and gap #2 records the runtime-injection decision. Provisioning-time confirmation (M0): the web service serves an authenticated page and **reads at least one secret sourced from OpenBao** with **no plaintext `.env` on the CT**; the `bao-agent` unit is `Active`, renders to the tmpfs path, and survives a container restart without re-issuing the SecretID.
+resolved-questions.md **OQ1** is recorded settled (verified live), and gap #2 records the runtime-injection decision. Provisioning-time confirmation (M0): the web service serves an authenticated page and **reads at least one secret sourced from OpenBao** with **no plaintext `.env` on the CT**; the `bao-agent` unit is `Active`, renders to the tmpfs path, and survives a container restart without re-issuing the SecretID.
 
 ## More Information
 
-- **Findings that forced the decision:** open-questions.md **OQ1** (SecretID delivery, verified live), **gap #2** (`.env` → OpenBao runtime injection), and **RQ3/RQ5** (no per-container vTPM → Agent is the only path).
+- **Findings that forced the decision:** resolved-questions.md **OQ1** (SecretID delivery, verified live), **gap #2** (`.env` → OpenBao runtime injection), and **RQ3/RQ5** (no per-container vTPM → Agent is the only path).
 - **Depends on / interacts with:** **ADR 0003** (CT deployment — the vTPM consequence) and **ADR 0006** (credential-free CD from a public-repo runner).
 - **Live infrastructure specifics** — container IDs, the SecretID CIDR value, the `bao-issue-secret-id.sh` issuer, agent config and systemd unit paths — live in the **private `homelab` repo** under `infrastructure/servers/hetzner-dedicated/bao-agent/`, deliberately kept out of this public repo.
