@@ -248,7 +248,13 @@ _(none yet)_
 
 **Search:**
 
-Resolved comments:
+_New Comments:_ I am not sure what search rates were assumed for the estimates from agent comments above. Further research should include:
+
+- Should we rate limit our own search calls on a per-source basis to a reasonable time interval (e.g., 1 call per 1 minute per source) to avoid unreasonable usage and to prevent any unexpected costs (i.e. software bug results in excessive calls) or hitting any rate limits?
+- Should we implement a circuit breaker for chronically failing sources to prevent unnecessary costs and API abuse?
+- User settings in the app to adjust limits, timing, aggressiveness, etc. (e.g., user can set a maximum number of searches per day/week/month, or adjust the aggressiveness of the search frequency)?
+
+Past/resolved comments:
 
 ```markdown
 I have active accounts for each search service and I keep them topped up with funds. This question will require additional research to find the current per-call pricing for each service and to verify Brave's storage-rights plan requirement. Since I use these services elsewhere we will assume that any monthly free tier limits have already been exceeded and that we will be paying for any calls made. I feel that I will be comfortable with $10 to $20 per month total for all three services combined, but will reconsider after additional research (to be performed by Claude).
