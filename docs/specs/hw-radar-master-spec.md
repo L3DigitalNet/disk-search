@@ -25,6 +25,9 @@ related:
     - ../adr/adr-0012-orchestration-apscheduler.md
     - ../adr/adr-0013-notification-transport-m365-graph.md
     - ../adr/adr-0014-scraping-runtime-escalation-stack.md
+    - ../adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md
+    - ../adr/adr-0016-search-api-self-governance.md
+    - ../adr/adr-0017-resilient-acquisition.md
   tickets: []
   repositories:
     - 'https://github.com/L3DigitalNet/hw-radar'
@@ -91,7 +94,7 @@ Hardware Radar is a search-and-monitoring tool that watches ~20 online marketpla
 | ID | Non-Goal | Reason |
 | --- | --- | --- |
 | NG-001 | Payment processing or facilitating transactions between buyers and sellers. | The tool only collects, stores, and presents information and alerts (original spec, Out of Scope). |
-| NG-002 | Logging in to merchant sites, bypassing anti-bot protections, or solving CAPTCHAs to scrape. | Legal/ToS posture: public logged-out pages only; this guardrail bounds the Moderate Aggressive Usage principle (original spec, Special Considerations). |
+| NG-002 | Logging in to merchant sites, or **first-party** anti-bot bypass / CAPTCHA solving, to scrape. | Legal/ToS posture: public logged-out pages only; this guardrail bounds the Moderate Aggressive Usage principle (original spec, Special Considerations). Sole recorded carve-out: [ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md)'s Tier-4 **outsourced managed-unblocker** for a tiny high-value tail (a few URLs) — otherwise the source is SKIPped; routine solving stays the hard stop. |
 | NG-003 | LLM-driven "browser agents" for scraping. | Playwright use is code-driven, deterministic, headless automation only ([ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md)). |
 
 ### 2.3 Won't Have in v1 (deferred — not never)
@@ -147,7 +150,7 @@ A dedicated LXC container on the Hetzner Proxmox host runs the Django web app, t
 | C-004 | v1 email transport must be **free** (no paid email service for now). | Owner (resolved-questions.md OQ13) |
 | C-005 | The deploy host blocks outbound ports 25/465 — self-hosted SMTP is out. | Hetzner ([ADR 0013](../adr/adr-0013-notification-transport-m365-graph.md)) |
 | C-006 | The Python Tooling SSOT Standard governs all code: uv, Ruff, BasedPyright strict, pytest + coverage, pip-audit; the verification gate must pass. | `AGENTS.md`; [ADR 0002](../adr/adr-0002-python-tooling-standard-local-deviations.md) |
-| C-007 | Scraping guardrails: public logged-out pages only; never log in / bypass anti-bot / CAPTCHA; `ROBOTSTXT_OBEY=True`; AUTOTHROTTLE + honor `429`/`Retry-After`; honest User-Agent; prefer official APIs; store facts not expression; no PII; stop on a specific cease-and-desist. | Original spec, Special Considerations (legal posture, re-verified 2026-07-03) |
+| C-007 | Scraping guardrails: public logged-out pages only; never log in / first-party anti-bot bypass / CAPTCHA solving (sole carve-out: the Tier-4 managed-unblocker tail per [ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md) / NG-002); `ROBOTSTXT_OBEY=True`; AUTOTHROTTLE + honor `429`/`Retry-After`; honest User-Agent; prefer official APIs; store facts not expression; no PII; stop on a specific cease-and-desist. | Original spec, Special Considerations (legal posture, re-verified 2026-07-03) |
 | C-008 | Search-API spend: owner comfort band **$10–20/month total** for the three providers combined. | Owner (resolved-questions.md OQ7/gap #10) |
 | C-009 | The public-repo CI/CD workflow holds **no OpenBao credential** — it ships code and restarts services only. | [ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md) / [ADR 0009](../adr/adr-0009-secrets-runtime-openbao-agent.md) |
 | C-010 | Admin access to the deploy target is Tailscale-only; no public SSH port. | [ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md) |
@@ -187,7 +190,7 @@ Single-stakeholder project: the owner/maintainer is simultaneously the end user,
 | `availability_heartbeat_observation` | A cheap, no-render poll result (raw fingerprint, stock/price fields, endpoint + cache metadata, decision `unchanged`/`transition_detected`/`ambiguous`/`failed`) that gates the full pipeline — a full `offer_snapshot` is produced only on a detected transition. _([ADR 0015](../adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md); [polling-cadence reconciliation](../research/2026-07-04-polling-cadence-reconciliation.md))_ | A new grain **above** `offer_snapshot`, not a replacement; keyed at the variant/SKU grain. |
 | `drive_unit` | A physical individual drive (serial + SMART/FARM data); orthogonal grain below the model. | Recert-trust evidence, not catalog identity. |
 | `retention_class` | Per-record legal-persistability class governing storage/TTL (`merchant_fact`, `ebay_listing_observation`, `amazon_ephemeral`/`amazon_identifier`, `transient_discovery`, `tavily_extract`). | Encoded in the schema, not convention. |
-| Cohort | The peer group for price scoring: capacity · tier · interface/form-factor · condition (+ DWPD endurance class for SSDs). | Cohort-relative percentile, not absolute `$/TB` thresholds. |
+| Cohort | The peer group for price scoring: capacity · tier · interface/form-factor · condition (+ DWPD endurance class for SSDs — _provisional_: [ADR 0011](../adr/adr-0011-composite-deal-score.md)'s ratified key stops at condition; see OQ16). | Cohort-relative percentile, not absolute `$/TB` thresholds. |
 | `n_eff` | Effective sample size `(Σw)²/Σ(w²)` under the 90-day window with 30-day half-life decay; full scoring confidence at `n_eff ≥ 30`. | Below 30 the score shrinks toward neutral and is marked _provisional_. |
 | Veto cap | A non-compensatory ceiling on the composite score (SMR-for-NAS → 35; used/no-returns → 60; low seller trust → 60). | A cap, not a subtractive penalty. |
 | Recertified | Factory/vendor-recertified drive (a distinct condition channel and `product_variant`). | Not the same as "used" or "seller-refurbished." |
@@ -255,9 +258,9 @@ Single-stakeholder project: the owner/maintainer is simultaneously the end user,
 | DR-003 | All tables | No image bytes shall be stored anywhere — image URLs/hashes only; provider result IDs are transient and never keys. | Schema review: no bytea/image columns | hw-radar (retention posture) |
 | DR-004 | `listing_score` / explanation payload | Every automated score shall persist its input facts, algorithm version, thresholds/margins, confidence (`n_eff`/`λ`), risk flags, and machine- and user-facing explanations. | Payload present per scored listing | hw-radar ([ADR 0011](../adr/adr-0011-composite-deal-score.md)) |
 | DR-005 | Price history | Repeated price checks shall append time-series observations to the `offer_snapshot` hypertable under stable canonical entities — never overwrite or duplicate listings. | Re-run ⇒ new observations, not new listings (M1) | hw-radar ([ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)/[0010](../adr/adr-0010-canonical-data-model.md)) |
-| DR-006 | `availability_heartbeat_observation` | Fast-lane sources may be polled via a cheap no-render heartbeat that fires the full pipeline only on a detected transition (OOS↔in-stock, material price drop, new variant/listing ID, or post-in-stock ambiguity); the heartbeat fingerprint shall include price + stock + shipping state and be keyed at the variant/SKU grain. _([ADR 0015](../adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md); [polling-cadence reconciliation](../research/2026-07-04-polling-cadence-reconciliation.md))_ | Grain **above** `offer_snapshot`; variant-keyed; transition-gated | hw-radar (extends [ADR 0010](../adr/adr-0010-canonical-data-model.md) via [ADR 0015](../adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md)) |
 | DR-006 | PII | The system shall store no PII from scraped pages; cassettes/fixtures are PII-scrubbed before commit. | vcrpy filters; synthetic-only fixtures for named commercial sources _(provisional — OQ8)_ | hw-radar |
 | DR-007 | Backups | The database shall be included in the host dump pipeline at provisioning, with **TimescaleDB-aware** dump/restore (or in-CT physical backup) — a plain `pg_dump` allowlist entry restores incorrectly. RPO acceptance is **resolved** — ≤1 h accepted for v1 with TimescaleDB-aware logical dumps ([OQ3](../resolved-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling), owner-ratified 2026-07-04). | Restore test into a scratch instance (M5) | hw-radar + homelab pipeline ([ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md)/[0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)) |
+| DR-008 | `availability_heartbeat_observation` | Fast-lane sources may be polled via a cheap no-render heartbeat that fires the full pipeline only on a detected transition (OOS↔in-stock, material price drop, new variant/listing ID, or post-in-stock ambiguity); the heartbeat fingerprint shall include price + stock + shipping state and be keyed at the variant/SKU grain. _([ADR 0015](../adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md); [polling-cadence reconciliation](../research/2026-07-04-polling-cadence-reconciliation.md); heartbeat retention/TTL undecided — OQ17)_ | Grain **above** `offer_snapshot`; variant-keyed; transition-gated | hw-radar (extends [ADR 0010](../adr/adr-0010-canonical-data-model.md) via [ADR 0015](../adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md)) |
 
 ---
 
@@ -344,6 +347,9 @@ The ADRs are the authoritative record; each row is a pointer, not a restatement.
 | D-012 | Orchestration = APScheduler 3.11.x in one systemd-supervised poller process owning shared admission/breaker state (amends ADR 0006's "timers for scrapes"). | Scrape jobs share fast-mutating state; 3.x can't share a job store across processes; brokers are over-engineering. | Per-scrape systemd timers; Celery/RQ/Dramatiq/Taskiq | [ADR 0012](../adr/adr-0012-orchestration-apscheduler.md) |
 | D-013 | Alert email via the existing M365 Graph send path (branded, zero marginal cost); AgentMail free as independent fallback; Postmark/SES retained only as the paid-upgrade path. | Free constraint (C-004); no dependence on volatile third-party free tiers; Hetzner blocks SMTP ports. | AgentMail-primary; paid transactional; other free tiers | [ADR 0013](../adr/adr-0013-notification-transport-m365-graph.md) |
 | D-014 | Scraping runtime = HTTP-first, structured-data-first, browser-last four-tier ladder (Scrapy → `curl_cffi` → `scrapy-playwright` → managed unblocker/skip); tiers 2–3 deferred to M5. | Most sources need no browser; the browser is a scalpel, not the default engine. | Full stack now; browser/managed-API by default | [ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md) |
+| D-015 | Add the `availability_heartbeat_observation` grain above `offer_snapshot` + a per-source volatility profile as a second scheduling axis (effective cadence = min(tier ceiling, volatility need); fast lane = drop-prone ∩ verified cheap signal). | One snapshot per real transition keeps the price-history moat clean; polling budget flows to where inventory actually moves; freshness becomes a measurable per-source SLO. | Snapshot-per-poll with no new grain; volatility axis without the cheap grain | [ADR 0015](../adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md) |
+| D-016 | Search self-governance = the ordered `SearchBudgetGate` (kill switch → persisted reserve-then-call spend cap → failing-provider breaker → token bucket) + a per-provider settings row; numeric values stay tunable (OQ7). | Provider dashboard caps are alert-only; an in-memory guard resets exactly when a runaway bug strikes; the gate order is the decision — each stage cheaper and more final than the next. | Dashboard caps + in-memory limiter; single global spend cap | [ADR 0016](../adr/adr-0016-search-api-self-governance.md) |
+| D-017 | Resilient acquisition = per-source isolation + a persisted source-state lifecycle (`active ↔ backing-off → paused_pending_fix → active`, `→ SKIP`) driven by the failure-classification tree, with silent-degradation detection + health alerting. | One source failing must never halt the others; the failure class routes each source to the right remedy (retry / quarantine / human fix / alert). | Monolithic run with best-effort try/except; retry-only with no terminal states | [ADR 0017](../adr/adr-0017-resilient-acquisition.md) |
 
 ### 8.4 Solution Alternatives Considered `[Full]`
 
@@ -360,7 +366,7 @@ _No repo source records a formal buy-vs-build evaluation. Existing tools (Keepa,
 
 Constraints the implementer must not violate:
 
-- The scraping guardrails (C-007) are encoded in the scraper, not left as convention: `ROBOTSTXT_OBEY=True`, AUTOTHROTTLE, honor `429`/`Retry-After`, honest User-Agent, public logged-out pages only, no anti-bot/CAPTCHA bypass, store facts not expression, no PII, stop on a specific cease-and-desist.
+- The scraping guardrails (C-007) are encoded in the scraper, not left as convention: `ROBOTSTXT_OBEY=True`, AUTOTHROTTLE, honor `429`/`Retry-After`, honest User-Agent, public logged-out pages only, no first-party anti-bot/CAPTCHA bypass (Tier-4 managed-unblocker carve-out per NG-002/[ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md)), store facts not expression, no PII, stop on a specific cease-and-desist.
 - No image-byte storage anywhere (URLs/hashes only); provider result IDs are transient, never keys (DR-003).
 - The identity spine (`category → product_family → product_model → product_variant → listing → offer_snapshot`) is category-generic; only `drive_spec` is drive-shaped. Do not "simplify" back to the two-level model/snapshot shape ([ADR 0010](../adr/adr-0010-canonical-data-model.md) explicitly supersedes it).
 - Retention/PII/licensing are enforced **in the schema** (`retention_class`/`expires_at`), not by convention.
@@ -405,6 +411,7 @@ The canonical data model is **fixed by [ADR 0010](../adr/adr-0010-canonical-data
 | **Variant** | `product_variant` | the **sellable** identity: condition · packaging · recert-channel · warranty-channel | Price analytics roll up here |
 | Listing | `listing` | one merchant's offer page | Carries a derived `listing_fingerprint` |
 | Observation | `offer_snapshot` | time-series price/stock/FX/score | The TimescaleDB hypertable |
+| **Heartbeat** (gating) | `availability_heartbeat_observation` | a cheap no-render poll result: price+stock+shipping fingerprint + decision (`unchanged`/`transition_detected`/`ambiguous`/`failed`) | Grain **above** `offer_snapshot`, keyed at the variant/SKU grain; a full snapshot fires only on a detected transition ([ADR 0015](../adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md)) |
 | **Unit** (orthogonal) | `drive_unit` | a physical drive: serial + SMART/FARM | Grain below the model; recert-trust evidence |
 
 Supporting tables: `product_alias` (external identifiers — GTIN/UPC, ASIN, ePID, OEM/retail/region part numbers as many-to-one alias rows, never canonical columns), `drive_spec` (typed 1:1 satellite: scoring-critical typed columns such as `recording_tech`, `plp`, `market_tier`, `model_family`, `dwpd`, `workload_tb_year`; long tail in `spec_json`), `manufacturer`, `seller`, `source_site`, `raw_payload`, `search_observation`, `verification_event` (warranty-lookup cache).
@@ -471,7 +478,7 @@ Expected result:
 | AW-004 | N=4 consecutive clean polls (no error/soft-block, latency < 2× rolling median) | Auto-ramp: halve the interval, floored at the tier ceiling _(provisional — OQ9)_ | Earned faster polling on healthy sources |
 | AW-005 | Latency spike (>3× median across 3 polls) | Halve cadence (slow down, don't stop) | Load-shedding without losing the source |
 | AW-006 | Sustained `parser_rot` or `anti_bot` classification | Circuit-break to `paused_pending_fix`; daily recovery probe; operator alert _([ADR 0017](../adr/adr-0017-resilient-acquisition.md))_ | One source's failure never halts the others |
-| AW-007 | Cooldown repeatedly maxes at 24 h on soft-block after exhausting the ladder (short of CAPTCHA/stealth rungs) | Permanent SKIP (registry state, human re-review); legal/ToS triggers force SKIP regardless | Hostile sources exit the rotation deliberately |
+| AW-007 | Cooldown repeatedly maxes at 24 h on soft-block after exhausting the ladder (short of first-party CAPTCHA/stealth rungs) | Permanent SKIP (registry state, human re-review) — or the deliberate [ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md) Tier-4 managed-unblocker exception for a tiny high-value tail; legal/ToS triggers force SKIP regardless | Hostile sources exit the rotation deliberately |
 | AW-008 | Search-provider budget exhausted / kill switch on | `SearchBudgetGate` fails safe before the call (`budget_exhausted`) _([ADR 0016](../adr/adr-0016-search-api-self-governance.md))_ | No runaway spend |
 | AW-009 | Graph send failure | Surface delivery failure detectably; AgentMail fallback exercisable on demand | Alerts don't silently vanish |
 
@@ -486,7 +493,7 @@ Expected result:
 | EC-005 | Thin cohort (`n_eff < 30`) | Score shrinks toward neutral 0.5, marked _provisional_; documented cohort relaxation (condition → adjacent capacity → parent tier) |
 | EC-006 | Seller with no ratings | Conservative policy prior (0.60 major marketplace / 0.50 otherwise) as an explicit missing-data state |
 | EC-007 | HTTP 200 but wrong page (challenge/empty/stale) | Soft-block detection (structured-data absence · body-size outlier <20% of median · challenge markers · repeated identical hash despite confirmed movement) reclassifies the fetch as failed |
-| EC-008 | SSD compared on capacity alone | Never — cohort key includes endurance class (DWPD) for SSDs |
+| EC-008 | SSD compared on capacity alone | Never — cohort key includes endurance class (DWPD) for SSDs _(provisional — not in [ADR 0011](../adr/adr-0011-composite-deal-score.md)'s ratified key; OQ16)_ |
 | EC-009 | Source returns 0/malformed records N runs in a row | Count-vs-rolling-average assertion triggers an alert (runtime validation, gap #9) |
 
 ### 10.4 State Transitions
@@ -594,7 +601,7 @@ Store credential **references** here (env var names, secret-manager paths) — n
 | Secret | Storage Location | Access Pattern | Rotation / Notes |
 | --- | --- | --- | --- |
 | App runtime secrets (rendered set) | OpenBao `bao-services` store → tmpfs `/run/bao-agent/hw-radar.env` (root-owned, `0640`, app-group-readable) | `bao-agent` AppRole auto-auth; services depend via `After=` | ADR 0009 convention. _The original spec's `/run/hw-radar/secrets.env` + GMK-direct store are superseded; reconciliation follow-up recorded in ADR 0009._ |
-| AppRole `secret_id` | `/etc/bao-agent/secret-id` (mode 0600, root, **persistent**) | Delivered operator→CT via `bao-issue-secret-id.sh` (response-wrap + `pct push`) | **CIDR-bound** is the active control (not TTL); rotation = re-run the issuer. `remove_secret_id_file_after_reading=true` is superseded (breaks restart safety). |
+| AppRole `secret_id` | Root-only on-disk file (mode 0600, **persistent**; path in the private `homelab` repo per ADR 0009) | Delivered operator→CT via the issuer script (response-wrap + `pct push`; script name/paths in the private `homelab` repo) | **CIDR-bound** is the active control (not TTL); rotation = re-run the issuer. `remove_secret_id_file_after_reading=true` is superseded (breaks restart safety). |
 | AgentMail API token | OpenBao `secret/api-keys/ai/agentmail` (`AGENTMAIL_API_BEARER_TOKEN`) | Fallback email sends | Path also holds the agent inbox address |
 | eBay API credentials | OpenBao `secret/api-keys/commerce/ebay` | Browse/Feed API calls | — |
 | Search API keys (Serper/Brave/Tavily) | OpenBao `secret/api-keys/search/` | Discovery calls via `SearchBudgetGate` | New keys to be created for this project |
@@ -803,7 +810,7 @@ Split concern (resolved gap #6): **infrastructure health** (up/disk/CPU/RAM) rid
 | Asset | Backup Method | Frequency | Retention | Restore Test Cadence |
 | --- | --- | --- | --- | --- |
 | PostgreSQL+TimescaleDB | Hourly logical dumps (`pg_dump --format=custom` + `pg_dumpall --globals-only`) via the host pipeline — **must be made TimescaleDB-aware** (`timescaledb_pre_restore()`/`post_restore()`) or replaced by in-CT physical backup (OQ3) | Hourly | Host pipeline: 48 hourly / 14 daily / 8 weekly / 6 monthly | Monthly restore-test discipline; restore into a scratch instance ≥once by M5 |
-| CT app data (files) | Host file-level restic (ZFS-subvolume paths): local repo + hourly offsite (Hetzner Storage Box) + weekly tier-1 subset (Backblaze B2) | Hourly offsite | As above | Monthly discipline |
+| CT app data (files) | Host file-level restic (ZFS-subvolume paths): local repo + hourly offsite (Hetzner Storage Box) — hw-radar is **not** in the weekly B2 tier-1 subset (owner declined for v1; OQ3) | Hourly offsite | As above | Monthly discipline |
 
 **Mandatory provisioning step (not automatic):** add the CT's data paths to `backup-restic.sh` and its DB to `backup-dumps.sh` — coverage is a hardcoded allowlist; a never-added service is silently unprotected (ADR 0003).
 
@@ -914,7 +921,7 @@ _No latency/throughput performance targets are stated in the sources._
 
 ## 21. Open Questions and Decisions `[Light]`
 
-Repo convention: open decisions live in [`open-questions.md`](../open-questions.md); settled ones in [`resolved-questions.md`](../resolved-questions.md); ADRs are the authoritative decision record. This table mirrors that state — the four remaining "Answered (provisional)" rows (OQ-005/006/008/009) are settled working positions **not yet ADR-ratified** (their full substance lives in `resolved-questions.md`, which is their record); OQ-007 and OQ-010 were ADR-ratified 2026-07-04 ([ADR 0016](../adr/adr-0016-search-api-self-governance.md) / [ADR 0017](../adr/adr-0017-resilient-acquisition.md)).
+Repo convention: open decisions live in [`open-questions.md`](../open-questions.md); settled ones in [`resolved-questions.md`](../resolved-questions.md); ADRs are the authoritative decision record. This table mirrors that state — the four remaining "Answered (provisional)" rows (OQ-005/006/008/009) are settled working positions **not yet ADR-ratified** (their full substance lives in `resolved-questions.md`, which is their record); OQ-007 and OQ-010 were ADR-ratified 2026-07-04 ([ADR 0016](../adr/adr-0016-search-api-self-governance.md) / [ADR 0017](../adr/adr-0017-resilient-acquisition.md)); the **Open** rows OQ-016–OQ-020 were raised by the 2026-07-04 spec gap analysis and are tracked in `open-questions.md`.
 
 | ID | Question | Current Assumption | Blocking? | Owner | Needed By | Status |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -926,6 +933,11 @@ Repo convention: open decisions live in [`open-questions.md`](../open-questions.
 | OQ-009 (repo OQ9) | Acquisition cadence, throttle & skip policy | Per-tier baseline→ceiling + earned auto-ramp; back-off ladder w/ 24 h cap; soft-block detection; skip decision tree | No | Owner | M1+ | Answered (provisional — no ADR) |
 | OQ-010 (repo [OQ10](../resolved-questions.md#oq10--reliability--resilient-acquisition)) | Reliability / resilient acquisition | Per-source isolation + circuit-break lifecycle (`paused_pending_fix` → SKIP) + silent-degradation detection + health alerts ([ADR 0017](../adr/adr-0017-resilient-acquisition.md)); only M5 wiring remains | No | Owner | M5 | **Resolved (ADR 0017)** |
 | OQ-015 (repo [OQ15](../resolved-questions.md#oq15--amazon-acquisition-path-after-pa-api-deprecation)) | Amazon acquisition path after PA-API 5 `GetItems` **2026-05-15 deprecation** (→ Creators API) | **Resolved 2026-07-04 (research-backed):** **discovery-only via the existing search-API stack** (ASIN from `/dp/<ASIN>` URLs; SERP price = low-confidence 24 h hint). Both official APIs blocked — **SP-API seller-only** (categorical), **Creators API** gated behind 10 qualified sales/30 days (not clearable); PA-API closed to new registrations. No direct Amazon scraper (higher ToS exposure). Retention (DR-001) unchanged. | No — Amazon is churning, not a value source | Owner | ~M5 (Amazon connector) | **Resolved** |
+| OQ-016 (repo [OQ16](../open-questions.md#oq16--ssd-cohort-key-endurance-dimension-dwpd)) | Does the SSD price-scoring cohort key include a DWPD endurance class? | Spec glossary + EC-008 say yes; [ADR 0011](../adr/adr-0011-composite-deal-score.md)'s ratified key stops at condition — ratify the extension or drop it | No — but decide before SSD scoring lands | Owner | M2 | **Open** |
+| OQ-017 (repo [OQ17](../open-questions.md#oq17--heartbeat-grain-retention--storage-policy)) | Retention/TTL + storage policy for `availability_heartbeat_observation` rows | Undecided — DR-001's retention-class list has no heartbeat class; [ADR 0015](../adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md) flagged "its own retention" without setting it | No | Owner | First fast-lane source (M1+) | **Open** |
+| OQ-018 (repo [OQ18](../open-questions.md#oq18--recovery-time-objective-rto-for-v1)) | RTO target for v1 | None stated (§18.6 "RTO: not stated in sources"); RPO is ratified ≤1 h but acceptable rebuild time is unbounded | No | Owner | Pre-production | **Open** |
+| OQ-019 (repo [OQ19](../open-questions.md#oq19--accessibility--i18n-declaration)) | Accessibility & i18n target (§11) | Template placeholder — set a target (e.g. WCAG 2.1 AA) or declare out of scope with a reason | No | Owner | M3 | **Open** |
+| OQ-020 (repo [OQ20](../open-questions.md#oq20--oss-license-compliance-posture)) | OSS license-compliance posture | §16 box unchecked; pip-audit covers CVEs, not licenses — add a license check, one-time manual review, or accept | No | Owner | Pre-v1 release | **Open** |
 
 ---
 
@@ -951,8 +963,8 @@ Maintained by the **implementer** during the build (Appendix B). Any divergence 
 
 ### Project References
 
-- **ADRs:** [`docs/adr/`](../adr/README.md) — ADR 0001–0014 (frontmatter `related.adrs`); the authoritative decision record.
-- **Question record:** [`docs/open-questions.md`](../open-questions.md) (open — OQ3) · [`docs/resolved-questions.md`](../resolved-questions.md) (settled RQ1–RQ6, gaps 1–12, resolved OQ1–OQ14 minus OQ3).
+- **ADRs:** [`docs/adr/`](../adr/README.md) — ADR 0001–0017 (frontmatter `related.adrs`); the authoritative decision record.
+- **Question record:** [`docs/open-questions.md`](../open-questions.md) (open — OQ16–OQ20) · [`docs/resolved-questions.md`](../resolved-questions.md) (settled RQ1–RQ6, gaps 1–12, resolved OQ1–OQ15).
 - **Research corpus:** [`docs/research/index.md`](../research/index.md) (generated index — do not hand-edit) — in-depth context behind decisions; **not** imported wholesale here. Time-sensitive facts in reports are dated — re-verify before relying.
 - **Toolchain contract:** `AGENTS.md` (Python Tooling SSOT Standard; verification gate).
 - **Prior spec:** `docs/archived/hw-radar.md` (superseded by this document).

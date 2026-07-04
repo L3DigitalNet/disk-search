@@ -90,4 +90,4 @@ resolved-questions.md **OQ1** is recorded settled (verified live), and gap #2 re
 
 - **Findings that forced the decision:** resolved-questions.md **OQ1** (SecretID delivery, verified live), **gap #2** (`.env` → OpenBao runtime injection), and **RQ3/RQ5** (no per-container vTPM → Agent is the only path).
 - **Depends on / interacts with:** **ADR 0003** (CT deployment — the vTPM consequence) and **ADR 0006** (credential-free CD from a public-repo runner).
-- **Live infrastructure specifics** — container IDs, the SecretID CIDR value, the `bao-issue-secret-id.sh` issuer, agent config and systemd unit paths — live in the **private `homelab` repo** under `infrastructure/servers/hetzner-dedicated/bao-agent/`, deliberately kept out of this public repo.
+- **Live infrastructure specifics** — container IDs, the SecretID CIDR value, the issuer script's name and location, agent config and systemd unit paths — live in the **private `homelab` repo** under `infrastructure/servers/hetzner-dedicated/bao-agent/`, deliberately kept out of this public repo.

@@ -254,7 +254,7 @@ Everything above is the **operational / product-engineering** layer a research-f
 
 ## Resolved OQs
 
-OQ1–OQ14 (except the still-open [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling)), relocated here on 2026-07-04. Their `#oq#` anchors are preserved so ADR/TODO/spec/research back-links keep resolving. **ADR-backed OQs are condensed to a one-line resolution + ADR link** (the ADR is canonical); **OQs with no ADR retain their full decided substance** (this document is their record).
+OQ1–OQ15, relocated here on 2026-07-04 ([OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling) and [OQ15](#oq15--amazon-acquisition-path-after-pa-api-deprecation) on their resolution later the same day). Their `#oq#` anchors are preserved so ADR/TODO/spec/research back-links keep resolving. **ADR-backed OQs are condensed to a one-line resolution + ADR link** (the ADR is canonical); **OQs with no ADR retain their full decided substance** (this document is their record).
 
 | # | Question | Resolution |
 | --- | --- | --- |
