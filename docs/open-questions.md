@@ -21,51 +21,51 @@ Read **[Open questions](#open-questions)** for anything that still needs a call.
 ## Table of Contents
 
 - [Open Questions — `disk-search.md`](#open-questions--disk-searchmd)
-	- [How to maintain this document](#how-to-maintain-this-document)
-	- [Table of Contents](#table-of-contents)
-	- [Open questions](#open-questions)
-		- [At a glance](#at-a-glance)
-		- [OQ1 — `secret_id` out-of-band delivery to the CT](#oq1--secret_id-out-of-band-delivery-to-the-ct)
-			- [Agent notes](#agent-notes)
-			- [My Comments](#my-comments)
-		- [OQ2 — Ephemeral-runner tailnet auth](#oq2--ephemeral-runner-tailnet-auth)
-			- [Agent notes](#agent-notes-1)
-			- [My Comments](#my-comments-1)
-		- [OQ3 — DB RPO acceptance (+ TimescaleDB dump handling)](#oq3--db-rpo-acceptance--timescaledb-dump-handling)
-			- [Agent notes](#agent-notes-2)
-			- [My Comments](#my-comments-2)
-		- [OQ4 — DB placement: own CT vs shared datastores CT](#oq4--db-placement-own-ct-vs-shared-datastores-ct)
-			- [Agent notes](#agent-notes-3)
-			- [My Comments](#my-comments-3)
-		- [OQ5 — Off-box heartbeat](#oq5--off-box-heartbeat)
-			- [Agent notes](#agent-notes-4)
-			- [My Comments](#my-comments-4)
-		- [OQ6 — Final UI page inventory + dismiss→suppress feedback + purchase tracking](#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking)
-			- [Agent notes](#agent-notes-5)
-			- [My Comments](#my-comments-5)
-		- [OQ7 — Running-cost budget model (build-time pricing pass)](#oq7--running-cost-budget-model-build-time-pricing-pass)
-			- [Agent notes](#agent-notes-6)
-			- [My Comments](#my-comments-6)
-		- [OQ8 — Scraper testing finalization](#oq8--scraper-testing-finalization)
-			- [Agent notes](#agent-notes-7)
-			- [My Comments](#my-comments-7)
-	- [Resolved](#resolved)
-		- [Resolved questions](#resolved-questions)
-		- [Gap summary (all 12, for reference)](#gap-summary-all-12-for-reference)
-		- [Resolved gaps \& decisions](#resolved-gaps--decisions)
-			- [Gap 1 — Web-app authentication (settled, ADR 0005)](#gap-1--web-app-authentication-settled-adr-0005)
-			- [Gap 2 — `.env` secrets model → OpenBao (settled except `secret_id` delivery)](#gap-2--env-secrets-model--openbao-settled-except-secret_id-delivery)
-			- [Gap 3 — Currency / landed-cost normalization (settled)](#gap-3--currency--landed-cost-normalization-settled)
-			- [Gap 4 — Deployment \& service topology (settled, ADR 0006)](#gap-4--deployment--service-topology-settled-adr-0006)
-			- [Gap 5 — Backup / disaster recovery (settled CT path, ADR 0003)](#gap-5--backup--disaster-recovery-settled-ct-path-adr-0003)
-			- [Gap 6 — Application self-observability (settled CT path except off-box heartbeat)](#gap-6--application-self-observability-settled-ct-path-except-off-box-heartbeat)
-			- [Gap 7 — UI/UX (settled: Django + HTMX + post-alert model; inventory open)](#gap-7--uiux-settled-django--htmx--post-alert-model-inventory-open)
-			- [Gap 8 — v1 scope / phasing / acceptance criteria (settled)](#gap-8--v1-scope--phasing--acceptance-criteria-settled)
-			- [Gap 9 — Scraper testing strategy (settled stack + amendments; build-time params open)](#gap-9--scraper-testing-strategy-settled-stack--amendments-build-time-params-open)
-			- [Gap 10 — Running-cost / budget model (settled approach; pricing pass open)](#gap-10--running-cost--budget-model-settled-approach-pricing-pass-open)
-			- [Gap 11 — Shipping (and tax) in the `$/TB` score (settled)](#gap-11--shipping-and-tax-in-the-tb-score-settled)
-			- [Gap 12 — Cold-start scoring (settled)](#gap-12--cold-start-scoring-settled)
-		- [Scope \& research provenance](#scope--research-provenance)
+  - [How to maintain this document](#how-to-maintain-this-document)
+  - [Table of Contents](#table-of-contents)
+  - [Open questions](#open-questions)
+    - [At a glance](#at-a-glance)
+    - [OQ1 — `secret_id` out-of-band delivery to the CT](#oq1--secret_id-out-of-band-delivery-to-the-ct)
+      - [Agent notes](#agent-notes)
+      - [My Comments](#my-comments)
+    - [OQ2 — Ephemeral-runner tailnet auth](#oq2--ephemeral-runner-tailnet-auth)
+      - [Agent notes](#agent-notes-1)
+      - [My Comments](#my-comments-1)
+    - [OQ3 — DB RPO acceptance (+ TimescaleDB dump handling)](#oq3--db-rpo-acceptance--timescaledb-dump-handling)
+      - [Agent notes](#agent-notes-2)
+      - [My Comments](#my-comments-2)
+    - [OQ4 — DB placement: own CT vs shared datastores CT](#oq4--db-placement-own-ct-vs-shared-datastores-ct)
+      - [Agent notes](#agent-notes-3)
+      - [My Comments](#my-comments-3)
+    - [OQ5 — Off-box heartbeat](#oq5--off-box-heartbeat)
+      - [Agent notes](#agent-notes-4)
+      - [My Comments](#my-comments-4)
+    - [OQ6 — Final UI page inventory + dismiss→suppress feedback + purchase tracking](#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking)
+      - [Agent notes](#agent-notes-5)
+      - [My Comments](#my-comments-5)
+    - [OQ7 — Running-cost budget model (build-time pricing pass)](#oq7--running-cost-budget-model-build-time-pricing-pass)
+      - [Agent notes](#agent-notes-6)
+      - [My Comments](#my-comments-6)
+    - [OQ8 — Scraper testing finalization](#oq8--scraper-testing-finalization)
+      - [Agent notes](#agent-notes-7)
+      - [My Comments](#my-comments-7)
+  - [Resolved](#resolved)
+    - [Resolved questions](#resolved-questions)
+    - [Gap summary (all 12, for reference)](#gap-summary-all-12-for-reference)
+    - [Resolved gaps \& decisions](#resolved-gaps--decisions)
+      - [Gap 1 — Web-app authentication (settled, ADR 0005)](#gap-1--web-app-authentication-settled-adr-0005)
+      - [Gap 2 — `.env` secrets model → OpenBao (settled except `secret_id` delivery)](#gap-2--env-secrets-model--openbao-settled-except-secret_id-delivery)
+      - [Gap 3 — Currency / landed-cost normalization (settled)](#gap-3--currency--landed-cost-normalization-settled)
+      - [Gap 4 — Deployment \& service topology (settled, ADR 0006)](#gap-4--deployment--service-topology-settled-adr-0006)
+      - [Gap 5 — Backup / disaster recovery (settled CT path, ADR 0003)](#gap-5--backup--disaster-recovery-settled-ct-path-adr-0003)
+      - [Gap 6 — Application self-observability (settled CT path except off-box heartbeat)](#gap-6--application-self-observability-settled-ct-path-except-off-box-heartbeat)
+      - [Gap 7 — UI/UX (settled: Django + HTMX + post-alert model; inventory open)](#gap-7--uiux-settled-django--htmx--post-alert-model-inventory-open)
+      - [Gap 8 — v1 scope / phasing / acceptance criteria (settled)](#gap-8--v1-scope--phasing--acceptance-criteria-settled)
+      - [Gap 9 — Scraper testing strategy (settled stack + amendments; build-time params open)](#gap-9--scraper-testing-strategy-settled-stack--amendments-build-time-params-open)
+      - [Gap 10 — Running-cost / budget model (settled approach; pricing pass open)](#gap-10--running-cost--budget-model-settled-approach-pricing-pass-open)
+      - [Gap 11 — Shipping (and tax) in the `$/TB` score (settled)](#gap-11--shipping-and-tax-in-the-tb-score-settled)
+      - [Gap 12 — Cold-start scoring (settled)](#gap-12--cold-start-scoring-settled)
+    - [Scope \& research provenance](#scope--research-provenance)
 
 ---
 
@@ -102,7 +102,7 @@ The secrets _path_ is settled (local OpenBao Agent, AppRole auto-auth, templates
 
 #### My Comments
 
-_(none yet)_
+SSH into Hetzner and look at the existing infra automation, particularly the CT with OpenBao. I believe that bao-agent will be able to resolve this issue.
 
 ---
 
@@ -119,7 +119,7 @@ Not resolvable server-side — it depends on what the existing tailnet ACL setup
 
 #### My Comments
 
-_(none yet)_
+Use the Tailscale API key from OpenBao to access the tailnet and check the ACLs. If the ACLs allow for OAuth client auth, then use that. Otherwise, provide additional options/alternatives.
 
 ---
 
