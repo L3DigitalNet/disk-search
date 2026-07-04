@@ -6,7 +6,7 @@ description: 'Model identity as a multi-grain ladder — category → product_fa
 doc_type: 'adr'
 status: 'active'
 created: '2026-07-03'
-updated: '2026-07-03'
+updated: '2026-07-04'
 reviewed: null
 owner: ''
 consumer: 'mix'
@@ -50,7 +50,7 @@ MADR status: **accepted**.
 
 The hardest modeling problem in Hardware Radar is **identity**: recognizing that listings from ~20 merchants — with different titles, SKUs, and identifiers — refer to the same physical drive, while keeping genuinely different things distinct (16 TB vs 18 TB; **new vs recertified**; SATA vs SAS). The accumulating price history is the tool's compounding value, so whatever the canonical entity is, it is the single most **costly-to-reverse** table in the system — every offer, score, and observation references it, and history accrues under it. Getting the grain wrong means a later rewrite, not a migration.
 
-Two forces constrain the choice, and they pull in opposite directions ([General Design Principles](../specs/hw-radar-master-spec.md#1-purpose--background-light)):
+Two forces constrain the choice, and they pull in opposite directions ([General Design Principles](../specs/hw-radar-master-spec.md#1-purpose--background)):
 
 - **Extensibility & Expandability** — the catalog must accommodate more marketplaces, scoring criteria, users, and eventually **other hardware types** (RAM, GPUs) without a schema rewrite.
 - **Engineered to Needs** — do not over-engineer; v1 is drives only.
@@ -90,7 +90,7 @@ Supporting: `product_alias` (external identifiers), `drive_spec` (typed satellit
 3. **External identifiers are aliases, never canonical columns.** GTIN/UPC, ASIN, ePID, OEM-vs-retail and region/revision part numbers go in `product_alias(alias_type, source_site_id, normalized_alias_text, is_primary, first_seen, last_seen)` — because a product has _multiple_ valid GTINs, and ASIN/ePID are marketplace-local. (Confirmed downstream: no target merchant reliably exposes GTIN; **eBay `epid` is Partner-gated** — so matching leans on normalized MPN + parsed attributes, which only works if identifiers are many-to-one aliases.)
 4. **Drive attributes live in a typed 1:1 satellite `drive_spec`, not the generic spine.** Scoring-critical fields are **typed columns** (e.g. `recording_tech` CMR/SMR — device-managed SMR is **surfaced but veto-capped**, not gated out of the catalog, per [ADR 0011](adr-0011-composite-deal-score.md); `plp`; `market_tier`; `model_family`; `dwpd`; `workload_tb_year`), with the long tail in `spec_json`. The full attribute list is the suitability-taxonomy report's field tables. Adding a hardware type = a new `*_spec` satellite, **no change to the spine**.
 5. **The physical unit is its own grain.** Serial numbers and SMART/FARM data describe one drive (`drive_unit`), and warranty-lookup results are cached in `verification_event` — both absent from the original sketch, both required by recert-trust scoring.
-6. **Every evidence/observation record carries a `retention_class` + `expires_at`.** Persistence is governed per source (see [the US data-retention review](../research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md)): `merchant_fact` (indefinite), `ebay_listing_observation` (6 h freshness / delete-on-delist), `amazon_ephemeral` (24 h, no image bytes) + `amazon_identifier` (ASIN indefinite), `transient_discovery` (TTL 0 — Google/Serper/Brave), `tavily_extract`. **No image-byte columns anywhere** (URLs/hashes only); provider result IDs are transient, never keys. `raw_payload` therefore cannot be one uniform table.
+6. **Every evidence/observation record carries a `retention_class` + `expires_at`.** Persistence is governed per source (see [the US data-retention review](../research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md)): `merchant_fact` (indefinite), `ebay_listing_observation` (6 h freshness / delete-on-delist), `amazon_ephemeral` (24 h, no image bytes) + `amazon_identifier` (ASIN indefinite), `transient_discovery` (TTL 0 — Google/Serper/Brave), `tavily_extract` (indefinite — no anti-storage clause on extracted facts). **No image-byte columns anywhere** (URLs/hashes only); provider result IDs are transient, never keys. `raw_payload` therefore cannot be one uniform table. **A source-restricted retention class takes precedence over any grain-level TTL a later ADR attaches** — `ebay_listing_observation`'s 6 h freshness / delete-on-delist caps the blanket heartbeat TTLs [ADR 0015](adr-0015-availability-heartbeat-grain-volatility-scheduling.md) sets, so eBay-sourced heartbeats never inherit those longer TTLs.
 
 **Rejected — Option 1 (two-level):** it cannot represent recert-vs-new as distinct sellable identities for price analytics, has no home for serials/SMART, and (by putting GTIN/MPN in columns) cannot hold the multiple/marketplace-scoped identifiers real listings carry. It is the shape this ADR deliberately supersedes; do not "simplify" back to it.
 

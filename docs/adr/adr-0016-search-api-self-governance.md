@@ -82,5 +82,5 @@ Implementation confirmation: with a daily cap exhausted, the next call returns `
 ## More Information
 
 - **Consumes** the [ADR 0012](adr-0012-orchestration-apscheduler.md) token-bucket substrate (same `rate`/`burst` vocabulary; the search gate is the outbound-spend analogue of the poller's per-source/per-domain buckets).
-- **Ratifies** the previously-_provisional_ spec positions: FR-011 (SearchBudgetGate), AW-008, ERR-006 (breaker), and the §325 stack-table row. Their _no-ADR / provisional_ status markers are repointed here; the **numeric** provisional markers (bucket values, spend envelope, 2026 pricing) intentionally **remain** under OQ7.
+- **Ratifies** the previously-_provisional_ spec positions: FR-011 (SearchBudgetGate), AW-008, ERR-006 (breaker), and the §8.3 D-016 Design Decisions row. Their _no-ADR / provisional_ status markers are repointed here; the **numeric** provisional markers (bucket values, spend envelope, 2026 pricing) intentionally **remain** under OQ7.
 - **Record & findings:** resolved-questions.md **OQ7**; research [`search-api-self-governance-and-user-configurable-limits`](../research/search-api-self-governance-and-user-configurable-limits.md), [`tavily-brave-serper`](../research/tavily-brave-serper.md).

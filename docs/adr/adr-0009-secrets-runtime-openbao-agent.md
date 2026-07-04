@@ -6,7 +6,7 @@ description: 'Resolve runtime secrets via a local OpenBao Agent on the hw-radar 
 doc_type: 'adr'
 status: 'active'
 created: '2026-07-03'
-updated: '2026-07-03'
+updated: '2026-07-04'
 reviewed: null
 owner: ''
 consumer: 'mix'
@@ -80,7 +80,7 @@ Option 2 was **rejected (and explicitly withdrawn from the spec)**: it would pla
 - **Good** — **no renewal treadmill**: a persistent, long-lived, CIDR-bound SecretID means the agent survives restarts unattended; rotation is a deliberate operator action.
 - **Bad (accepted)** — security rests on the **CIDR bind + host file permissions**, not on a short TTL. Acceptable given the single-host, Tailscale-only, physically-controlled environment, but it means a compromise _of that container's network identity_ is the threat to guard, and the SecretID file's `0600` root ownership is load-bearing.
 - **Bad (operational)** — onboarding is a **manual wave-2 step** (issue SecretID, drop the agent config/unit); it is not yet automated in the ansible scaffold. An implementation task, not a design gap.
-- **Spec reconciliation (follow-ups):** the spec still references the withdrawn `/run/hw-radar/secrets.env` path and a GMK-direct store — reconcile to `/run/bao-agent/hw-radar.env` and the Hetzner-local `bao-services` store; ensure the consumer AppRole's CIDR bind includes the hw-radar CT's address (value kept in the `homelab` repo).
+- **Spec reconciliation:** DONE — the spec's IR-005 and Data Sovereignty rows now name `/run/bao-agent/hw-radar.env` and the Hetzner-local `bao-services` store, marking the original `/run/hw-radar/secrets.env` path and GMK-direct store as **superseded** (both cite this ADR). Remaining follow-up (infra): ensure the consumer AppRole's CIDR bind includes the hw-radar CT's address (value kept in the private `homelab` repo).
 
 ### Confirmation
 

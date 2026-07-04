@@ -6,7 +6,7 @@ description: 'Deploy Hardware Radar as a dedicated Proxmox LXC container rather 
 doc_type: 'adr'
 status: 'active'
 created: '2026-07-03'
-updated: '2026-07-03'
+updated: '2026-07-04'
 reviewed: null
 owner: ''
 consumer: 'mix'
@@ -64,7 +64,7 @@ It maximizes reuse of the existing, battle-tested Hetzner infrastructure and ali
 
 Option 1 was rejected because it defeats the primary reason the deployment target matters (protecting the price-history moat): it inherits neither the file-level restic pipeline nor monitoring auto-discovery, and it contradicts the homelab standard without a justifying need.
 
-**The database lives on a container Postgres inside the hw-radar CT** (self-contained). The placement question — own-CT vs the shared datastores CT (centralized, already in the dump pipeline) — was **settled 2026-07-04 in favor of the own-CT Postgres** ([resolved-questions.md OQ4](../resolved-questions.md#oq4--db-placement-own-ct-vs-shared-datastores-ct)); both options were compatible with this ADR, and the self-contained one was chosen.
+**The database lives on a container Postgres inside the hw-radar CT** (self-contained). The placement question — own-CT vs the shared datastores CT (centralized, already in the dump pipeline) — was **settled 2026-07-03 in favor of the own-CT Postgres** ([resolved-questions.md OQ4](../resolved-questions.md#oq4--db-placement-own-ct-vs-shared-datastores-ct)); both options were compatible with this ADR, and the self-contained one was chosen.
 
 ### Consequences
 

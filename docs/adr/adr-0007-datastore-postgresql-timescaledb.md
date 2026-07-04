@@ -6,7 +6,7 @@ description: 'Use PostgreSQL as the system-of-record with the TimescaleDB extens
 doc_type: 'adr'
 status: 'active'
 created: '2026-07-03'
-updated: '2026-07-03'
+updated: '2026-07-04'
 reviewed: null
 owner: ''
 consumer: 'mix'
@@ -20,6 +20,7 @@ aliases: []
 related:
   - 'docs/adr/README.md'
   - 'docs/specs/hw-radar-master-spec.md'
+  - 'docs/adr/adr-0010-canonical-data-model.md'
   - 'docs/open-questions.md'
   - 'docs/resolved-questions.md'
   - 'docs/research/database-architecture.md'
@@ -73,7 +74,7 @@ Option 2 is the explicit **fallback**, not a rejection: core PostgreSQL already 
 - **Good** — a clean scale-out path remains (OpenSearch as a companion index if search UX demands it; ClickHouse as an analytics warehouse) without re-platforming the source of truth.
 - **Bad** — TimescaleDB is an extension to install, version-track, and keep compatible with the PostgreSQL major; it adds an upgrade dependency the plain-PostgreSQL fallback avoids.
 - **Bad (interacts with ADR 0003)** — the backup Hardware Radar *inherits* is **hourly logical `pg_dump`** (ADR 0003 — no physical backup exists; physical is only an optional RPO upgrade in resolved-questions.md OQ3). Logical dumps are precisely the TimescaleDB mode with caveats: restore requires `timescaledb_pre_restore()` / `post_restore()`, and native-compression state is not preserved. **So a TimescaleDB database is *not* correctly protected merely by adding it to the dump allowlist** (as ADR 0003's wiring step implies for an ordinary DB): the dump/restore step must be made **TimescaleDB-aware**, *or* in-CT **physical** backup (`pg_basebackup` / pgBackRest — needs no special handling) must be added (resolved-questions.md OQ3, gap #5). The plain-PostgreSQL fallback (Option 2) sidesteps this caveat entirely — a real, if modest, cost of the extension.
-- **Neutral** — the specific PostgreSQL major is not fixed here; it follows what the deployment CT provides. The canonical-entity **schema** (drive-model / listing / observation) is a separate decision (future ADR + `database-architecture.md`), not settled by this engine choice.
+- **Neutral** — the specific PostgreSQL major is not fixed here; it follows what the deployment CT provides. The canonical-entity **schema** (drive-model / listing / observation) is a separate decision ([ADR 0010](adr-0010-canonical-data-model.md) + `database-architecture.md`), not settled by this engine choice.
 
 ### Confirmation
 
@@ -82,4 +83,4 @@ The spec's Database `_TBD_` ("PostgreSQL or MySQL") is resolved to **PostgreSQL 
 ## More Information
 
 - Research: [`database-architecture.md`](../research/database-architecture.md) — executive recommendation, engine comparison, indexing, and single-host operational fit.
-- Related: ADR 0004 (Django ORM over this datastore), ADR 0003 (CT deployment + backup — the TimescaleDB physical-vs-logical caveat above), gap #5 (DB backup/RPO), and the pending canonical-entity data-model ADR (schema, distinct from this engine choice).
+- Related: ADR 0004 (Django ORM over this datastore), ADR 0003 (CT deployment + backup — the TimescaleDB physical-vs-logical caveat above), gap #5 (DB backup/RPO), and [ADR 0010](adr-0010-canonical-data-model.md) (the canonical-entity data-model — schema, distinct from this engine choice).

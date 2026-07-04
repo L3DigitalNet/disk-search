@@ -6,7 +6,7 @@ description: 'Deploy from a GitHub-hosted runner that joins the tailnet ephemera
 doc_type: 'adr'
 status: 'active'
 created: '2026-07-03'
-updated: '2026-07-03'
+updated: '2026-07-04'
 reviewed: null
 owner: ''
 consumer: 'mix'
