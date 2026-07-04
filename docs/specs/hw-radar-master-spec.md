@@ -76,7 +76,7 @@ Hardware Radar is a search-and-monitoring tool that watches ~20 online marketpla
 
 ### 2.1 In Scope
 
-- Continuous / near-real-time monitoring of ~20 online marketplaces for HDD and SSD listings (full marketplace list: Appendix C.1).
+- Per-source **freshness-SLO** monitoring of ~20 online marketplaces for HDD and SSD listings — polling cadence governed by each source's _volatility profile_ (drop-prone / churning / stable), not a uniform "real-time" scan (FR-001/FR-002; full marketplace list: Appendix C.1).
 - Tiered acquisition: official APIs → machine-readable structured data → HTTP scrape, escalating browser-last ([ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md)); search APIs for discovery only.
 - Canonical-entity normalization and cross-marketplace entity resolution ([ADR 0010](../adr/adr-0010-canonical-data-model.md)).
 - Currency/landed-cost normalization to USD ([ADR 0008](../adr/adr-0008-currency-landed-cost-normalization.md)).
