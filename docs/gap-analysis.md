@@ -29,12 +29,12 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 
 | # | Gap | Pri | Proposed solution (one-line) |
 | --: | --- | :-: | --- |
-| 1 | Web-app authentication undefined | 🔴 | **Decided:** single strong-password account (app holds no sensitive data); Argon2id session login; Authelia forward-auth reserved for multi-user |
-| 2 | `.env` secrets contradict OpenBao standard | 🔴 | OpenBao Agent (AppRole auto-auth) **local on the VM, decoupled from CI**; `.env` for local dev only _(clarification pending)_ |
+| 1 | Web-app authentication undefined | 🔴 | **Settled ([ADR 0005](adr/adr-0005-single-account-session-auth.md)):** single-account Argon2id session login; Authelia forward-auth reserved for multi-user |
+| 2 | `.env` secrets contradict OpenBao standard | 🔴 | OpenBao Agent (AppRole auto-auth) **local on the CT, decoupled from CI**; `.env` for local dev only _(secret_id delivery pending — open Q #4)_ |
 | 3 | No currency / landed-cost normalization | 🔴 | **Decided:** Frankfurter FX → normalize all to USD; **flag** international listings (no fixed haircut), user decides |
-| 4 | Deployment & service topology a black box | 🔴 | **Decided:** GitHub-hosted `ubuntu-latest` build/test → `rsync` over Tailscale SSH to the private VM; systemd units/timers |
-| 5 | No backup / disaster recovery | 🟡 | pgBackRest physical+WAL, offsite S3 repo, weekly `pg_dumpall`, monthly restore test |
-| 6 | No application self-observability | 🟡 | Uptime Kuma + offsite healthchecks.io heartbeat + GlitchTip + `scraper_runs` table |
+| 4 | Deployment & service topology a black box | 🔴 | **Settled ([ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)):** GitHub-hosted build/test → `rsync` over Tailscale SSH; systemd units/timers |
+| 5 | No backup / disaster recovery | 🟡 | **Decided (CT):** add to existing restic + hourly-dump pipeline ([ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)); ≤1 h RPO/no PITR — pgBackRest in-CT if tighter (open Q #9) |
+| 6 | No application self-observability | 🟡 | **Decided (CT):** existing Hetzner monitoring auto-covers the CT; add off-box heartbeat + in-app `scraper_runs`/dead-man's-switch |
 | 7 | UI/UX specified as one line | 🟡 | Defined page inventory + post-alert action model; server-rendered + HTMX |
 | 8 | No v1 scope / phasing / acceptance criteria | 🟡 | Six-milestone MVP plan (M0–M5) with per-milestone acceptance criteria |
 | 9 | No scraper testing strategy | 🟡 | vcrpy cassettes + syrupy snapshots + scheduled live JSON-LD contract canary |
@@ -48,26 +48,11 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 
 ### 1. Web-app authentication is asserted but never designed
 
-**Gap:** The spec says "User authentication for secure access" and is built for one user now but "extended to support other users in the future" — yet no auth model, mechanism, or user-storage schema exists. The [`database-architecture.md`](research/database-architecture.md) schema has no users/sessions tables.
+**Gap:** The spec asserted "user authentication for secure access" and anticipates future multi-user, but defined no auth model, mechanism, or user schema.
 
-**Evidence:** [`disk-search.md:7`](specs/disk-search.md), [`:78`](specs/disk-search.md).
+**Evidence:** [`disk-search.md:7`](specs/disk-search.md), [`:79`](specs/disk-search.md).
 
-**Decision (2026-07-03): the app is intentionally internet-facing behind a single strong-password account.** The owner's controlling constraint is that the web app holds **no secrets or sensitive data**, so a single-account login is an acceptable surface. Chosen path:
-
-- **v1 (chosen): single-account session login.** Django `contrib.auth` or a FastAPI session cookie, with **Argon2id** password hashing (OWASP 2026 default) and `Secure`+`HttpOnly`+`SameSite=Lax` cookies. Enforce a strong password; optional TOTP can be added later without a schema change.
-- **Considered and rejected: Tailscale-only.** Would remove the public attack surface entirely, but also makes the app unreachable off-tailnet — the owner wants it internet-reachable, so this was declined.
-- **Design constraint to carry into the spec (owner's rationale):** keep sensitive data **out of the app entirely**, so that even a single-account compromise cannot leak secrets. This is the load-bearing assumption behind accepting single-user auth — state it explicitly in the spec, not just here.
-- **Multi-user end state (unchanged): Authelia forward-auth** at NGINX (`auth_request`), ~50 MB RAM single Go binary, far lighter than Authentik (~2 GB). Adds MFA + multi-user without hand-rolling it.
-- **Security-critical rule for the eventual forward-auth path:** bind the app to **localhost only** so it can never be reached bypassing the proxy, and have NGINX **overwrite (not append)** the trusted identity header. Two live 2025–2026 CVEs (`CVE-2025-54576`, `CVE-2026-34457` in oauth2-proxy) are real instances of header-trust/`auth_request` bypass — pin whatever gateway is chosen to a patched release.
-- **Schema now:** stub a `users` table so multi-user isn't a later migration crisis.
-
-**Research:** [`auth-for-self-hosted-single-maintainer-python-app.md`](research/2026-07-03-auth-for-self-hosted-single-maintainer-python-app.md).
-
-#### User Comments
-
-**Status:** Rejected _(Tailscale-only recommendation)_ → **resolved to single-account session login** · **[ADR 0005](adr/adr-0005-single-account-session-auth.md)**
-
-**Reasoning:** The internet-facing web app should have no secret or sensitive data baked into it. There will still be some basic auth to access. I don't see a security risk in using a single user account with a strong password.
+**Settled → [ADR 0005](adr/adr-0005-single-account-session-auth.md):** a single strong-password account with **Argon2id** session login (Django `contrib.auth`), internet-facing; the load-bearing constraint is that the app holds **no in-app secrets**. Stub a `users` table now; **Authelia forward-auth** reserved for the multi-user end state. Full context, options, and the forward-auth security rules (localhost bind, header overwrite, CVE-pinned gateway) live in the ADR. Research: [`auth-for-self-hosted-single-maintainer-python-app.md`](research/2026-07-03-auth-for-self-hosted-single-maintainer-python-app.md).
 
 ### 2. `.env` secrets model contradicts the OpenBao standard, with no runtime-injection story
 
@@ -78,7 +63,7 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 **Proposed solution:**
 
 - **Runtime injection via OpenBao Agent** (`bao agent`, run as its own hardened systemd unit) using **AppRole auto-auth**. The agent templates secrets to a root-owned, `0640`, app-group-readable file on **tmpfs** (`/run/disk-search/secrets.env`, gone on reboot); the app services depend on it via `After=`. No plaintext `.env` at rest, no secrets baked into unit files.
-- **Secret Zero is simpler now that CI no longer runs on the VM** (see gap #4's decision — deploy is `rsync` over Tailscale SSH from a **GitHub-hosted** runner, not a self-hosted runner on the box). The OpenBao Agent runs **locally on the VM, fully decoupled from CI**: the `role_id` lives in the VM image/config-management, and the `secret_id` is provisioned **out-of-band to the VM** (at provisioning time, or renewed by a local process), **never handed to the GitHub-hosted CI job.** This is strictly better than the old plan — a public-repo CI runner should hold **no OpenBao credential at all**; it only rsyncs code and triggers `systemctl restart`, and the running services pick up secrets the Agent has already templated.
+- **Secret Zero is simpler because CI no longer runs on the box** (see gap #4 — deploy is `rsync` over Tailscale SSH from a **GitHub-hosted** runner). The OpenBao Agent runs **locally on the CT, fully decoupled from CI**: the `role_id` lives in the CT image/config-management, and the `secret_id` is provisioned **out-of-band to the CT** (at provisioning time, or renewed by a local process), **never handed to the GitHub-hosted CI job.** A public-repo CI runner should hold **no OpenBao credential at all**; it only rsyncs code and triggers `systemctl restart`, and the running services pick up secrets the Agent has already templated.
 - **Reconcile the spec's language:** `.env` is acceptable **for local development only**; production resolves secrets from OpenBao at runtime. This matches the global "never `bao://` in settings, resolve via a wrapper/agent" rule.
 
 **Research:** [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md) §3.
@@ -87,7 +72,7 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 
 **Status:** Further clarification needed → **direction set; two items to confirm**
 
-**Reconciled direction (2026-07-03):** OpenBao Agent local on the VM, decoupled from CI (reconciled against gap #4's rsync-from-GitHub-hosted-runner decision — the earlier "CD job fetches a response-wrapped `secret_id`" mechanism is withdrawn because CI is no longer on the VM and, being a public repo, must hold no OpenBao credential).
+**Reconciled direction (2026-07-03):** OpenBao Agent local on the CT, decoupled from CI (reconciled against gap #4's rsync-from-GitHub-hosted-runner decision — the earlier "CD job fetches a response-wrapped `secret_id`" mechanism is withdrawn because CI is no longer on the box and, being a public repo, must hold no OpenBao credential).
 
 **Open clarifications:**
 
@@ -117,27 +102,13 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 
 ### 4. Deployment & process/service-management mechanics are a black box
 
-**Gap:** "GitHub Actions → automatic deployment to Hetzner on merge to main" states the _what_, never the _how_: transport, how the web app + workers run as services, how CI reaches a non-public VM.
+**Gap:** "GitHub Actions → automatic deployment to Hetzner on merge to main" stated the _what_, never the _how_: transport, how the app runs as a service, how CI reaches a non-public target.
 
-**Evidence:** [`disk-search.md:71`–`:74`](specs/disk-search.md).
+**Evidence:** [`disk-search.md:72`–`:75`](specs/disk-search.md).
 
-**Decision (2026-07-03 — supersedes the self-hosted-runner proposal): GitHub-hosted build/test, then `rsync` over Tailscale SSH.** This is a **public** repo, and GitHub advises against self-hosted runners on public repos (a fork PR can execute untrusted code on your infrastructure — a risk best avoided outright rather than fenced off by trigger discipline). Chosen model:
+**Settled → [ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md):** a **GitHub-hosted `ubuntu-latest`** runner builds/tests, joins the tailnet **ephemerally**, then `rsync`s to the CT and restarts over `tailscale ssh` (self-hosted runner rejected on a public repo). Systemd web + worker units under a dedicated non-root user; **timers** for scrapes; venv built on the CT (`uv sync --frozen`); expand/contract migrations before restart. Full trigger/secret discipline and service topology live in the ADR. Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md); per-source scheduling refined in [`orchestration-choice…md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md).
 
-- **Runner:** a **GitHub-hosted `ubuntu-latest`** runner builds and tests the code (no infrastructure to harden, torn down after each run). The deploy step joins the tailnet **ephemerally** (`tailscale/github-action` with an OAuth client or a short-TTL, pre-authorized, ephemeral auth key), then `rsync`s the artifact to the VM and triggers the remote restart over `tailscale ssh`. No public SSH port; no persistent runner.
-- **Trigger discipline (still applies):** deploy only on `push`/`workflow_dispatch` to `main`, never `pull_request`/`pull_request_target`. Put the deploy job behind a GitHub **Environment with a required reviewer**, and store the Tailscale auth key + deploy SSH key as **Environment secrets** so PR-triggered runs can't read them. Scope the tailnet ACL so the ephemeral runner node can reach **only** the disk-search VM's SSH port.
-- **Transport & packaging:** `rsync` the checked-out source (or a `uv`-built wheel/sdist) to `/opt/disk-search`, then over `tailscale ssh` run `uv sync --frozen` into a persistent venv → run migrations → `systemctl restart`. Build the venv **on the VM**, not in CI, to avoid arch/path skew. Docker's registry/build overhead buys nothing for a single-VM fleet.
-- **Service topology (systemd):** one unit per process — **web** (socket-activated, `Type=simple`, gunicorn + uvicorn workers, `ExecReload=kill -HUP $MAINPID` for graceful reload), **worker(s)** (`Restart=on-failure`), under a **dedicated non-root user** with `ProtectSystem=strict`/`NoNewPrivileges`. Use **systemd timers** (not an in-process scheduler) for periodic scrapes — independent journal logging, resource limits, and restart semantics, and a timer can't silently die inside a long-running worker. Note: plain gunicorn never calls `sd_notify()`, so **avoid `Type=notify`** (it times out). _(The orchestration research ([`orchestration-choice-for-a-single-vm-price-polling-service.md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md)) refines the per-source scheduling that runs under these timers — two-level token buckets, jitter, circuit-breaking.)_
-- **Migrations:** run **before** restart, **expand/contract** (backward-compatible with the still-running old code) — a process discipline the migration tool won't enforce.
-
-**Research:** [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md) §1–4.
-
-#### User Comments
-
-**Status:** Additional clarification needed → **resolved to GitHub-hosted `ubuntu-latest` + `rsync` over Tailscale SSH** · **[ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)**
-
-**Reasoning:** This is a public repo. GitHub recommends not using self-hosted runners for public repos. We will use the `ubuntu-latest` GitHub-hosted runner to build and test the code, then use `rsync` over Tailscale SSH to deploy to the private VM.
-
-**Open clarification:** how the ephemeral runner authenticates to the tailnet — a **Tailscale OAuth client** (preferred; scoped, auto-rotating) vs a pre-generated ephemeral auth key. Confirm which the existing tailnet ACL setup supports.
+**Open clarification:** ephemeral-runner tailnet auth — Tailscale OAuth client vs a pre-generated ephemeral key (open Q #5).
 
 ---
 
@@ -147,7 +118,7 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 
 **Gap:** The accumulated historical price data _is_ the tool's compounding value; a single VM with no backup means one disk failure erases the entire moat. [`database-architecture.md`](research/database-architecture.md) covers retention/compression but not backups.
 
-**Evidence:** [`disk-search.md:19`](specs/disk-search.md), [`:22`](specs/disk-search.md); DB co-located on one VM per [`:69`](specs/disk-search.md).
+**Evidence:** [`disk-search.md:19`](specs/disk-search.md), [`:22`](specs/disk-search.md); DB co-located in the app container per [`:69`](specs/disk-search.md).
 
 **Proposed solution:**
 
@@ -162,11 +133,9 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 
 #### User Comments
 
-**Status:** Additional clarification needed → **defer to existing Hetzner backup infra; add the VM; confirm it meets DB-level RPO**
+**Status:** Decided (CT path) — [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md); DB-RPO still open (open Q #9).
 
-**Reasoning:** There are existing backup processes in place for Hetzner CTs and VMs. We will need to confirm that the existing backup processes are sufficient for our needs. If not, we will implement a backup strategy as described above. The disk-search VM will have to be added to the existing backup processes.
-
-**Reconciled direction (2026-07-03):** first add the disk-search VM to the existing Hetzner CT/VM backup process; then verify it actually protects the **price-history database** at the required granularity — the one caveat the research surfaces is that a VM-level snapshot of a _running_ Postgres is crash-consistent **only when the QEMU Guest Agent performs filesystem freeze/thaw**, and it gives no point-in-time recovery (PITR) between snapshots. If the existing process lacks freeze/thaw or the RPO gap between snapshots is too large for the accumulating price history, layer the pgBackRest + WAL-archiving design above **on top of** (not instead of) the VM backup. Either way, keep the monthly restore-test discipline — an untested backup is a hope.
+**Direction:** add the disk-search **CT** to the existing Hetzner restic + hourly-dump pipeline (see Live-state findings + Implications below); keep the monthly restore-test discipline — an untested backup is a hope. _(The pgBackRest + WAL design in "Proposed solution" above is the fallback if tighter RPO/PITR is needed.)_
 
 **Live-state findings (2026-07-03 — verified on the server; specifics live in the private `homelab` repo under `infrastructure/servers/hetzner-dedicated/`):**
 
@@ -197,11 +166,9 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 
 #### User Comments
 
-**Status:** Additional clarification needed → **defer host/VM health to existing Hetzner monitoring; keep app-level scraper-health in-app**
+**Status:** Decided (CT path) — infra health defers to existing Hetzner monitoring (auto-covers the CT); app-level scraper-health stays in-app. One real gap remains: an off-box heartbeat.
 
-**Reasoning:** There are existing monitoring processes in place for Hetzner CTs and VMs. We will need to confirm that the existing monitoring processes are sufficient for our needs. If not, we will implement a monitoring strategy as described above. The disk-search VM will have to be added to the existing monitoring processes.
-
-**Reconciled direction (2026-07-03):** split this gap in two — **infrastructure health** (VM up, disk space, CPU/RAM) defers to the existing Hetzner monitoring; add the disk-search VM to it. If that monitoring already runs **off-box**, it also satisfies the research's key insight (a monitor on the same VM can't alert when that VM is what died) — confirm it does, and that a **disk-space threshold** alert is in place, since raw scrape payloads grow. **Application-level health** — a scheduled scrape silently stopped, a source returning zero/garbage, alert emails not actually delivered — is _not_ something generic VM monitoring sees; keep the lightweight in-app pieces regardless: the **`scraper_runs` table** (shared with gap #9) plus a **dead-man's-switch heartbeat** and **email-delivery confirmation**. Only add Uptime Kuma / GlitchTip if the existing stack doesn't already cover error tracking.
+**Direction:** see Live-state findings + Implications below. Split the concern in two — **infrastructure health** (up/disk/CPU/RAM) rides the existing Hetzner monitoring; **application-level health** (a scrape silently stopped, a source returning zero/garbage, alerts not delivered) stays in-app via the **`scraper_runs` table** (shared with gap #9), a **dead-man's-switch heartbeat**, and **email-delivery confirmation**. Only add Uptime Kuma / GlitchTip if the existing stack doesn't already cover error tracking.
 
 **Live-state findings (2026-07-03 — verified on the server):**
 
@@ -224,7 +191,7 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 
 **Proposed solution (reasoned; confirm before building):**
 
-- **Rendering approach:** **server-rendered templates + HTMX** — matches a single-maintainer, data-heavy CRUD+dashboard app without an SPA build chain (consistent with prompt #10's framework research).
+- **Rendering approach (settled — [ADR 0004](adr/adr-0004-web-framework-django-htmx.md)):** **Django + server-rendered templates + HTMX** — matches a single-maintainer, data-heavy CRUD+dashboard app without an SPA build chain. (Only the rendering/framework is settled; the page inventory below is still to confirm.)
 - **MVP page inventory:**
   1. **Dashboard** — current ranked deals (score, `$/TB`, condition, source), filterable by brand/capacity/tier/interface/condition.
   2. **Listing detail** — the **score breakdown** (why it scored what it did — the explainability the scoring prompt #4 demands) + "why it matched a watch."
@@ -270,7 +237,7 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 
 - **M0 — Foundation.**
   - _Tasks:_ scaffold the Django project (uv-managed, `pyproject.toml`, BasedPyright-strict per the python-tooling standard); define the canonical `drive_model` / `listing` / `observation` schema (from [`database-architecture.md`](research/database-architecture.md)) as initial migrations; stub the `users` table + single-account session login (Argon2id); stand up the CD workflow (GitHub-hosted `ubuntu-latest` → `rsync` over Tailscale SSH); install systemd web + worker units and the local OpenBao Agent unit.
-  - _Acceptance (measurable):_ merge to `main` deploys automatically with **zero manual steps**; the running web service serves an authenticated "hello" page and **reads at least one secret sourced from OpenBao** (no plaintext `.env` on the VM); `uv sync --frozen` reproduces the locked env; migrations apply cleanly from empty; a **rollback to the previous SHA** is demonstrated.
+  - _Acceptance (measurable):_ merge to `main` deploys automatically with **zero manual steps**; the running web service serves an authenticated "hello" page and **reads at least one secret sourced from OpenBao** (no plaintext `.env` on the CT); `uv sync --frozen` reproduces the locked env; migrations apply cleanly from empty; a **rollback to the previous SHA** is demonstrated.
 - **M1 — Ingestion (top 5).**
   - _Tasks:_ implement acquisition for the 5 primary recert sources (WD Recertified, Seagate Recertified, ServerPartDeals, goHardDrive, eBay Browse/Feed) using the structured-data-first tier ladder ([`pragmatic-architecture…md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md)); normalize into `listing` rows; wire **Frankfurter FX → USD** with `fx_rate`/`fx_pair`/`fx_rate_date`/`fx_source` stamped **on each observation** (gap #3); set the international flag.
   - _Acceptance:_ all **5/5 sources** yield ≥1 normalized `listing` on a scheduled run; **100%** of non-USD listings carry a stored FX rate + date and a normalized USD price; international listings are flagged; a re-run produces new `observation` rows (time-series), not duplicate `listing`s.
@@ -341,7 +308,7 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 
 **Research-informed refinements (2026-07-03)** — from [`programmatic-acquisition…md`](research/programmatic-acquisition-research-for-enterprise-and-nas-drive-merchants.md), [`tavily-brave-serper.md`](research/tavily-brave-serper.md), [`pragmatic-architecture…md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md), and [`orchestration-choice…md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md):
 
-- **The budget is smaller than the gap implies — most acquisition is free.** No target merchant exposes a _paid-only_ retail API; nearly all expose **free structured/HTML data** a self-hosted Scrapy parser reads at zero per-call cost (ServerPartDeals/TechMikeNY/others on Shopify; ETB/Bargain Hardware on Magento; goHardDrive/HardDrivesDirect legacy HTML). For marketplaces, **eBay Browse + Feed** and **Amazon SP-API** (if seller-authorized) are **free official feeds** — do **not** re-poll them via paid search APIs. So the only unavoidable recurring paid costs are **occasional search-API discovery calls, AgentMail, and backup object storage**; scraping itself is free compute on the VM.
+- **The budget is smaller than the gap implies — most acquisition is free.** No target merchant exposes a _paid-only_ retail API; nearly all expose **free structured/HTML data** a self-hosted Scrapy parser reads at zero per-call cost (ServerPartDeals/TechMikeNY/others on Shopify; ETB/Bargain Hardware on Magento; goHardDrive/HardDrivesDirect legacy HTML). For marketplaces, **eBay Browse + Feed** and **Amazon SP-API** (if seller-authorized) are **free official feeds** — do **not** re-poll them via paid search APIs. So the only unavoidable recurring paid costs are **occasional search-API discovery calls, AgentMail, and backup object storage**; scraping itself is free compute on the CT.
 - **Managed-scraping APIs should be avoided for this merchant set** (free structured data covers it); reserve them for a hostile tail that, per the scraping research, is the point to **skip the source instead**. Public list prices _as of 2026-07-03, all date-sensitive — re-verify at build_: ScraperAPI $49/mo→100k credits; Zyte API $0.13–$1.27/1k HTTP (charges only successes); Bright Data ~$1.5/1k; Firecrawl free 1k pages/mo. These are reference points for a ceiling, not a plan to spend.
 - **Search APIs are discovery/spot-check only** ("frequent cheap discovery, less-frequent expensive validation") — never promote a search hit to a trusted offer without validating against the official API or merchant page. Note **Brave requires a plan that grants storage rights** to persist results — a licensing constraint on caching, not just call cost. Serper/Brave/Tavily per-call pricing was **not** quoted in research and must be pulled fresh.
 - **The per-source budget record already has a home:** the orchestration research's **two-level token buckets** (per-source + per-domain) with `cadence`/`jitter`/`rate`/`burst` fields _are_ the poll-budget mechanism gap #10 wants — reuse them. Recommended cadence is **single-digit daily checks per SKU**; circuit-break (`paused_pending_fix`) chronically failing sources to stop wasting calls.
@@ -404,7 +371,7 @@ Gaps #7, #8, #10, #12 began as product/scoping decisions rather than dedicated o
 
 **Resolved:**
 
-1. ~~**Framework: Django or FastAPI?**~~ → **Django.** The stack research ([`opinionated-core-stack…md`](research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md)) recommends Django + server-rendered templates + HTMX for this app shape; gaps #1 (auth) and #7 (UI) converge on it. Locks in `manage.py migrate`, Django `contrib.auth`, and the Django admin as back-office. **Recorded as [ADR 0004](adr/adr-0004-web-framework-django-htmx.md).** _(Confirm against pending prompt #10's final write-up before scaffolding.)_
+1. ~~**Framework: Django or FastAPI?**~~ → **Django.** The stack research ([`opinionated-core-stack…md`](research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md)) recommends Django + server-rendered templates + HTMX for this app shape; gaps #1 (auth) and #7 (UI) converge on it. Locks in `manage.py migrate`, Django `contrib.auth`, and the Django admin as back-office. **Recorded as [ADR 0004](adr/adr-0004-web-framework-django-htmx.md).** _(Confirm against pending prompt #10's final write-up before scaffolding.)_ The **datastore** is likewise settled: ~~PostgreSQL or MySQL?~~ → **PostgreSQL (system-of-record) + TimescaleDB** — **[ADR 0007](adr/adr-0007-datastore-postgresql-timescaledb.md).**
 2. ~~**Is a public URL required, or is Tailscale-only acceptable?**~~ → **Public URL required** with a single strong-password account; Tailscale-only was rejected (gap #1).
 
 **Resolved 2026-07-03 (this session, via the Hetzner SSH task):**

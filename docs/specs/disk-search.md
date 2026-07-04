@@ -25,32 +25,32 @@ This tool is designed for my personal/business use to assist with monitoring and
 
 | Rank | Site | Best use | Source type | Conditions to consider | Trust posture | Ranking rule for tool |
 | --: | --- | --- | --- | --- | --- | --- |
-| 1 | Western Digital Store / WD Recertified | WD NAS/enterprise HDDs | Manufacturer-direct | New, recertified | Very high | Prefer for WD Red, Gold, Ultrastar, and WD factory recertified drives. |
-| 2 | Seagate Store / Seagate Recertified | Seagate NAS/enterprise HDDs | Manufacturer-direct | New, recertified | Very high | Prefer for IronWolf, Exos, and Seagate factory recertified drives. |
-| 3 | ServerPartDeals | Recertified enterprise HDDs | Storage-specialist reseller | Recertified, used, new | High | Best non-manufacturer source for recertified enterprise HDD value. |
-| 4 | B&H Photo Video | New drives from known brands | Major authorized retailer | New, open-box, used | High | Prefer for new drives when price is competitive and seller is B&H. |
-| 5 | CDW | Business/enterprise purchasing | Business VAR | New | High | Prefer when compatibility, procurement reliability, or business sourcing matters more than lowest price. |
-| 6 | Insight | Business/enterprise purchasing | Business VAR | New | High | Similar to CDW; use for business-grade sourcing and supported part numbers. |
-| 7 | Newegg | New drives, deals | Marketplace/retailer | New, open-box, marketplace | Medium-high with filters | Rank high only when sold by Newegg, manufacturer, or trusted specialist seller. |
-| 8 | Amazon | New drives, fast availability | Marketplace/retailer | New, renewed, marketplace | Medium-high with filters | Rank high only when sold by Amazon, manufacturer, or trusted specialist seller; penalize unknown sellers. |
-| 9 | PCNation | New drives, exact SKU sourcing | VAR / reseller | New | Medium-high | Good for part-number shopping; rank below larger VARs unless price/availability wins. |
-| 10 | Wiredzone | Server/storage ecosystem parts | Server-specialist reseller | New, server-compatible parts | Medium-high | Prefer when Supermicro/server compatibility is important. |
-| 11 | goHardDrive | Budget recertified HDDs | Storage reseller | Recertified, used | Medium | Good deal source; require clear seller warranty and condition labeling. |
-| 12 | TechMikeNY | Refurbished servers and parts | Refurbished server specialist | Used, refurbished | Medium | Better for complete servers or server parts than standalone critical storage. |
-| 13 | ETB Technologies | Refurbished enterprise parts | Refurbished enterprise reseller | Used, refurbished | Medium | Stronger option for UK/EU buyers; region-dependent ranking. |
-| 14 | Bargain Hardware | Refurbished enterprise hardware | Refurbished enterprise reseller | Used, refurbished | Medium | Useful UK/EU refurb source; rank higher only for regional availability. |
-| 15 | HardDrivesDirect | Exact enterprise/OEM part numbers | Specialty parts reseller | New, refurbished, legacy parts | Medium-low | Use when exact OEM part matching matters; not first choice for bulk NAS builds. |
-| 16 | ServerMonkey | Refurbished server parts | Refurbished server reseller | Used, refurbished | Medium-low | Useful for refurb server builds; penalize for standalone drive purchases unless warranty is acceptable. |
-| 17 | SaveMyServer | Refurbished servers/storage | Refurbished server reseller | Used, refurbished | Medium-low | Use as fallback for refurb hardware; rank depends heavily on warranty and geography. |
-| 18 | The Server Store | Refurbished servers/storage | Refurbished server reseller | Used, refurbished | Medium-low | Better for systems than drives; fallback source. |
-| 19 | Memory4Less | Legacy/OEM storage parts | Specialty parts reseller | New old stock, refurbished, hard-to-find parts | Low-medium | Use mainly for hard-to-find parts; not preferred for large storage purchases. |
-| 20 | eBay | Used/recertified deal hunting | Marketplace | Used, recertified, seller-dependent | Variable | Only rank individual listings highly when seller reputation, warranty, condition, and return policy are strong. |
+| 1 | [Western Digital Store / WD Recertified](https://www.westerndigital.com/) | WD NAS/enterprise HDDs | Manufacturer-direct | New, recertified | Very high | Prefer for WD Red, Gold, Ultrastar, and WD factory recertified drives. |
+| 2 | [Seagate Store / Seagate Recertified](https://www.seagate.com/) | Seagate NAS/enterprise HDDs | Manufacturer-direct | New, recertified | Very high | Prefer for IronWolf, Exos, and Seagate factory recertified drives. |
+| 3 | [ServerPartDeals](https://serverpartdeals.com/) | Recertified enterprise HDDs | Storage-specialist reseller | Recertified, used, new | High | Best non-manufacturer source for recertified enterprise HDD value. |
+| 4 | [B&H Photo Video](https://www.bhphotovideo.com/) | New drives from known brands | Major authorized retailer | New, open-box, used | High | Prefer for new drives when price is competitive and seller is B&H. |
+| 5 | [CDW](https://www.cdw.com/) | Business/enterprise purchasing | Business VAR | New | High | Prefer when compatibility, procurement reliability, or business sourcing matters more than lowest price. |
+| 6 | [Insight](https://www.insight.com/) | Business/enterprise purchasing | Business VAR | New | High | Similar to CDW; use for business-grade sourcing and supported part numbers. |
+| 7 | [Newegg](https://www.newegg.com/) | New drives, deals | Marketplace/retailer | New, open-box, marketplace | Medium-high with filters | Rank high only when sold by Newegg, manufacturer, or trusted specialist seller. |
+| 8 | [Amazon](https://www.amazon.com/) | New drives, fast availability | Marketplace/retailer | New, renewed, marketplace | Medium-high with filters | Rank high only when sold by Amazon, manufacturer, or trusted specialist seller; penalize unknown sellers. |
+| 9 | [PCNation](https://www.pcnation.com/) | New drives, exact SKU sourcing | VAR / reseller | New | Medium-high | Good for part-number shopping; rank below larger VARs unless price/availability wins. |
+| 10 | [Wiredzone](https://www.wiredzone.com/) | Server/storage ecosystem parts | Server-specialist reseller | New, server-compatible parts | Medium-high | Prefer when Supermicro/server compatibility is important. |
+| 11 | [goHardDrive](https://www.goharddrive.com/) | Budget recertified HDDs | Storage reseller | Recertified, used | Medium | Good deal source; require clear seller warranty and condition labeling. |
+| 12 | [TechMikeNY](https://www.techmikeny.com/) | Refurbished servers and parts | Refurbished server specialist | Used, refurbished | Medium | Better for complete servers or server parts than standalone critical storage. |
+| 13 | [ETB Technologies](https://www.etb-tech.com/) | Refurbished enterprise parts | Refurbished enterprise reseller | Used, refurbished | Medium | Stronger option for UK/EU buyers; region-dependent ranking. |
+| 14 | [Bargain Hardware](https://www.bargainhardware.co.uk/) | Refurbished enterprise hardware | Refurbished enterprise reseller | Used, refurbished | Medium | Useful UK/EU refurb source; rank higher only for regional availability. |
+| 15 | [HardDrivesDirect](https://www.harddrivesdirect.com/) | Exact enterprise/OEM part numbers | Specialty parts reseller | New, refurbished, legacy parts | Medium-low | Use when exact OEM part matching matters; not first choice for bulk NAS builds. |
+| 16 | [ServerMonkey](https://www.servermonkey.com/) | Refurbished server parts | Refurbished server reseller | Used, refurbished | Medium-low | Useful for refurb server builds; penalize for standalone drive purchases unless warranty is acceptable. |
+| 17 | [SaveMyServer](https://savemyserver.com/) | Refurbished servers/storage | Refurbished server reseller | Used, refurbished | Medium-low | Use as fallback for refurb hardware; rank depends heavily on warranty and geography. |
+| 18 | [The Server Store](https://www.theserverstore.com/) | Refurbished servers/storage | Refurbished server reseller | Used, refurbished | Medium-low | Better for systems than drives; fallback source. |
+| 19 | [Memory4Less](https://www.memory4less.com/) | Legacy/OEM storage parts | Specialty parts reseller | New old stock, refurbished, hard-to-find parts | Low-medium | Use mainly for hard-to-find parts; not preferred for large storage purchases. |
+| 20 | [eBay](https://www.ebay.com/) | Used/recertified deal hunting | Marketplace | Used, recertified, seller-dependent | Variable | Only rank individual listings highly when seller reputation, warranty, condition, and return policy are strong. |
 
 ## Software and Tooling Stack
 
 - **Programming Language:** Python (for backend processing, web scraping, and data analysis).
-- **Web Framework:** _TBD_
-- **Database:** _TBD_
+- **Web Framework:** Django with server-rendered templates + HTMX ([ADR 0004](../adr/adr-0004-web-framework-django-htmx.md)).
+- **Database:** PostgreSQL (system-of-record) + TimescaleDB for the price-history workload ([ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)).
 - **Notification System:** Emails sent to `chris@l3digital.net` at minimum, with potential for SMS or push notifications.
 - **Web Scraping Libraries:** Scrapy. Additional options to be considered based on the specific requirements of each marketplace.
 
@@ -63,24 +63,28 @@ This tool is designed for my personal/business use to assist with monitoring and
 - **Local Clone:** `~/projects/disk-search`
 - **Server Configuration:**
   - _Location:_ Hetzner dedicated server
-  - _Containerization:_ **Dedicated LXC container** in Proxmox (not a VM), per the homelab dedicated-LXC standard.
+  - _Containerization:_ **Dedicated LXC container** in Proxmox (not a VM), per the homelab dedicated-LXC standard ([ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md)).
   - _Operating System:_ Debian 13
   - _Web Server:_ NGINX for serving the web application and handling HTTPS.
-  - _Database:_ **PostgreSQL (system-of-record) + TimescaleDB** for the price-history observation workload (ADR 0007); lives in the same LXC container as the web application for simplicity.
-  - _Environment Management:_ _TBD_ (`uv`?)
-  - _Backup & Monitoring:_ Reuses the existing Hetzner CT infrastructure. **Backup** — file-level restic (local + offsite) plus an hourly logical DB dump; coverage is a hardcoded allowlist, so at provisioning wire the CT's data paths into `backup-restic.sh` and its DB into `backup-dumps.sh`. Inherited RPO is ≤1 h with no PITR; layer pgBackRest + WAL archiving inside the CT if the price-history data needs tighter recovery (open-question #9). **Monitoring** — the host health check auto-discovers the CT; add an off-box heartbeat (no off-site watchdog currently exists) and keep in-app scraper-health. Detail: gap-analysis #5/#6.
+  - _Database:_ **PostgreSQL (system-of-record) + TimescaleDB** for the price-history observation workload ([ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)); lives in the same LXC container as the web application for simplicity.
+  - _Environment Management:_ uv ([ADR 0002](../adr/adr-0002-python-tooling-standard-local-deviations.md)).
+  - _Backup & Monitoring:_ Reuses the existing Hetzner CT infrastructure — file-level restic (local + offsite) + hourly DB dumps, and monitoring auto-discovers the container. Provisioning must add the CT to the backup allowlist, and an off-box heartbeat is still needed. Caveats (≤1 h RPO, no PITR, TimescaleDB dump handling): [ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md) and gap-analysis #5/#6.
 - **CI/CD Pipeline:** GitHub Actions for automated testing and deployment.
-  - _Runner:_ Existing Ubuntu runner on GitHub Actions.
+  - _Runner:_ GitHub-hosted `ubuntu-latest` runner — not self-hosted ([ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md)).
   - _Workflows:_ Separate workflows for testing, building, and deployment.
-  - _Live Deployment:_ Automatic deployment to the Hetzner server upon successful merge to the main branch.
+  - _Live Deployment:_ Automatic deployment to the Hetzner CT on merge to `main`, via `rsync` over Tailscale SSH (ADR 0006).
 - **Access:**
   - _Address:_ `https://disk-search.l3digital.net`
   - _Security:_ HTTPS via NGINX and Let's Encrypt.
-  - _Authentication:_ User authentication for secure access.
+  - _Authentication:_ Single-account session login with Argon2id, internet-facing ([ADR 0005](../adr/adr-0005-single-account-session-auth.md)).
 
 ### Special Considerations
 
 - **Public Repository:** The repository will be public, but sensitive information such as API keys and credentials will be stored in a `.env` file and not committed to the repository.
+
+## Database Schema
+
+## Scoring System
 
 ## Accounts, APIs, Credentials, and Services
 
