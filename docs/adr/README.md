@@ -28,3 +28,7 @@ Write one for a **significant** and **costly-to-reverse** decision — datastore
 | [0008](adr-0008-currency-landed-cost-normalization.md) | Currency & landed-cost normalization | Accepted | 2026-07-03 |
 | [0009](adr-0009-secrets-runtime-openbao-agent.md) | Secrets runtime — local OpenBao Agent on the CT | Accepted | 2026-07-03 |
 | [0010](adr-0010-canonical-data-model.md) | Canonical data model — product/variant identity ladder | Accepted | 2026-07-03 |
+| [0011](adr-0011-composite-deal-score.md) | Composite deal score — weighted geometric mean with veto caps | Accepted | 2026-07-04 |
+| [0012](adr-0012-orchestration-apscheduler.md) | Orchestration engine — APScheduler in one supervised poller | Accepted | 2026-07-04 |
+| [0013](adr-0013-notification-transport-m365-graph.md) | Notification transport — reuse the existing M365 Graph send path | Accepted | 2026-07-04 |
+| [0014](adr-0014-scraping-runtime-escalation-stack.md) | Scraping runtime — HTTP-first, structured-data-first, browser-last stack | Accepted | 2026-07-04 |

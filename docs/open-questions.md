@@ -89,7 +89,14 @@
 
 ## Open questions
 
-**Ten decisions remain open** — **OQ3** and **OQ6–OQ14** (OQ9–OQ10 surfaced from the spec's General Design Principles consistency audit; **OQ11–OQ14 surfaced from the 2026-07-04 gap analysis — research-complete, ADR-ready decisions carried by domain-research prompts #4/#9/#11/#8 that had a landed report but no prior OQ or ADR**; the rest are the still-open parts of the original gaps). **OQ1, OQ2, OQ4, and OQ5 are settled** (OQ1/OQ2 on 2026-07-04 by live verification against the Hetzner infra + tailnet during the owner-directed investigation; OQ4/OQ5 on 2026-07-03 by owner decision); they are marked ✅ below and kept in place — rather than physically relocated to Resolved — to preserve their `#oq1`/`#oq2`/`#oq4`/`#oq5` anchors (referenced by ADR 0003/0006, TODO, the research README, and OQ10). Their resolutions are also recorded in [Resolved](#resolved).
+**After the 2026-07-04 follow-up research batch, only OQ3 remains genuinely open** (awaiting the owner's sign-off on the backup-requirements doc's §7). Everything else is resolved or resolved-pending-ratification:
+
+- **✅ Settled — infra (verified live):** OQ1, OQ2 (2026-07-04); OQ4, OQ5 (2026-07-03, owner).
+- **✅ Resolved — 2026-07-04 research + reconciliation:** OQ6 (UI inventory + dismiss→suppress), OQ7 (search self-governance + spend-cap), OQ8 (scraper test policy), OQ9 (cadence/back-off/skip), OQ10 (resilience model).
+- **✅ Ratified → ADRs written 2026-07-04:** OQ11 → **[ADR 0011](adr/adr-0011-composite-deal-score.md)** (scoring, tested; `n_eff = 30` adopted; spec `## Scoring System` filled) · OQ12 → **[ADR 0012](adr/adr-0012-orchestration-apscheduler.md)** (APScheduler; ADR-0006 "timers" amended) · OQ13 → **[ADR 0013](adr/adr-0013-notification-transport-m365-graph.md)** (free M365 Graph path) · OQ14 → **[ADR 0014](adr/adr-0014-scraping-runtime-escalation-stack.md)** (scraping tier stack; browser tiers deferred to M5). All four folded into the spec.
+- **⏳ Open:** **OQ3** only.
+
+All ✅ items are kept in place with a resolution banner (rather than physically relocated to Resolved) to preserve their `#oq#` anchors (referenced by ADRs, TODO, the research README, and cross-OQ links). Their resolutions are also recorded in [Resolved](#resolved) where an ADR already exists.
 
 ### At a glance
 
@@ -100,15 +107,15 @@
 | **OQ3** | DB RPO (+ TimescaleDB dumps) | gap #5 | accept ≤1 h / no-PITR vs layer pgBackRest + WAL inside the CT |
 | **OQ4** ✅ | DB placement — **settled** | gap #5 | ✅ 2026-07-03: own Postgres **inside the hw-radar CT** (self-contained; shared-datastores-CT rejected). See [OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct). |
 | **OQ5** ✅ | Off-box heartbeat — **settled** | gap #6 | ✅ 2026-07-03: **off-site GMK Uptime Kuma** watches the CT (also swept by the Hetzner Fleet Digest; healthchecks.io rejected). See [OQ5](#oq5--off-box-heartbeat). |
-| **OQ6** | Final UI inventory + dismiss→suppress | gap #7 | confirm pages; decide if a user _dismiss_ silences re-alerts; purchase-tracking scope |
-| **OQ7** | Running-cost budget model | gap #10 | pricing pass ✅ (2026-07-03 → ~$8–15/mo search-API envelope; AgentMail free); residual = encode per-source poll budgets at build |
-| **OQ8** | Scraper testing finalization | gap #9 | per-tier canary frequencies; synthetic vs real cassettes per source (Deep Research #13 ✅ landed — reconcile findings) |
-| **OQ9** | Acquisition cadence, throttle & skip | principles §1+5 | per-source cadence numbers + adaptive back-off thresholds + tier-ladder skip cutoff (no spec reword — real-time-where-tolerated is in scope) |
-| **OQ10** | Reliability / resilient acquisition | principle §4 | per-source isolation, retry/backoff, circuit-break, health alerts |
-| **OQ11** | Composite scoring model | research #4 | ratify weighted-geometric-mean + 4 subscores + weights (0.50/0.25/0.15/0.10) + veto gates → fills empty spec §Scoring System · candidate ADR-0011 |
-| **OQ12** | Orchestration engine | research #9 | APScheduler vs systemd timers — resolves the ADR-0006 "timers" contradiction; blocks OQ7/OQ9/OQ10 · candidate ADR-0012 |
-| **OQ13** | Notification transport & deliverability | research #11, #14 | prompt #14 **landed** → research recommends **Postmark primary / SES fallback / AgentMail secondary**; now an owner call vs the AgentMail lean · candidate ADR-0013 |
-| **OQ14** | Scraping runtime escalation stack | research #8 | ratify Scrapy + scrapy-playwright + curl_cffi tier stack · candidate ADR-0014 / spec fold |
+| **OQ6** ✅ | Final UI inventory + dismiss→suppress | gap #7 | ✅ 2026-07-04: inventory confirmed as-is; **dismiss = permanent per-listing suppress** via the existing `watch_match_state` enum (no TTL/new table); **purchase analytics deferred** (ship only a `purchased` flag). See [OQ6](#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking). |
+| **OQ7** ✅ | Running-cost + search self-governance | gap #10 | ✅ 2026-07-04: per-provider token bucket + **hard PostgreSQL spend-cap circuit-breaker** (reserve-then-call) + failing-provider breaker + per-provider user settings. ⚠️ **Brave killed its free tier (Feb 2026)** → lean on Serper. See [OQ7](#oq7--running-cost-budget-model-build-time-pricing-pass). |
+| **OQ8** ✅ | Scraper testing finalization | gap #9 | ✅ 2026-07-04 (research #13 reconciled): per-tier canary cadence (24/12/8/4 h), **synthetic-only cassettes** for all named sources, PII scrub, failure-classification tree, 3-workflow CI. See [OQ8](#oq8--scraper-testing-finalization). |
+| **OQ9** ✅ | Acquisition cadence, throttle & skip | principles §1+5 | ✅ 2026-07-04: **baseline → ceiling + earned auto-ramp** per tier (T0–T4), adaptive back-off ladder (24 h cap), soft-block detection, skip decision tree. See [OQ9](#oq9--acquisition-cadence-throttle--skip-policy). |
+| **OQ10** ✅ | Reliability / resilient acquisition | principle §4 | ✅ 2026-07-04: failure model specified (per-source isolation, retry/back-off, `paused_pending_fix` circuit-break, `scraper_runs` health alerts) from OQ5 + OQ8. See [OQ10](#oq10--reliability--resilient-acquisition). |
+| **OQ11** ✅ | Composite scoring model | research #4 | ✅ 2026-07-04: **tested against mock data — passes**; `n_eff 50→30` adopted → **[ADR 0011](adr/adr-0011-composite-deal-score.md)** written + spec §Scoring filled. See [OQ11](#oq11--composite-scoring-model-adopt-research-4). |
+| **OQ12** ✅ | Orchestration engine | research #9 | ✅ 2026-07-04: **APScheduler 3.11.x** (one supervised poller) → **[ADR 0012](adr/adr-0012-orchestration-apscheduler.md)** written + ADR-0006 "timers" amended. See [OQ12](#oq12--orchestration-engine-apscheduler-vs-systemd-timers). |
+| **OQ13** ✅ | Notification transport & deliverability | research #11, #14 | ✅ 2026-07-04 (**must-be-free**): **reuse existing M365 Graph send path** (branded, zero marginal cost); AgentMail free fallback → **[ADR 0013](adr/adr-0013-notification-transport-m365-graph.md)**. See [OQ13](#oq13--notification-transport--deliverability-agentmail-vs-transactional-provider). |
+| **OQ14** ✅ | Scraping runtime escalation stack | research #8 | ✅ 2026-07-04: Playwright = code-driven headless (no LLM), selective via `scrapy-playwright`, browser-last; **defer curl_cffi/Playwright to M5** → **[ADR 0014](adr/adr-0014-scraping-runtime-escalation-stack.md)**. See [OQ14](#oq14--scraping-runtime-escalation-stack). |
 
 ---
 
@@ -144,7 +151,7 @@ SSH into Hetzner and look at the existing infra automation, particularly the CT 
 #### Agent notes
 
 - **Verified live (2026-07-04):** the OAuth client at `secret/infra/tailscale-oauth` (`client_id`/`client_secret`, purpose "GitHub Actions CI/CD deploy via Tailscale") authenticated and GET-ed the tailnet ACL; `tag:ci` is present in `tagOwners` (`["autogroup:admin"]`). `tailscale/github-action` v4 is the correct action for an **ephemeral** GitHub-hosted runner — the opposite of the persistent VM 200 runner, which rejected it (auto-logout would sever a persistent `tag:ci`) per the Tailscale-ACL research.
-- **⚠️ Latent dependency — the tailnet ACL grants are still wildcard** (`src:* dst:* ip:*`). Today a `tag:ci` node reaches the hw-radar CT with **no extra grant**; but the pending **wildcard→scoped migration** (`homelab/docs/superpowers/plans/2026-05-14-homelab-tailnet-wildcard-removal.md`) will remove that blanket access — when it lands, add an explicit grant `{src:["tag:ci"], dst:["<hw-radar CT>"], ip:["22"]}` or the deploy silently breaks.
+- **⚠️ Latent dependency — the tailnet ACL grants are still wildcard** (`src:_ dst:_ ip:*`). Today a `tag:ci` node reaches the hw-radar CT with **no extra grant**; but the pending **wildcard→scoped migration** (`homelab/docs/superpowers/plans/2026-05-14-homelab-tailnet-wildcard-removal.md`) will remove that blanket access — when it lands, add an explicit grant `{src:["tag:ci"], dst:["<hw-radar CT>"], ip:["22"]}` or the deploy silently breaks.
 - **Transport nuance:** the live `ssh` block is `action:check` for `autogroup:member → autogroup:self` **only** — it does not cover `tag:ci → CT` for _Tailscale SSH_. Prefer **bare OpenSSH + a deploy key** over the tailnet (the wildcard grant opens port 22; matches the VM 200 precedent), or add a `tag:ci → CT` ssh rule if Tailscale SSH is wanted. ADR 0006 says "restarts over `tailscale ssh`" → reconcile to bare-ssh or add the ssh rule.
 - **Operational finding (resolved 2026-07-04):** the stored `secret/infra/tailscale-api` token had **expired 2026-06-22**; owner minted a new one (now valid to 2026-10-01, verified HTTP 200). Independent of CD — the OAuth client is what CD uses.
 - Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md); tailnet ACL scoping in `homelab/docs/research/2026-05-14-tailscale-acl-wildcard-to-scoped-ci-runner.md`.
@@ -214,6 +221,12 @@ We will use the existing GMK Uptime Kuma instance to monitor the hw-radar CT. Th
 
 ### OQ6 — Final UI page inventory + dismiss→suppress feedback + purchase tracking
 
+> **✅ RESOLVED (research 2026-07-04, [`mvp-web-ui-inventory-and-dismiss-suppress.md`](research/mvp-web-ui-inventory-and-dismiss-suppress.md); validated against CamelCamelCamel, Keepa, changedetection.io, Slickdeals):**
+>
+> 1. **Page inventory confirmed as-is — no additions.** Dashboard · Listing detail (score breakdown + "why it matched") · Watches manager (hard filters vs thresholds, no free-text) · Price-history view · Listing-state controls, with the Django admin as internal back-office.
+> 2. **Dismiss→suppress = a permanent, per-listing suppression flag** — _not_ a TTL, _not_ drive-model-scoped by default — implemented as a **new terminal value on the existing `watch_match_state.current_state` enum**, not a new table. Every comparable tool treats "I'm done with this" as a binary, permanent, per-item action; resist inventing a scoped/TTL suppression system.
+> 3. **Purchase tracking: defer the analytics** (realized-savings, spend history) to post-v1. Ship only a lightweight `purchased` status flag + two optional nullable fields (price, date) as scaffolding — comparable tools use "purchased" only to _stop tracking_, none report savings.
+
 **From:** gap #7 (resolved: Django + HTMX + post-alert model). **Decision needed:** the rendering approach (Django + server-rendered templates + HTMX, [ADR 0004](adr/adr-0004-web-framework-django-htmx.md)) and the post-alert **state machine** are settled. Still open:
 
 1. **Confirm the final MVP page inventory / flows** (proposed below).
@@ -236,6 +249,15 @@ This question has been open for a while. We need to confirm the final MVP page i
 ---
 
 ### OQ7 — Running-cost budget model (build-time pricing pass)
+
+> **✅ RESOLVED (research 2026-07-04, [`search-api-self-governance-and-user-configurable-limits.md`](research/search-api-self-governance-and-user-configurable-limits.md)) — the owner's three new asks are answered:**
+>
+> - **Yes — rate-limit our own search calls per provider**, via a **per-provider token bucket** (reusing the orchestration `rate`/`burst` vocabulary). Starting numbers: **Serper** 1 call/2 min, burst 5, 200/day · **Brave** 1/5 min, burst 3, 50/day · **Tavily** 1/5 min, burst 3, 30/day.
+> - **Yes — a hard spend-cap circuit-breaker is the runaway-bug guard:** a **persisted PostgreSQL `daily_spend_cap_usd`/`monthly_spend_cap_usd` counter checked *before every call*** (reserve-then-call), failing safe by refusing the call (`budget_exhausted`) — never rely on the provider's own dashboard cap (2026 reports show those behave as alert-only). Plus a manual `kill_switch`. Reconcile against provider-reported usage; only ever _tighten_ the local counter.
+> - **Yes — a failing-provider circuit-breaker:** closed→open→half-open per provider (5 failures/10 min → open; 5-min cooldown doubling to a 60-min cap; single half-open trial; accelerated trip on 429/`Retry-After`/auth-quota errors). Everything composes into one ordered `SearchBudgetGate`: **kill switch → spend cap → circuit breaker → token bucket.**
+> - **In-app user limits:** one settings row per provider (`enabled`, `rate_per_min`, `burst`, `daily_call_cap`, `daily_spend_cap_usd`, `monthly_spend_cap_usd`, `alert_threshold_pct=80`, `kill_switch`, breaker params), plus an optional `aggressiveness` enum (conservative/standard/aggressive) that scales the numeric fields.
+> - **AgentMail free tier (2026):** 3 inboxes, **3,000/mo, 100/day** — 30–100× this workload.
+> - **⚠️ Pricing correction (supersedes the OQ7 table below):** **Brave killed its free tier in Feb 2026** — now **$5/1,000 metered, no free allowance**. Weight discovery traffic toward Serper (cheapest) accordingly.
 
 **From:** gap #10 (resolved approach). **Decision needed:** set per-source poll budgets against a monthly ceiling. The approach is settled (free-feed-first); what's open is a **build-time pricing pass** not covered by any research — **current Serper/Brave/Tavily per-call pricing, AgentMail email pricing, and backup object-storage costs** — plus verifying **Brave's storage-rights plan requirement** (a licensing constraint on caching, not just call cost).
 
@@ -284,6 +306,17 @@ I have active accounts for each search service and I keep them topped up with fu
 
 ### OQ8 — Scraper testing finalization
 
+> **✅ SETTLED (research #13 reconciled, 2026-07-04).** The build-time parameters are now decided from [`automated-test-policy-for-a-low-volume-scrapy-price-monitor.md`](research/automated-test-policy-for-a-low-volume-scrapy-price-monitor.md):
+>
+> - **Per-tier canary cadence:** JSON-LD **24 h** · first-party platform-JSON **12 h** · hidden bootstrap-JSON **8 h** · HTML selectors **4 h** — or the source-level formula `interval_hours = max(4, min(24, 24 / tier_risk_weight / source_business_weight))` with `tier_risk_weight = {jsonld:1, platform_json:2, bootstrap:3, html:6}` and `source_business_weight` = 1 (normal) / 2 (high-value source).
+> - **Degradation is a first-class signal**, distinct from hard failure: alert when `actual_tier_rank > expected_tier_rank` for **≥2 consecutive** runs or **≥3 of last 5**; separate quality alert when `required_fields_present_pct < max(0.90, rolling_30d_median − 0.20)`. The canary must emit `selected_tier`/`expected_best_tier`/`required_fields_present_pct`/`record_count`/`content_type`/`body_bytes` per source·URL-class.
+> - **Cassette policy = synthetic-only for every named commercial source** (WD, Seagate, ServerPartDeals, goHardDrive, eBay, Amazon, Newegg, Google/Serper). The public-repo commit rule fails for all of them (redistribution/anti-automation/PII). Keep any real cassettes **private**; derive public **synthetic** fixtures from normalized parser output; **never commit product images**.
+> - **PII scrubbing** via vcrpy `filter_headers`/`filter_query_parameters`/`filter_post_data_parameters` + `before_record_request`/`before_record_response` (drop auth/cart/checkout paths, strip cookies/tokens/seller-buyer identifiers/image URLs, drop anti-bot interstitials). Ship with `record_mode="none"` in CI.
+> - **Failure-classification tree:** `transient` (timeout/5xx/DNS/TLS/408) → `anti_bot` (401/403/429/503, `cf-mitigated=challenge`, JSON endpoint returns `text/html`, Cloudflare/DataDome markers) → `parser_rot` (HTTP 200 authentic page but extractor/Pydantic fails) → `degradation` (validates but tier worsened) → else `UNKNOWN`+escalate.
+> - **CI = three workflows:** offline VCR-replay (`record_mode=none`, **PR-required**) · snapshot-refresh (`workflow_dispatch`, live, non-required) · production-canary (`schedule`, live, **NON-required**, opens/updates a GitHub issue on failure with `issues: write`).
+>
+> **OQ8 closes** — residual is a spec fold (testing section + M5), not a decision. Kept in place to preserve the `#oq8` anchor (referenced by OQ5/OQ10, gap #9).
+
 **From:** gap #9 (resolved stack + amendments). **Decision needed:** the **vcrpy + syrupy + contract-canary + Pydantic-v2** stack and its five amendments are settled/confirmed by research. What remains is **build-time finalization**: concrete **per-tier canary frequencies** (risk-weighted down the extraction ladder) and **per-source assignment of synthetic vs real cassettes**.
 
 #### Agent notes
@@ -306,6 +339,14 @@ If additional research is needed, we should use the `/qdev:research` command to 
 ---
 
 ### OQ9 — Acquisition cadence, throttle & skip policy
+
+> **✅ RESOLVED (research 2026-07-04, [`per-source-polling-cadence-and-skip-policy.md`](research/per-source-polling-cadence-and-skip-policy.md)):** "aggressive but self-moderating" is encoded as **baseline + hard ceiling per tier + earned auto-ramp**, never one fixed number.
+>
+> - **Per-tier cadence (baseline → ceiling):** **T0** eBay API 10 min → 2 min · **T1** WD/Seagate direct 30 min → 5 min · **T2** specialist/VAR resellers (ServerPartDeals, goHardDrive, B&H, CDW, Insight) 1 h → 15 min · **T3** anti-bot-exposed (Newegg, Amazon-scrape, PCNation, Wiredzone) 2 h → 30 min · **T4** refurb/regional (TechMikeNY, ETB, Bargain Hardware, …) 4 h → 1 h.
+> - **Auto-ramp:** after **N=4** consecutive clean polls (no error/soft-block, latency < 2× rolling median) halve the interval, floored at the tier ceiling; any throttle/soft-block resets to baseline and hands to the back-off ladder.
+> - **Adaptive back-off ladder:** timeout → 1 in-run retry (full-jitter ≤10 s) · 429 w/ `Retry-After` → honor verbatim (clamp 1 s..baseline) · **429/503 w/o header or soft-block → `random(0,1)×min(24 h, 10 min×2^failures)`** (the 24 h cap = the original daily-check floor, so worst-case is never worse than baseline) · latency spike (>3× median ×3 polls) → halve cadence (slow-down, not stop).
+> - **Soft-block detection** (HTTP-200-but-not-your-page): structured-data absence · body-size outlier (<20% of median) · known challenge markers · repeated identical hash despite confirmed price/stock movement → reclassify the fetch as failed.
+> - **Skip policy:** the ladder is official API → structured data → `curl_cffi` → selective Playwright → managed unblocker (tiny high-value tail) → **SKIP**. A currently-working source whose cooldown repeatedly maxes at 24 h on a **soft-block** (not parser-rot) signal, _after_ exhausting the ladder up to but not including the CAPTCHA/stealth/heavy-proxy rung, becomes a **permanent SKIP** (registry state, human re-review). Parser-rot → `paused_pending_fix` (code fix + daily recovery probe). Legal/ToS triggers (C&D, ToS change, login wall, realistic paid-feed substitute) force SKIP regardless. **Amazon SP-API confirmed out of scope** (seller-only) — Amazon stays a T3 scrape target.
 
 **From:** General Design Principles audit (folds findings #1 + #5). **Principles-level wording settled:** the old "Stewardship & Responsibility" principle was replaced in the spec with **"Moderate Aggressive Usage"** ([`hw-radar.md:21`](specs/hw-radar.md)). **Owner posture (2026-07-03):** poll as aggressively — up to real-time/continuous — as each source _tolerates_, and moderate **only** when a service-side protection or red-line would be crossed. The spec's "real-time (or near real-time)" Features framing is therefore **consistent and stays as-is — no reword** (the earlier "reword the real-time framing" task is **withdrawn**). **Decision needed:** the concrete numbers that operationalize "aggressive but self-moderating":
 
@@ -342,6 +383,15 @@ Update the open question to reflect that the spec has been updated to remove the
 
 ### OQ10 — Reliability / resilient acquisition
 
+> **✅ SETTLED (2026-07-04) — the failure model is now fully specified** by reconciling [OQ5](#oq5--off-box-heartbeat) (off-box heartbeat) + [OQ8](#oq8--scraper-testing-finalization) (research #13's failure-classification tree). **Acquisition failure model:**
+>
+> - **Per-source failure isolation** — each source runs as an independent scheduled unit writing to `scraper_runs`; one marketplace being down, rate-limited, or having changed its markup never halts the others.
+> - **Retry/back-off** = the adaptive 429/503 cooldown (shared with OQ9); **circuit-break** a source into `paused_pending_fix` on the classification tree's `anti_bot` verdict or sustained `parser_rot` (not on a `transient`, which retries).
+> - **Silent-degradation detector** = the count-vs-rolling-average + tier-downgrade + empty-result assertions (OQ8), so a source returning stale/empty/challenge bodies is caught rather than silently trusted.
+> - **Health alerting** wired to `scraper_runs` → off-site GMK Uptime Kuma + Fleet Digest (OQ5).
+>
+> Only **wiring remains** (M5 implementation), not a decision. **Features resilience note to fold into the spec:** _"Acquisition is per-source isolated with retry/back-off and automatic circuit-breaking of failing or anti-bot-protected sources (`paused_pending_fix`), plus operator health alerts — one marketplace failing degrades gracefully without stopping the others."_ Kept in place to preserve the `#oq10` anchor.
+
 **From:** General Design Principles audit (finding #4). **Decision needed:** the **Reliability** principle requires graceful degradation, but the spec defines no failure model. Decide the acquisition failure model, then add a Features note:
 
 - **per-source failure isolation** — one marketplace being down, rate-limited, or changing its markup must not halt the others;
@@ -361,6 +411,13 @@ See [OQ5](#oq5--off-box-heartbeat) and [OQ8](#oq8--scraper-testing-finalization)
 ---
 
 ### OQ11 — Composite scoring model (adopt research #4)
+
+> **✅ TESTED (2026-07-04, results doc: [`drive-deal-scoring-model-test-results.md`](research/drive-deal-scoring-model-test-results.md)).** Per the owner's directive, the model was implemented **verbatim** and run against a seeded mock dataset (5 market cohorts, 8 deliberately-chosen archetypes) **before** writing the ADR. **It passes:** all three veto caps bind (SMR→35, used/no-return→60, low-trust→60), the ranking is intuitive (A 89 > H 82 > G 70 ≈ B 69 > D=E 60 > C 35 > F 14), and 6/8 archetypes hit their a-priori band. **Two calibration decisions surfaced for owner sign-off before ADR-0011:**
+>
+> - 🔴 **Change the warm-up full-confidence target from `n_eff ≥ 50` to `n_eff ≥ 30`.** Even a 64-observation cohort only reached n_eff ≈ 49 under the 30-day half-life, so many real (narrow) cohorts would sit _perpetually provisional_. Also wire the documented cohort-relaxation fallback. This is the one load-bearing change.
+> - 🟡 **Accept as-is for v1** (tune later): the middle band is mildly generous (B = 69) and the `s_price` floor flattens the expensive tail (F = 14). The model's _shape_ is right; constants are cheap to re-fit once real observations exist.
+>
+> **Next step (awaiting owner):** ratify the model + the `n_eff = 30` change → then write **ADR-0011** and fill the empty spec `## Scoring System`. The ADR is intentionally **not** written yet — it needs the owner's call on the two items above.
 
 **From:** domain-research **prompt #4** (landed: [`principled-deal-score…`](research/principled-deal-score-for-hard-drive-listings.md)) — _not_ one of the twelve operational gaps, which is why it carries no prior OQ or ADR. **Decision needed:** ratify the composite scoring algorithm so the **empty** spec `## Scoring System` section ([`hw-radar.md:108`](specs/hw-radar.md)) can be written and a **candidate ADR-0011** recorded. The research recommendation is concrete; the open forks are owner sign-off calls:
 
@@ -385,6 +442,13 @@ Before writing an ADR on the scoring model, I want to test it against mock data 
 
 ### OQ12 — Orchestration engine (APScheduler vs systemd timers)
 
+> **✅ RECONFIRMED (research 2026-07-04, [`orchestration-engine-reconfirmation-2026.md`](research/orchestration-engine-reconfirmation-2026.md)) — the owner's lean holds, with more force:** use **APScheduler 3.11.x** in **one long-running, systemd-supervised poller process.**
+>
+> - **3.x, not 4.x:** APScheduler 4.0 is still `4.0.0a6`, labeled "do NOT use in production"; 3.11.3 shipped 2026-06-28 (active maintenance). APScheduler 3.x can't safely share a job store across processes, so "one process" is the _correct_ model, not merely the simplest.
+> - **New reinforcing fact:** Scrapy's default reactor is now the asyncio one, so the crawler and an `AsyncIOScheduler` share **one event loop in one process** — no Twisted/asyncio bridge.
+> - **Alternatives explicitly ruled out:** Celery/RQ/Dramatiq and the new async entrants (Taskiq/Repid/FastStream) all solve distributed high-throughput _broker_ problems this project doesn't have; adding Redis also adds CVE surface (RediShell CVE-2025-49844). The shared token-bucket + `paused_pending_fix` circuit state is an in-memory-shared-state problem that independent systemd timers emulate poorly. **Consistent with the design principles** (Moderate Aggressive Usage + Reliability + Engineered-to-Needs all favor in-process shared state).
+> - **ADR-0006 contradiction = wording only:** amend the "systemd timers for scrapes" sentence — systemd supervises **one poller service** (`Restart=on-failure`, resource limits, journal), APScheduler schedules the scrapes; keep timers only for genuinely-independent stateless jobs (nightly VACUUM, backup-verify). **Candidate ADR-0012 + a mandatory ADR-0006 amendment.**
+
 **From:** domain-research **prompt #9** (landed: [`orchestration-choice…`](research/orchestration-choice-for-a-single-vm-price-polling-service.md)), surfaced against **[ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)**. **Decision needed:** name the scheduler that runs the recurring `fetch → parse → normalize → entity-resolve → score → persist → alert` pipeline, and resolve a **live contradiction** — ADR 0006 says "**timers** for scrapes," but prompt #9 recommends **APScheduler 3.11.x** in a systemd-supervised long-running poller with PostgreSQL job state. **Candidate ADR-0012.**
 
 - **The fork:** **APScheduler in-process** (per-source cadence, jitter, two-level token buckets, adaptive 429/503 cooldown, dead-letter + circuit-breaker — all in one supervised process, sharing state) **vs. systemd timers** (leaner, but per-source rate modeling and _shared_ back-off/circuit-breaker state are awkward across independent one-shot units).
@@ -404,6 +468,12 @@ I am leaning toward APScheduler as the orchestration engine. However, the resear
 ---
 
 ### OQ13 — Notification transport & deliverability (AgentMail vs transactional provider)
+
+> **✅ RESOLVED (research 2026-07-04, [`free-outbound-email-path-for-low-volume-alerts.md`](research/free-outbound-email-path-for-low-volume-alerts.md)) — meets the owner's "must be free right now" constraint:** **reuse the existing Microsoft Graph → M365 send path** the homelab already uses for other service alerts (sends as a branded `@l3digital.net` address; creds already at OpenBao `secret/apps/microsoft365`).
+>
+> - **Why it wins:** **zero marginal cost** (M365 is already paid for), **branded custom-domain** sending, high deliverability (the 10K-recipients/day M365 limit dwarfs this workload), and **no dependence on any third-party free tier** — which matters because those proved volatile (SendGrid killed its free plan in 2025; MailerSend cut its free allowance 83% in Oct 2025).
+> - **Runner-up / independent fallback:** **AgentMail free** (`@agentmail.to`, unbranded, 100/day · 3,000/mo) — no custom-domain setup, useful as a decoupled secondary channel.
+> - **This supersedes** the spec's AgentMail-primary lean **and** the earlier paid Postmark/SES recommendation for the free-v1 case; Postmark-primary/SES-fallback remains documented only as the future **paid-upgrade** path. **Candidate ADR-0013.**
 
 **From:** domain-research **prompt #11** (landed) + **prompt #14** (landed 2026-07-04: [`choosing-an-outbound-email-path…`](research/choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md)), against the spec's **AgentMail** standardization ([`hw-radar.md:68`](specs/hw-radar.md), OpenBao `secret/api-keys/ai/agentmail`). **Research is now complete — the remaining decision is an owner call.** Confirm the email-send path and its deliverability setup so alerts do not spam-folder. **Candidate ADR-0013.**
 
@@ -444,6 +514,16 @@ I am not going to pay for the email service at this time. Whatever gets implemen
 #### My Comments
 
 Would we actually use Playwright? Can that be used programmatically in a headless way to scrape the sites we need without an AI agent/LLM?
+
+#### Answer (2026-07-04)
+
+**Yes on both counts — and the LLM concern is a category confusion worth clearing up.** Playwright is a code-driven **browser-automation library** (Microsoft); it runs fully **headless** on the server, deterministically, driven entirely by our Python code. It has **nothing to do with an AI agent or LLM** — the owner is likely thinking of LLM-driven "browser agents" (e.g. computer-use agents), which are a different category we are **not** using.
+
+- **How it's used here:** selectively, via **`scrapy-playwright`** as a Scrapy download handler — only requests we explicitly mark as needing a browser go through Chromium; every other request stays on plain HTTP. It is **browser-last** (tier 3 of the 4-tier ladder: HTTP + structured-data → `curl_cffi` → Playwright → managed-API/skip), and used mostly for **one-time endpoint/JS reconnaissance**; once the real JSON source is discovered, steady-state polling moves back to plain HTTP with no browser.
+- **How often:** **rarely.** Most target sources (recert stores, structured-data storefronts) expose the fields we need in the initial HTML (JSON-LD, `__NEXT_DATA__`, Shopify `/products/{handle}.js`), so **no browser is needed at all** for them.
+- **Decision:** adopt the tiered stack (this is [OQ14](#oq14--scraping-runtime-escalation-stack) / candidate ADR-0014), but **defer `curl_cffi` + Playwright to M5** — ship M1's five recert sources on plain HTTP + structured-data parsing, and add the browser/TLS tiers only when a specific hostile source demands it.
+
+Report: [`pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md) (§"When HTTP is enough and when a browser is justified", 4-tier ladder).
 
 ---
 

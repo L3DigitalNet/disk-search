@@ -1,8 +1,8 @@
 # Research
 
-This directory is the project's **research corpus** — 21 deep-research reports that ground the design of Hardware Radar in evidence rather than assumption. Alongside [`../specs/hw-radar.md`](../specs/hw-radar.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
+This directory is the project's **research corpus** — 27 deep-research reports that ground the design of Hardware Radar in evidence rather than assumption. Alongside [`../specs/hw-radar.md`](../specs/hw-radar.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
 
-Each report is a **dated, frozen snapshot** of what was found on the day it was run (the original corpus 2026-07-03, plus a 2026-07-04 email-path follow-up), with inline citations. They are not living documents — findings get **reconciled forward** into the spec, the ADRs, and [`../open-questions.md`](../open-questions.md), rather than edited in place here.
+Each report is a **dated, frozen snapshot** of what was found on the day it was run (the original corpus 2026-07-03, plus a 2026-07-04 follow-up batch resolving OQ6–OQ13: scoring-model test, UI inventory, polling cadence, orchestration, search self-governance, and the free email path), with inline citations. They are not living documents — findings get **reconciled forward** into the spec, the ADRs, and [`../open-questions.md`](../open-questions.md), rather than edited in place here.
 
 ## How to use this directory
 
@@ -33,6 +33,9 @@ Each report is a **dated, frozen snapshot** of what was found on the day it was 
 | [us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor](us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md) | CFAA / ToS / copyright / data-retention footing for a US price monitor | Legal footing, cassette/PII rules — gap #9 |
 | [orchestration-choice-for-a-single-vm-price-polling-service](orchestration-choice-for-a-single-vm-price-polling-service.md) | Scheduling, rate-limiting, two-level token buckets on a single VM | Orchestration + poll budget — gap #10 / OQ7 |
 | [automated-test-policy-for-a-low-volume-scrapy-price-monitor](automated-test-policy-for-a-low-volume-scrapy-price-monitor.md) | Build-time scraper-test finalization: per-tier canary cadence, real-vs-synthetic cassette policy, PII scrubbing, parser-rot-vs-anti-bot classification, CI wiring | Scraper testing — OQ8 / gap #9 |
+| [per-source-polling-cadence-and-skip-policy](per-source-polling-cadence-and-skip-policy.md) | Concrete per-tier poll cadence (baseline/ceiling), 429/503/soft-block back-off ladder, and the tier-ladder skip/pause cutoff; eBay Browse/Feed + Amazon SP-API published rate limits | Acquisition cadence, throttle & skip — [OQ9](../open-questions.md#oq9--acquisition-cadence-throttle--skip-policy) |
+| [search-api-self-governance-and-user-configurable-limits](search-api-self-governance-and-user-configurable-limits.md) | Self-governing our own Serper/Brave/Tavily spend: per-provider token bucket, hard PostgreSQL spend-cap circuit-breaker (reserve-then-call), failing-provider breaker, per-provider user settings; AgentMail free-tier caps | Search self-governance + budget — [OQ7](../open-questions.md#oq7--running-cost-budget-model-build-time-pricing-pass) |
+| [orchestration-engine-reconfirmation-2026](orchestration-engine-reconfirmation-2026.md) | Reconfirms APScheduler 3.11.x in one supervised poller vs systemd timers vs task queues; 4.0-alpha status, 2025–26 ecosystem churn, ADR-0006 "timers" reconciliation | Orchestration engine — [OQ12](../open-questions.md#oq12--orchestration-engine-apscheduler-vs-systemd-timers) |
 
 ### Data model, entity resolution & scoring — making sense of it
 
@@ -41,6 +44,7 @@ Each report is a **dated, frozen snapshot** of what was found on the day it was 
 | [database-architecture](database-architecture.md) | PostgreSQL + TimescaleDB schema, the canonical drive-model / listing / observation model | [ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md); canonical-entity ADR 0008 (pending) |
 | [entity-resolution-for-cross-marketplace-hard-drive-and-ssd-price-tracking](entity-resolution-for-cross-marketplace-hard-drive-and-ssd-price-tracking.md) | Matching the same drive across merchants: MPN/GTIN, blocking, title parsing, record linkage | `entity-resolve` stage |
 | [principled-deal-score-for-hard-drive-listings](principled-deal-score-for-hard-drive-listings.md) | The 0–100 deal score: log-`$/TB` percentile, warm-up shrinkage, explainability | Scoring engine; cold-start — gap #12 |
+| [drive-deal-scoring-model-test-results](drive-deal-scoring-model-test-results.md) | Empirical validation of the deal-score model against a seeded mock dataset (5 cohorts, 8 archetypes): vetoes bind, ranking intuitive; recommends `n_eff 50→30` before ADR-0011 | Scoring-model sign-off — [OQ11](../open-questions.md#oq11--composite-scoring-model-adopt-research-4) |
 
 ### Alerting & web stack — surfacing it
 
@@ -48,6 +52,8 @@ Each report is a **dated, frozen snapshot** of what was found on the day it was 
 | --- | --- | --- |
 | [designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor](designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor.md) | Dedup fingerprints, cooldown/hysteresis, email deliverability, the post-alert state machine | Alerting — gap #7 post-alert model / OQ6 |
 | [choosing-an-outbound-email-path-for-a-low-volume-alerting-system](choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md) | Outbound email path: Postmark primary, SES fallback, AgentMail as secondary agent-inbox tool; custom-domain SPF/DKIM/DMARC, why datacenter SMTP fails | Notification transport & deliverability — [OQ13](../open-questions.md#oq13--notification-transport--deliverability-agentmail-vs-transactional-provider) / [prompt #14](../further-research-needed-prompts.md#14-agentmail-deliverability--sending-domain-model) |
+| [free-outbound-email-path-for-low-volume-alerts](free-outbound-email-path-for-low-volume-alerts.md) | The **free** email path (owner won't pay yet): reuse the existing M365 Graph send path (branded, zero marginal cost); AgentMail free (`@agentmail.to`) fallback; supersedes the paid pick for v1 | Free notification transport — [OQ13](../open-questions.md#oq13--notification-transport--deliverability-agentmail-vs-transactional-provider) |
+| [mvp-web-ui-inventory-and-dismiss-suppress](mvp-web-ui-inventory-and-dismiss-suppress.md) | Validates the MVP page inventory; dismiss = permanent per-listing suppress via the existing `watch_match_state` enum; defer purchase-savings analytics to post-v1 | UI inventory + dismiss/purchase — [OQ6](../open-questions.md#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking) |
 | [opinionated-core-stack-recommendations-for-a-python-drive-price-monitor](opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md) | Framework/stack fit: Django + server-rendered templates + HTMX, PostgreSQL, uv | [ADR 0004](../adr/adr-0004-web-framework-django-htmx.md); open-questions RQ1 |
 
 ### Deployment & operations — running it

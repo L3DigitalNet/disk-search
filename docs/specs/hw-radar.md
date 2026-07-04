@@ -65,8 +65,9 @@ This tool is designed for my personal/business use to assist with monitoring and
 - **Programming Language:** Python (for backend processing, web scraping, and data analysis).
 - **Web Framework:** Django with server-rendered templates + HTMX ([ADR 0004](../adr/adr-0004-web-framework-django-htmx.md)).
 - **Database:** PostgreSQL (system-of-record) + TimescaleDB for the price-history workload ([ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)).
-- **Notification System:** Emails sent to `chris@l3digital.net` at minimum, with potential for SMS or push notifications.
-- **Web Scraping Libraries:** Scrapy. Additional options to be considered based on the specific requirements of each marketplace.
+- **Notification System:** Email alerts to `chris@l3digital.net`, sent via the existing **Microsoft Graph → M365** path (branded `@l3digital.net` sender, zero marginal cost, creds at OpenBao `secret/apps/microsoft365`), with **AgentMail free** (`@agentmail.to`) as an independent fallback ([ADR 0013](../adr/adr-0013-notification-transport-m365-graph.md)); a paid transactional provider (Postmark/SES) is the documented upgrade path. SMS/push are potential future channels.
+- **Orchestration / Scheduler:** a single systemd-supervised **poller** process running **APScheduler 3.11.x** (`AsyncIOScheduler`), owning per-source cadence, jitter, two-level token-bucket admission, and shared circuit-breaker state ([ADR 0012](../adr/adr-0012-orchestration-apscheduler.md)).
+- **Web Scraping Libraries:** **Scrapy** orchestrator with a structured-data detector in front of every parser (JSON-LD → platform JSON → bootstrap JSON → HTML selectors), escalating **HTTP-first, browser-last** to **`curl_cffi`** (TLS-fingerprint gap) then **Playwright via `scrapy-playwright`** (genuine JS rendering / reconnaissance), then managed-unblocker-or-skip for the hostile tail ([ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md)). The `curl_cffi`/Playwright tiers are deferred to M5; M1 ships on plain HTTP + structured-data parsing.
 
 ## Environment and Deployment
 
@@ -106,6 +107,17 @@ This tool is designed for my personal/business use to assist with monitoring and
 _The canonical data model is fixed by **[ADR 0010](../adr/adr-0010-canonical-data-model.md)**: a multi-grain identity ladder — `category → product_family → product_model` (the **physical**, condition-free canonical entity) `→ product_variant` (the **sellable** identity: condition/packaging/warranty-channel) `→ listing → offer_snapshot`, plus an orthogonal `drive_unit` (serial/SMART) grain. External identifiers (GTIN/MPN/ASIN/ePID) are `product_alias` rows, not columns; drive attributes live in a typed `drive_spec` satellite. Full field lists: [`database-architecture.md`](../research/database-architecture.md) + the [suitability taxonomy](../research/machine-usable-drive-suitability-taxonomy-for-24-7-nas-and-server-scoring.md)._ **Extensibility constraint (per [General Design Principles](#general-design-principles)):** the ladder is category-generic — only `drive_spec` is drive-shaped — so additional **hardware types** (RAM, GPUs, …), marketplaces, scoring criteria, and users are added via a new satellite / rows / plugin **without a spine rewrite**. v1 implements the drive category only.
 
 ## Scoring System
+
+_Fixed by **[ADR 0011](../adr/adr-0011-composite-deal-score.md)**, validated against mock data ([`drive-deal-scoring-model-test-results`](../research/drive-deal-scoring-model-test-results.md))._
+
+Each listing gets an explainable **0–100** score = a **weighted geometric mean** of four normalized subscores, gated by three non-compensatory veto caps:
+
+- **Price (weight 0.50)** — a **cohort-relative weighted cheapness percentile** on `ln($/TB)`, not an absolute threshold, so the score tracks a moving market. Cohort key = capacity · tier · interface/form · condition; 90-day window with **30-day half-life** decay. Warm-up shrinkage `s_price = λ·(1−q) + (1−λ)·0.5` with **`λ = min(1, n_eff/30)`** pulls thin cohorts toward neutral (marked _provisional_); documented cohort-relaxation (condition → adjacent capacity → parent tier) fills small cohorts. `$/TB` includes shipping (+ tax where known); missing shipping is a penalty/flag; international listings are flagged, not haircut ([ADR 0008](../adr/adr-0008-currency-landed-cost-normalization.md)).
+- **Fitness-for-purpose (weight 0.25)** — rubric `0.5·suitability + 0.3·verified-warranty + 0.2·condition`.
+- **Seller trust (weight 0.15)** — cross-marketplace positive-equivalent rate with **Beta-Binomial shrinkage** (μ₀ 0.95, κ 20) + **Wilson lower bound** (z 1.2816); no-rating → conservative policy prior (0.60 major / 0.50 other).
+- **Availability (weight 0.10)** — bounded rubric (in-stock 1.0 → out-of-stock 0.0).
+
+**Aggregate:** `base = Π_k max(s_k, 0.02)^{w_k}`; **veto caps** (max score regardless of price): device-managed **SMR for enterprise/NAS → 35**, **used/refurb with no returns → 60**, **seller trust < 0.50 → 60**; `deal_score = round(100 · min(base, cap))`. Every listing persists a **per-subscore explanation payload** (percentile + margin, seller evidence, fitness pieces, cap reason) — the glass-box "why it matched" view.
 
 ## Accounts, APIs, Credentials, and Services
 
