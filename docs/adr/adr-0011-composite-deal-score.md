@@ -87,3 +87,4 @@ The mock-data test ([`drive-deal-scoring-model-test-results`](../research/drive-
 - **Fills** the previously-empty spec `## Scoring System`; maps onto milestone **M2**.
 - **Subscore internals** settled elsewhere: price (shipping/tax folded into `$/TB`, gap #11; cold-start warm-up, gap #12), fitness (suitability taxonomy, recert risk), seller (cross-marketplace Bayesian+Wilson).
 - **Findings:** resolved-questions.md **OQ11**; research [`principled-deal-score`](../research/principled-deal-score-for-hard-drive-listings.md) + [test results](../research/drive-deal-scoring-model-test-results.md).
+- **OQ16 (owner-resolved 2026-07-04):** the cohort key stays this ADR's four-part key for SSDs too — the DWPD endurance class folds into the fitness rubric's suitability (`T`) component instead of partitioning the cohort ([resolved-questions.md OQ16](../resolved-questions.md#oq16--ssd-cohort-key-endurance-dimension-dwpd)). No amendment to the Decision Outcome.

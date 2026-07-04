@@ -1,6 +1,6 @@
 # Resolved Questions — `hw-radar.md`
 
-**Companion to [`open-questions.md`](open-questions.md)** — that file currently holds **no open questions** (all settled and relocated here) plus the shared [maintenance rules](open-questions.md#how-to-maintain-this-document); this file is the **settled record**, split out 2026-07-04 to keep the open-questions doc short.
+**Companion to [`open-questions.md`](open-questions.md)** — that file holds whatever is currently open plus the shared [maintenance rules](open-questions.md#how-to-maintain-this-document); this file is the **settled record**, split out 2026-07-04 to keep the open-questions doc short.
 
 **Terminology:** an **open question** (`OQ#`) is a decision still to be made (it lives in [`open-questions.md`](open-questions.md)); a **resolved question** (`RQ#`) is one already settled; a **gap** (`gap #`) is one of the twelve original spec-audit findings that seeded these questions. Everything here is settled — retained for provenance and to keep ADR/spec cross-references resolvable; you do not need to read it to know what's still open.
 
@@ -40,6 +40,11 @@
     - [OQ13 — Notification transport & deliverability (AgentMail vs transactional provider)](#oq13--notification-transport--deliverability-agentmail-vs-transactional-provider)
     - [OQ14 — Scraping runtime escalation stack](#oq14--scraping-runtime-escalation-stack)
     - [OQ15 — Amazon acquisition path after PA-API deprecation](#oq15--amazon-acquisition-path-after-pa-api-deprecation)
+    - [OQ16 — SSD cohort-key endurance dimension (DWPD)](#oq16--ssd-cohort-key-endurance-dimension-dwpd)
+    - [OQ17 — Heartbeat-grain retention & storage policy](#oq17--heartbeat-grain-retention--storage-policy)
+    - [OQ18 — Recovery-time objective (RTO) for v1](#oq18--recovery-time-objective-rto-for-v1)
+    - [OQ19 — Accessibility & i18n declaration](#oq19--accessibility--i18n-declaration)
+    - [OQ20 — OSS license-compliance posture](#oq20--oss-license-compliance-posture)
 
 ---
 
@@ -254,12 +259,13 @@ Everything above is the **operational / product-engineering** layer a research-f
 
 ## Resolved OQs
 
-OQ1–OQ15, relocated here on 2026-07-04 ([OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling) and [OQ15](#oq15--amazon-acquisition-path-after-pa-api-deprecation) on their resolution later the same day). Their `#oq#` anchors are preserved so ADR/TODO/spec/research back-links keep resolving. **ADR-backed OQs are condensed to a one-line resolution + ADR link** (the ADR is canonical); **OQs with no ADR retain their full decided substance** (this document is their record).
+OQ1–OQ15, relocated here on 2026-07-04 ([OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling) and [OQ15](#oq15--amazon-acquisition-path-after-pa-api-deprecation) on their resolution later the same day), joined by **OQ16–OQ20** from the same-day gap analysis on their owner-resolution ([OQ17](#oq17--heartbeat-grain-retention--storage-policy) and [OQ20](#oq20--oss-license-compliance-posture) research-backed). Their `#oq#` anchors are preserved so ADR/TODO/spec/research back-links keep resolving. **ADR-backed OQs are condensed to a one-line resolution + ADR link** (the ADR is canonical); **OQs with no ADR retain their full decided substance** (this document is their record).
 
 | # | Question | Resolution |
 | --- | --- | --- |
 | **OQ1** | `secret_id` delivery to the CT | Onboard as the next **`bao-services`** consumer via a local **bao-agent**; SecretID delivered out-of-band (issuer script → response-wrap + `pct push`), persistent + CIDR-bound (container ID, on-disk path, CIDR value, and issuer-script name in the private `homelab` repo). **[ADR 0009](adr/adr-0009-secrets-runtime-openbao-agent.md)** · verified live 2026-07-04. |
 | **OQ2** | Ephemeral-runner tailnet auth | **Tailscale OAuth client** (`secret/infra/tailscale-oauth`, `tag:ci`) via `tailscale/github-action` v4. ⚠️ add a `tag:ci→CT` grant when the wildcard ACL is scoped. **[ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)** · verified live 2026-07-04. |
+| **OQ3** | DB RPO + TimescaleDB dump handling | **≤1 h RPO accepted for v1**; **TimescaleDB-aware logical dumps** (`timescaledb_pre_restore()`/`post_restore()`); extended monthly retention; **B2 tier-1 declined** (physical/pgBackRest = Future trigger). _No ADR — substance below._ |
 | **OQ4** | DB placement | Own Postgres **inside the hw-radar CT** (self-contained; shared-datastores-CT rejected). **[ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)**. |
 | **OQ5** | Off-box heartbeat | **Off-site GMK Uptime Kuma** watches the CT (also swept by the Hetzner Fleet Digest; healthchecks.io rejected). _No ADR — substance below._ |
 | **OQ6** | UI inventory + dismiss→suppress | Inventory confirmed as-is; **dismiss = permanent per-listing suppress** via the existing `watch_match_state` enum (no TTL/new table); **purchase analytics deferred** (ship only a `purchased` flag). _No ADR — substance below._ |
@@ -271,6 +277,12 @@ OQ1–OQ15, relocated here on 2026-07-04 ([OQ3](#oq3--db-rpo-acceptance--timesca
 | **OQ12** | Orchestration engine | **APScheduler 3.11.x** in one systemd-supervised poller. **[ADR 0012](adr/adr-0012-orchestration-apscheduler.md)** · ADR-0006 "timers" amended. |
 | **OQ13** | Notification transport | **Reuse the existing M365 Graph send path** (branded, zero marginal cost); AgentMail free fallback. **[ADR 0013](adr/adr-0013-notification-transport-m365-graph.md)**. |
 | **OQ14** | Scraping runtime escalation stack | Playwright = code-driven headless (no LLM), selective via `scrapy-playwright`, browser-last; **defer curl_cffi/Playwright to M5**. **[ADR 0014](adr/adr-0014-scraping-runtime-escalation-stack.md)**. |
+| **OQ15** | Amazon acquisition after PA-API deprecation | **Discovery-only via the search-API stack** (ASIN from `/dp/<ASIN>` URLs; SERP price = low-confidence 24 h hint); SP-API seller-only, Creators API sales-gated, PA-API closed; no direct scraper. _No ADR — substance below._ |
+| **OQ16** | SSD cohort-key DWPD dimension | **DWPD folds into the _fitness_ subscore, not the cohort key** — [ADR 0011](adr/adr-0011-composite-deal-score.md)'s four-part key stands for SSDs. _No ADR amendment — substance below._ |
+| **OQ17** | Heartbeat-grain retention & storage | **Hypertable + 30-day raw retention + indefinite daily continuous aggregate + 365-day plain `availability_heartbeat_event` table** for non-`unchanged` rows; compression ≈7 d; values tunable. _No ADR (rides [ADR 0015](adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md)) — substance below._ |
+| **OQ18** | RTO for v1 | **≤24 h, manual-runbook restore**; no restore automation for v1; verified by the ≥once-by-M5 timed restore test. _No ADR — substance below._ |
+| **OQ19** | Accessibility & i18n | **Out of scope for v1** (single sighted user, English-only — Engineered to Needs); spec §11 declaration + WH-008. _No ADR — substance below._ |
+| **OQ20** | OSS license-compliance posture | **Allowlist license gate via `dependency-review-action@v4`** (uv.lock-native) + manual `licensecheck` for direct-to-branch dep adds; §16 reworded; TimescaleDB TSL self-hosted posture recorded. _No ADR — substance below._ |
 
 ### OQ1 — `secret_id` out-of-band delivery to the CT
 
@@ -456,3 +468,51 @@ _Answer (2026-07-04):_ **Yes on both counts — and the LLM concern is a categor
 - **Carried-forward (non-load-bearing) open items** from the research, not gating this decision: (1) whether PA-API `GetItems` still responds for *existing* credential-holders today — moot, hw-radar holds no PA-API creds; (2) Creators-API-specific rate limits (behind an Associates Central sign-in wall). Both are recorded in the research report's Open Questions table.
 
 **My Comments:** **Task for Claude:** /qdev:research the Creators API and SP-API to determine which is the best replacement for PA-API 5 `GetItems` for our use case. Provide a recommendation with pros and cons for each option, including any limitations or restrictions that may affect our ability to acquire and retain Amazon data. Once a decision is made, update the relevant documentation accordingly.
+
+### OQ16 — SSD cohort-key endurance dimension (DWPD)
+
+**✅ Resolved (owner, 2026-07-04) — no ADR amendment; [ADR 0011](adr/adr-0011-composite-deal-score.md)'s ratified key stands.** From the 2026-07-04 spec gap analysis. **Decision: fold DWPD into the _fitness_ subscore instead of the cohort key.** SSDs cohort on the same four-part key as HDDs (capacity · tier · interface/form · condition); the DWPD endurance class — already a typed `drive_spec` column from the [suitability taxonomy research](research/machine-usable-drive-suitability-taxonomy-for-24-7-nas-and-server-scoring.md) — enters the fitness rubric's suitability (`T`) component, so a read-intensive SSD is price-compared against all SSD peers but scores lower on fitness where endurance matters.
+
+- **Rationale:** partitioning the cohort on DWPD would thin SSD cohorts further, and thin cohorts already force ADR 0011's warm-up/relaxation machinery (`λ = min(1, n_eff/30)`, cohort-relaxation fallback). The fitness path prices the endurance mismatch without starving the price percentile.
+- **Reconciled:** spec glossary "Cohort" row + EC-008 (provisional markers dropped, repointed here); §21 OQ-016 → Resolved; ADR 0011 More Information carries the pointer.
+
+**My Comments:** Fold DWPD into the _fitness_ subscore instead of the cohort key.
+
+### OQ17 — Heartbeat-grain retention & storage policy
+
+**✅ Resolved (owner-ratified 2026-07-04, research-backed) — no ADR; rides [ADR 0015](adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md)'s already-ratified grain; DR-008 carries the policy.** Research: [`2026-07-04-availability-heartbeat-retention-and-storage-policy.md`](research/2026-07-04-availability-heartbeat-retention-and-storage-policy.md). Storage volume is **not** the constraint (~0.7–1.1 GB/yr uncompressed even at 20 fast-lane sources; tens of MB after TimescaleDB's well-corroborated 90%+ columnstore compression on this repetitive row shape) — the design optimizes for the two history consumers ADR 0015 created (p95 transition-to-alert SLO measurement; fingerprint tuning from `ambiguous`/`failed` runs). All values below are **tunables**, not ratified constants.
+
+1. **`availability_heartbeat_observation` is a TimescaleDB hypertable** — for ops/backup consistency with `offer_snapshot`, not because volume forces it. Monthly chunk interval initially (avoids small-chunk compression overhead at 2–5-source volume); revisit toward weekly as the fast-lane set approaches ~20 sources.
+2. **Raw retention 30 days** (`add_retention_policy`), compression (`segmentby = source_id, variant_id`) on chunks older than ≈7 days — well inside the retention window, so the retention-vs-continuous-aggregate refresh-ordering footgun is trivially satisfied.
+3. **Indefinite daily continuous aggregate** (`availability_heartbeat_daily`: per source/day/decision-class counts, ~29K rows/yr) — the long-horizon SLO-trend consumer reads this, Prometheus-style raw-then-downsample.
+4. **Class-differentiated retention via dual-write, not chunk surgery:** the poller (already branching on decision class per ADR 0015) additionally writes every **non-`unchanged`** row to a **plain (non-hypertable) table `availability_heartbeat_event`**, retained **365 days** — fingerprint tuning reads this. TimescaleDB retention is chunk-granular, so "keep rare classes longer" cannot be expressed inside one hypertable; the second table sidesteps every compression/backfill footgun for exactly the rows that matter.
+5. **No license/backup posture change:** compression, retention policies, and continuous aggregates are all TimescaleDB Community (TSL) features — the license class the deploy already carries (recorded under [OQ20](#oq20--oss-license-compliance-posture)); the hourly TimescaleDB-aware logical dumps ([OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling)) cover both tables.
+
+**My Comments:** **Task for Claude:** research further and provide your recommendation on retention and storage policy for heartbeat-grain data. Consider the trade-offs between data retention for SLO measurement and fingerprint tuning versus storage costs and performance.
+
+_Recommendation ratified as presented (2026-07-04): adopt the full design incl. the event table._
+
+### OQ18 — Recovery-time objective (RTO) for v1
+
+**✅ Resolved (owner, 2026-07-04) — no ADR; this is the record.** From the 2026-07-04 spec gap analysis (§18.6 had "RTO: not stated in sources" while [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling) ratified the RPO). **Decision: RTO ≤ 24 hours, manual-runbook restore — no restore/provisioning automation for v1** (the ansible scaffold [ADR 0009](adr/adr-0009-secrets-runtime-openbao-agent.md) mentions stays unbuilt). 24 h covers noticing the outage and running the restore by hand. Deals missed during an outage are unrecoverable regardless of RTO; the durable asset (the price-history moat) is protected by the ≤1 h RPO. Spec §18.6 states the bound; the ≥once-by-M5 timed restore test verifies it.
+
+**My Comments:** 24 hours is fine. That gives me time to notice the outage and run the restore. No need to automate the restore for v1.
+
+### OQ19 — Accessibility & i18n declaration
+
+**✅ Resolved (owner, 2026-07-04) — no ADR; this is the record.** From the 2026-07-04 spec gap analysis (spec §11's template placeholder required an explicit statement). **Decision: accessibility and i18n are out of scope for v1** — the UI serves a single sighted user, English-only, consistent with the Engineered-to-Needs principle. No WCAG target, no string externalization. Recorded as the §11 declaration + **WH-008** in §2.3 (revisit if additional or differently-abled users appear). Server-rendered Django templates + HTMX ([ADR 0004](adr/adr-0004-web-framework-django-htmx.md)) keep the markup close to semantic HTML, so a later retrofit is additive rather than structural.
+
+**My Comments:** No plans to implement at this time. Accessibility and i18n are out of scope for v1. The UI is for a single sighted user, English-only. This is consistent with the "Engineered to Needs" principle.
+
+### OQ20 — OSS license-compliance posture
+
+**✅ Resolved (owner-ratified 2026-07-04, research-backed) — no ADR; this is the record.** Research: [`2026-07-04-oss-license-compliance-tooling-for-a-uv-managed-public-python-project.md`](research/2026-07-04-oss-license-compliance-tooling-for-a-uv-managed-public-python-project.md). Spec §16 previously promised license coverage "by the standard toolchain's audit practices" — false (pip-audit checks CVEs, not licenses); §16 now reworded to match the real mechanism.
+
+- **Decision: automated allowlist gate via GitHub's own `actions/dependency-review-action@v4`** ([`.github/workflows/dependency-review.yml`](../.github/workflows/dependency-review.yml)) — as of 2026-04 GitHub's Dependabot-based dependency graph resolves **`uv.lock` natively with per-dependency license data**, so the gate costs zero new Python dependencies. `allow-licenses` covers the decided stack (MIT · BSD-2/3 · Apache-2.0 · ISC · Python/PSF · LGPL-2.1/3.0 · MPL-2.0 · 0BSD/Unlicense); the action tolerates undetectable/`UNKNOWN` licenses rather than hard-failing (the corroborated footgun: a large fraction of PyPI packages lack machine-readable license metadata, PEP 639).
+- **Known gap, accepted:** the action is **PR-triggered only** and this repo currently commits directly to branches — so until the branch-protection/PR TODO lands, a dependency added by direct commit bypasses the gate. Mitigation recorded in §16: run a manual `licensecheck` pass whenever adding a dependency outside a PR.
+- **Copyleft exposure is structurally low:** GPL/LGPL obligations trigger on *distribution*, and hw-radar distributes nothing (public source ≠ distributing dependencies; the app runs only on the owner's server). psycopg's **LGPL-3.0** therefore imposes nothing; nothing AGPL is in the stack (AGPL is the only common license that closes the SaaS gap, and it would matter only if hw-radar's UI were offered to others).
+- **TimescaleDB Community (TSL):** self-hosted internal use of the TSL feature set the deploy relies on (columnstore compression, continuous aggregates, retention policies — per [OQ17](#oq17--heartbeat-grain-retention--storage-policy)) is **expressly permitted**; the TSL's only real prohibition is offering the database as a hosted DBaaS. Recorded in §16 so the reliance is explicit.
+
+**My Comments:** **Task for Claude:** Conduct further research and determine the required tooling and processes to ensure OSS license compliance for the project. Provide a recommendation on whether to implement an automated license check, perform a one-time manual review, or accept the risk and update the documentation accordingly.
+
+_Recommendation ratified as presented (2026-07-04): `dependency-review-action` gate + manual `licensecheck` for non-PR dependency adds + §16 reword + TSL note._
