@@ -1,6 +1,6 @@
 ---
 schema_version: '1.1'
-id: 'adr-0002-disk-search-python-tooling-standard-local-deviations'
+id: 'adr-0002-hw-radar-python-tooling-standard-local-deviations'
 title: 'ADR 0002: Python Tooling Standard — local deviations'
 description: 'Adopt the Python Tooling SSOT Standard with two scoped exceptions: defer the verification gate/CI until code exists, and keep .vscode/ and CLAUDE.md git-ignored.'
 doc_type: 'adr'
@@ -79,7 +79,7 @@ Option 1 was rejected because a broken CI check and reversed hygiene are worse t
 
 Repo state confirms the decision: `pyproject.toml` carries the standard's tool tables; `AGENTS.md` is tracked; `.vscode/` and `CLAUDE.md` remain in `.gitignore`.
 
-**Update (2026-07-03) — Deviation A retired.** The "scaffold the repo" task landed in the same session: `src/disk_search/` (version-only skeleton) + `tests/`, `uv.lock`, and `.github/workflows/check.yml` were added, and the full verification gate now runs **green** (`uv run python -m scripts.check`, exit 0). Deviation A (deferred gate/CI) no longer applies. **Deviation B remains in force** — `.vscode/` and `CLAUDE.md` stay git-ignored as long as the public-hygiene convention holds — so this ADR stays `active`.
+**Update (2026-07-03) — Deviation A retired.** The "scaffold the repo" task landed in the same session: `src/hw_radar/` (version-only skeleton) + `tests/`, `uv.lock`, and `.github/workflows/check.yml` were added, and the full verification gate now runs **green** (`uv run python -m scripts.check`, exit 0). Deviation A (deferred gate/CI) no longer applies. **Deviation B remains in force** — `.vscode/` and `CLAUDE.md` stay git-ignored as long as the public-hygiene convention holds — so this ADR stays `active`.
 
 ## More Information
 

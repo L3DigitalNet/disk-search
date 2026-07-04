@@ -132,7 +132,7 @@ Prometheus + Grafana + Alertmanager means running and keeping alive 3+ additiona
 
 ## Handoff
 
-Persisted at `/home/chris/projects/disk-search/docs/research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md`. Downstream skills that may consume it:
+Persisted at `/home/chris/projects/hw-radar/docs/research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md`. Downstream skills that may consume it:
 
 - `superpowers:brainstorming` — feed Open Questions into a design conversation about GlitchTip SDK parity and check-count budgeting
 - `feature-dev:feature-dev` — start implementation of the `scraper_runs` health table, Uptime Kuma push monitors, and vcrpy test fixtures

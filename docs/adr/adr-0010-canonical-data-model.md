@@ -1,6 +1,6 @@
 ---
 schema_version: '1.1'
-id: 'adr-0010-disk-search-canonical-data-model'
+id: 'adr-0010-hw-radar-canonical-data-model'
 title: 'ADR 0010: Canonical data model — product/variant identity ladder'
 description: 'Model identity as a multi-grain ladder — category → product_family → product_model (physical, condition-free) → product_variant (sellable: condition/packaging/warranty-channel) → listing → offer_snapshot, plus an orthogonal drive_unit (serial/SMART) grain — with external identifiers as aliases, drive attributes in a typed per-category satellite, and a retention_class on every evidence record.'
 doc_type: 'adr'
@@ -20,7 +20,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/disk-search.md'
+  - 'docs/specs/hw-radar.md'
   - 'docs/open-questions.md'
   - 'docs/research/database-architecture.md'
   - 'docs/research/entity-resolution-for-cross-marketplace-hard-drive-and-ssd-price-tracking.md'
@@ -44,9 +44,9 @@ MADR status: **accepted**.
 
 ## Context and Problem Statement
 
-The hardest modeling problem in disk-search is **identity**: recognizing that listings from ~20 merchants — with different titles, SKUs, and identifiers — refer to the same physical drive, while keeping genuinely different things distinct (16 TB vs 18 TB; **new vs recertified**; SATA vs SAS). The accumulating price history is the tool's compounding value, so whatever the canonical entity is, it is the single most **costly-to-reverse** table in the system — every offer, score, and observation references it, and history accrues under it. Getting the grain wrong means a later rewrite, not a migration.
+The hardest modeling problem in Hardware Radar is **identity**: recognizing that listings from ~20 merchants — with different titles, SKUs, and identifiers — refer to the same physical drive, while keeping genuinely different things distinct (16 TB vs 18 TB; **new vs recertified**; SATA vs SAS). The accumulating price history is the tool's compounding value, so whatever the canonical entity is, it is the single most **costly-to-reverse** table in the system — every offer, score, and observation references it, and history accrues under it. Getting the grain wrong means a later rewrite, not a migration.
 
-Two forces constrain the choice, and they pull in opposite directions ([General Design Principles](../specs/disk-search.md#general-design-principles)):
+Two forces constrain the choice, and they pull in opposite directions ([General Design Principles](../specs/hw-radar.md#general-design-principles)):
 
 - **Extensibility & Expandability** — the catalog must accommodate more marketplaces, scoring criteria, users, and eventually **other hardware types** (RAM, GPUs) without a schema rewrite.
 - **Engineered to Needs** — do not over-engineer; v1 is drives only.

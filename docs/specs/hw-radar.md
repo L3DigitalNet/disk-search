@@ -1,4 +1,4 @@
-# Disk Search
+# Hardware Radar
 
 **What it is:** A search tool that monitors websites like eBay, ServerPartDeals, Amazon, Newegg, and other online marketplaces for hard disk drives (HDDs) and solid-state drives (SSDs). It alerts users when specific models or brands become available or drop in price. It should locate deals and provide a quantitative score based on price, availability, and seller reputation.
 
@@ -70,11 +70,11 @@ This tool is designed for my personal/business use to assist with monitoring and
 
 ## Environment and Deployment
 
-- **GitHub Repository:** `[L3DigitalNet public repo](https://github.com/L3DigitalNet/disk-search)`
+- **GitHub Repository:** `[L3DigitalNet public repo](https://github.com/L3DigitalNet/hw-radar)`
   - _Branching Strategy:_ Main branch for stable releases, development branch for ongoing work, and feature branches for new features or bug fixes.
   - _Commit Guidelines:_ Follow conventional commit messages for clarity and consistency. Commit directly to branches, do not use Pull Requests for personal development work unless collaborating with others.
   - _Note_: This project lives in my Organization account on GitHub because I am intending to use this to purchase hard drives for L3Digital. The repository is public; secrets (API keys, credentials) are **never committed, hard-coded, or exposed**. In production the app resolves them from **OpenBao at runtime** via a local OpenBao Agent ([open-questions.md](../open-questions.md) gap #2 / OQ1); a local `.env` is used **for development only**.
-- **Local Clone:** `~/projects/disk-search`
+- **Local Clone:** `~/projects/hw-radar`
 - **Server Configuration:**
   - _Location:_ Hetzner dedicated server
   - _Containerization:_ **Dedicated LXC container** in Proxmox (not a VM), per the homelab dedicated-LXC standard ([ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md)).
@@ -88,7 +88,7 @@ This tool is designed for my personal/business use to assist with monitoring and
   - _Workflows:_ Separate workflows for testing, building, and deployment.
   - _Live Deployment:_ Automatic deployment to the Hetzner CT on merge to `main`, via `rsync` over Tailscale SSH (ADR 0006).
 - **Access:**
-  - _Address:_ `https://disk-search.l3digital.net`
+  - _Address:_ `https://hw-radar.l3digital.net`
   - _Security:_ HTTPS via NGINX and Let's Encrypt.
   - _Authentication:_ Single-account session login with Argon2id, internet-facing ([ADR 0005](../adr/adr-0005-single-account-session-auth.md)).
 

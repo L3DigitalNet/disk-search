@@ -1,6 +1,6 @@
 ---
 schema_version: '1.1'
-id: 'adr-0001-disk-search-decline-markdown-frontmatter-standard'
+id: 'adr-0001-hw-radar-decline-markdown-frontmatter-standard'
 title: 'ADR 0001: Decline the Markdown Frontmatter Standard'
 description: 'Adopt the project-standards ADR format without its prerequisite Markdown Frontmatter Standard; keep ADR frontmatter as an unvalidated local convention.'
 doc_type: 'adr'
@@ -41,7 +41,7 @@ MADR status: **accepted**.
 
 This repository is adopting the project-standards **ADR Standard** (MADR body format + a `docs/adr/` directory and index). That standard's adoption runbook, however, names the **Markdown Frontmatter Standard as a hard prerequisite** — "Adopt the Frontmatter Standard first" — because it treats ADRs as _managed Markdown documents_ validated by shared CI tooling. Adopting the Frontmatter Standard in full means: a root `.project-standards.yml`, a reusable CI validator workflow pinned to `@v3`, and retrofitting a conformant 11-plus-field frontmatter block onto **every** managed document (`README.md` and all of `docs/**/*.md`), then keeping ids, dates, enums, and key order conformant on every future edit.
 
-Should `disk-search` — a **single-maintainer, design-phase** repo with no application code yet — take on that full standard, or decline it and adopt only the ADR format?
+Should `hw-radar` — a **single-maintainer, design-phase** repo with no application code yet — take on that full standard, or decline it and adopt only the ADR format?
 
 ## Decision Drivers
 

@@ -1,6 +1,6 @@
 # Research
 
-This directory is the project's **research corpus** — 20 deep-research reports that ground the design of disk-search in evidence rather than assumption. Alongside [`../specs/disk-search.md`](../specs/disk-search.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
+This directory is the project's **research corpus** — 20 deep-research reports that ground the design of Hardware Radar in evidence rather than assumption. Alongside [`../specs/hw-radar.md`](../specs/hw-radar.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
 
 Each report is a **dated, frozen snapshot** of what was found on the day it was run (all 2026-07-03), with inline citations. They are not living documents — findings get **reconciled forward** into the spec, the ADRs, and [`../open-questions.md`](../open-questions.md), rather than edited in place here.
 

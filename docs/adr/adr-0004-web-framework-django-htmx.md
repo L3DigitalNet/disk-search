@@ -1,8 +1,8 @@
 ---
 schema_version: '1.1'
-id: 'adr-0004-disk-search-web-framework-django-htmx'
+id: 'adr-0004-hw-radar-web-framework-django-htmx'
 title: 'ADR 0004: Web framework — Django + server-rendered templates + HTMX'
-description: 'Build disk-search on Django with server-rendered templates and HTMX rather than FastAPI or an SPA, because the app is an authenticated listings database with dashboards, CRUD, alerts, and internal operations — not an API platform.'
+description: 'Build Hardware Radar on Django with server-rendered templates and HTMX rather than FastAPI or an SPA, because the app is an authenticated listings database with dashboards, CRUD, alerts, and internal operations — not an API platform.'
 doc_type: 'adr'
 status: 'active'
 created: '2026-07-03'
@@ -19,7 +19,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/disk-search.md'
+  - 'docs/specs/hw-radar.md'
   - 'docs/open-questions.md'
   - 'docs/research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md'
 supersedes: []
@@ -43,7 +43,7 @@ MADR status: **accepted**.
 
 The spec left the web framework undecided (`_TBD_` — "FastAPI or Django"). The choice is foundational: it dictates the auth mechanism (ADR 0005), the ORM and migration workflow, the admin/back-office story, and the shape of every view and template.
 
-disk-search's center of gravity is an **authenticated listings database with dashboards, CRUD (watches/alert-rules), email alerts, and internal operations** (inspecting scraped offers, correcting entity matches, triaging ingestion) — _not_ a public API platform. The research report [`opinionated-core-stack-recommendations…`](../research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md) recommends Django for exactly this app shape, and gaps #1 (auth) and #7 (UI) independently converge on it.
+Hardware Radar's center of gravity is an **authenticated listings database with dashboards, CRUD (watches/alert-rules), email alerts, and internal operations** (inspecting scraped offers, correcting entity matches, triaging ingestion) — _not_ a public API platform. The research report [`opinionated-core-stack-recommendations…`](../research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md) recommends Django for exactly this app shape, and gaps #1 (auth) and #7 (UI) independently converge on it.
 
 ## Considered Options
 

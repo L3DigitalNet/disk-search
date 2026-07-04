@@ -1,6 +1,6 @@
-"""Smoke tests for the disk_search package scaffold."""
+"""Smoke tests for the hw_radar package scaffold."""
 
-from disk_search import __version__
+from hw_radar import __version__
 
 
 def test_version__package_imported__matches_project_metadata() -> None:

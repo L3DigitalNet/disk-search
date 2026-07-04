@@ -2,7 +2,7 @@
 schema_version: '1.1'
 id: 2026-07-03-auth-for-self-hosted-single-maintainer-python-app
 title: Authentication for a Self-Hosted, Single-Maintainer Python Web App Behind NGINX (2026)
-description: Tiered auth recommendation (Tailscale-only -> single-account session -> forward-auth or app-native OIDC) for disk-search, comparing reverse-proxy identity gateways against app-native auth for a single-maintainer FastAPI/Django app.
+description: Tiered auth recommendation (Tailscale-only -> single-account session -> forward-auth or app-native OIDC) for Hardware Radar, comparing reverse-proxy identity gateways against app-native auth for a single-maintainer FastAPI/Django app.
 doc_type: research
 status: active
 created: '2026-07-03'
@@ -19,8 +19,8 @@ tags:
 - django
 - security
 aliases:
-- auth research disk-search
-- disk-search authentication options
+- auth research hw-radar
+- hw-radar authentication options
 related: []
 source:
 - https://www.authelia.com/reference/guides/validating-forwarded-authentication
@@ -39,7 +39,7 @@ license: null
 
 ## Context
 
-disk-search (https://disk-search.l3digital.net) is a single-maintainer FastAPI/Django tool on one Debian 13 VM behind NGINX + Let's Encrypt, currently single-user with a stated future need for multi-user support. This report compares reverse-proxy (forward-auth) identity gateways against app-native auth, covers the header-spoofing risk in forward-auth setups, and gives a tiered recommendation.
+Hardware Radar (https://hw-radar.l3digital.net) is a single-maintainer FastAPI/Django tool on one Debian 13 VM behind NGINX + Let's Encrypt, currently single-user with a stated future need for multi-user support. This report compares reverse-proxy (forward-auth) identity gateways against app-native auth, covers the header-spoofing risk in forward-auth setups, and gives a tiered recommendation.
 
 ## Tier recommendation (answer first)
 
@@ -100,7 +100,7 @@ NGINX's `auth_request` directive delegates the authentication decision to a subr
 
 **The header-spoofing risk is real and has already been exploited in the wild in this exact integration pattern**: CVE-2026-34457 (oauth2-proxy < 7.15.2) is an authentication bypass where an attacker sends a spoofed `User-Agent` header matching the configured health-check value (e.g. GCP's well-documented `GoogleHC/1.0`), causing oauth2-proxy to treat the entire request as a health check and skip auth — with **no changes to the actual request path**, just a header. [official CVE record + independent vendor writeup] (https://www.sentinelone.com/vulnerability-database/cve-2026-34457, NVD https://nvd.nist.gov/vuln/detail/CVE-2025-54576 — related regex-bypass sibling CVE in `skip_auth_routes`, also corroborated by CCB Belgium's national CSIRT advisory: https://ccb.belgium.be/advisories/warning-critical-authentication-bypass-vulnerability-oauth2-proxy-can-lead-attackers)
 
-**The mitigation that matters for disk-search's stated concern ("header-spoofing risk if the app is reachable bypassing the proxy")**: the vulnerability class you should worry about is not "can NGINX be tricked" but **"can a client reach the FastAPI/Django process directly, bypassing NGINX and the auth gateway entirely"**. If so, that client can set `Remote-User: admin` themselves and the app will trust it. Concrete controls, corroborated across the Authelia docs and general reverse-proxy security guidance:
+**The mitigation that matters for Hardware Radar's stated concern ("header-spoofing risk if the app is reachable bypassing the proxy")**: the vulnerability class you should worry about is not "can NGINX be tricked" but **"can a client reach the FastAPI/Django process directly, bypassing NGINX and the auth gateway entirely"**. If so, that client can set `Remote-User: admin` themselves and the app will trust it. Concrete controls, corroborated across the Authelia docs and general reverse-proxy security guidance:
 
 - Bind the app process to `127.0.0.1` (or a Unix socket) only — never to a public interface — so it is physically unreachable except through NGINX on the same host. [community, standard practice, corroborated: httptoolkit.com, devsec-blog.com]
 - In NGINX, always overwrite the trust header rather than append to it (`proxy_set_header X-Remote-User $upstream_http_remote_user;` after clearing any client-supplied value) so a client cannot pre-set the header and have it pass through unchanged.
@@ -109,8 +109,8 @@ NGINX's `auth_request` directive delegates the authentication decision to a subr
 
 ## 3. App-native auth details (if you skip the gateway)
 
-- **Session vs JWT for a server-rendered app**: for a server-rendered single app (not a decoupled SPA/API), server-side sessions with an opaque cookie are the better default — no token-revocation problem, no client-side storage-XSS surface, simpler CSRF story with `SameSite=Lax`. JWT-in-cookie is popular in tutorials but adds complexity (revocation, expiry skew) disk-search does not need. Multiple 2026 sources converge on "sessions for first-party web apps, JWT for cross-service APIs." [community, corroborated 2 sources] (https://fastro.ai/blog/fastapi-authentication, https://fastapi-users.github.io/fastapi-users/10.1/configuration/authentication)
-- **Cookie flags**: `Secure` (mandatory over TLS, which disk-search already has via Let's Encrypt), `HttpOnly` (prevents JS/XSS token theft), `SameSite=Lax` for standard first-party login flows (`Strict` if you never need cross-site referral links into the app). MDN and multiple security blogs agree on this triad as the 2026 minimum bar. [official] (https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides/Cookies)
+- **Session vs JWT for a server-rendered app**: for a server-rendered single app (not a decoupled SPA/API), server-side sessions with an opaque cookie are the better default — no token-revocation problem, no client-side storage-XSS surface, simpler CSRF story with `SameSite=Lax`. JWT-in-cookie is popular in tutorials but adds complexity (revocation, expiry skew) Hardware Radar does not need. Multiple 2026 sources converge on "sessions for first-party web apps, JWT for cross-service APIs." [community, corroborated 2 sources] (https://fastro.ai/blog/fastapi-authentication, https://fastapi-users.github.io/fastapi-users/10.1/configuration/authentication)
+- **Cookie flags**: `Secure` (mandatory over TLS, which Hardware Radar already has via Let's Encrypt), `HttpOnly` (prevents JS/XSS token theft), `SameSite=Lax` for standard first-party login flows (`Strict` if you never need cross-site referral links into the app). MDN and multiple security blogs agree on this triad as the 2026 minimum bar. [official] (https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides/Cookies)
 - **Password hashing**: Argon2id is OWASP's current recommendation; bcrypt (work factor >=10, ideally >=12+) remains an acceptable fallback for legacy systems. Django: list `Argon2PasswordHasher` first in `PASSWORD_HASHERS` (requires `argon2-cffi`). FastAPI: use `argon2-cffi` directly or via `passlib`'s Argon2 handler — do not use a fast hash (MD5/SHA-256 alone). [official] (https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html, https://docs.djangoproject.com/en/5.2/topics/auth/passwords)
 - **OAuth/OIDC social login**: worth adding only once you have real second/third users who want "log in with Google" — django-allauth (Django) or Authlib (FastAPI) are the community-standard choices; both are actively maintained as of 2026.
 
@@ -120,15 +120,15 @@ NGINX's `auth_request` directive delegates the authentication decision to a subr
 | --- | --- | --- |
 | **HTTP Basic behind TLS** | Trivial to set up (NGINX `auth_basic` or app-level), credentials are encrypted in transit over TLS (RFC 7617 explicitly notes Basic is safe *given* TLS) | No logout, no session timeout UX, browser-native ugly prompt, no MFA path, awkward to extend to per-user accounts later (it's file-based, not a user table) [official spec + corroboration] (https://datatracker.ietf.org/doc/html/rfc7617) |
 | **Single-account session login (app-native)** | Real login page, real session cookie with proper flags, natural upgrade path to a multi-row `users` table later, no new services to run | You still own password storage/reset flow yourself; no MFA out of the box |
-| **Tailscale-only (no public exposure)** | Zero auth code needed at all — the tailnet *is* the auth boundary (device + user identity via Tailscale's own auth); free, already in use by the owner | Nobody outside the tailnet can reach the tool at all — this conflicts with disk-search having a public URL today unless that's changed |
+| **Tailscale-only (no public exposure)** | Zero auth code needed at all — the tailnet *is* the auth boundary (device + user identity via Tailscale's own auth); free, already in use by the owner | Nobody outside the tailnet can reach the tool at all — this conflicts with Hardware Radar having a public URL today unless that's changed |
 
-Given disk-search **already has a public URL** (https://disk-search.l3digital.net), the realistic minimal-viable options are HTTP Basic or single-account session login, not Tailscale-only, unless the public URL requirement is renegotiated (see §5).
+Given Hardware Radar **already has a public URL** (https://hw-radar.l3digital.net), the realistic minimal-viable options are HTTP Basic or single-account session login, not Tailscale-only, unless the public URL requirement is renegotiated (see §5).
 
 ## 5. Is public exposure necessary at all?
 
 Multiple independent 2026 sources describe the same pattern the owner is already positioned to use: run `tailscale serve` (or Tailscale Funnel if selective public sharing is ever needed) so the service gets a stable HTTPS hostname and is reachable only over the tailnet, with **zero open ports on the public internet** and no auth code required in the app at all. [community, corroborated 3 sources] (https://webnestify.cloud/insights/cybersecurity-hardening/linux-server-security-fundamentals, https://www.xda-developers.com/i-dont-expose-my-home-server-anymore-i-let-tailscale-do-the-scary-part, https://blog.openreplay.com/secure-local-web-apps-tailscale)
 
-- If disk-search's public URL exists mainly so the owner can reach it from personal devices, **switching to Tailscale-only removes the entire auth problem** — no NGINX public vhost, no login page, no password to manage, no CVEs in a forward-auth gateway to track.
+- If Hardware Radar's public URL exists mainly so the owner can reach it from personal devices, **switching to Tailscale-only removes the entire auth problem** — no NGINX public vhost, no login page, no password to manage, no CVEs in a forward-auth gateway to track.
 - If the public URL is required because non-tailnet parties (future customers/collaborators) need access, public exposure is necessary and Tier 1/2 above applies.
 - A middle path: keep the public vhost for occasional sharing via **Tailscale Funnel** (selectively exposes a tailnet service to the public internet with automatic HTTPS) while defaulting to tailnet-only access day to day.
 
@@ -175,12 +175,12 @@ Multiple independent 2026 sources describe the same pattern the owner is already
 
 | # | Question | Why unresolved |
 | --- | --- | --- |
-| 1 | Does disk-search's public URL need to stay reachable by non-Tailscale parties (customers, collaborators), or was it made public mainly for the owner's own convenience? | Determines whether Tier 0 (Tailscale-only) is actually sufficient — this is a product decision, not something search can resolve |
+| 1 | Does Hardware Radar's public URL need to stay reachable by non-Tailscale parties (customers, collaborators), or was it made public mainly for the owner's own convenience? | Determines whether Tier 0 (Tailscale-only) is actually sufficient — this is a product decision, not something search can resolve |
 | 2 | FastAPI vs Django is still undecided per the prompt | Materially changes the app-native auth library choice (fastapi-users/Authlib vs django.contrib.auth/django-allauth) and tips the balance slightly toward Django if a rich built-in admin/auth stack is valued over async performance |
 
 ## Handoff
 
-Persisted at `/home/chris/projects/disk-search/docs/research/2026-07-03-auth-for-self-hosted-single-maintainer-python-app.md`. Downstream skills that may consume it:
+Persisted at `/home/chris/projects/hw-radar/docs/research/2026-07-03-auth-for-self-hosted-single-maintainer-python-app.md`. Downstream skills that may consume it:
 
 - `superpowers:brainstorming` — feed the two Open Questions (public-exposure necessity, FastAPI vs Django) into a design conversation
 - `feature-dev:feature-dev` — start implementation with Tier 0/1 as the v1 slice and Tier 2 (Authelia forward-auth) as the planned upgrade path

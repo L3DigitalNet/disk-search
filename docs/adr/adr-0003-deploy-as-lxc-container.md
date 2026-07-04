@@ -1,8 +1,8 @@
 ---
 schema_version: '1.1'
-id: 'adr-0003-disk-search-deploy-as-lxc-container'
+id: 'adr-0003-hw-radar-deploy-as-lxc-container'
 title: 'ADR 0003: Deploy as a dedicated LXC container (not a VM)'
-description: 'Deploy disk-search as a dedicated Proxmox LXC container rather than a VM, to reuse the existing Hetzner CT backup/monitoring infrastructure and honor the homelab dedicated-LXC standard; the trade-off is no vTPM.'
+description: 'Deploy Hardware Radar as a dedicated Proxmox LXC container rather than a VM, to reuse the existing Hetzner CT backup/monitoring infrastructure and honor the homelab dedicated-LXC standard; the trade-off is no vTPM.'
 doc_type: 'adr'
 status: 'active'
 created: '2026-07-03'
@@ -19,7 +19,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/disk-search.md'
+  - 'docs/specs/hw-radar.md'
   - 'docs/open-questions.md'
 supersedes: []
 superseded_by: null
@@ -40,7 +40,7 @@ MADR status: **accepted**.
 
 ## Context and Problem Statement
 
-The spec originally specified the deployment target as a **VM in Proxmox** on the Hetzner dedicated server. disk-search's compounding value is its **accumulating price-history database**, so backup coverage and operational monitoring of the deployment are load-bearing, not afterthoughts.
+The spec originally specified the deployment target as a **VM in Proxmox** on the Hetzner dedicated server. Hardware Radar's compounding value is its **accumulating price-history database**, so backup coverage and operational monitoring of the deployment are load-bearing, not afterthoughts.
 
 A 2026-07-03 inspection of the _live_ Hetzner infrastructure (SSH, verified against the private `homelab` repo) established that the existing backup/monitoring pipeline is **CT-shaped**:
 
@@ -63,7 +63,7 @@ It maximizes reuse of the existing, battle-tested Hetzner infrastructure and ali
 
 Option 1 was rejected because it defeats the primary reason the deployment target matters (protecting the price-history moat): it inherits neither the file-level restic pipeline nor monitoring auto-discovery, and it contradicts the homelab standard without a justifying need.
 
-**The database lives on a container Postgres.** Whether that is a Postgres inside the disk-search CT (self-contained) or the shared datastores CT (centralized, already in the dump pipeline) is a deferred sub-decision (open-questions.md OQ4); both are compatible with this ADR.
+**The database lives on a container Postgres.** Whether that is a Postgres inside the hw-radar CT (self-contained) or the shared datastores CT (centralized, already in the dump pipeline) is a deferred sub-decision (open-questions.md OQ4); both are compatible with this ADR.
 
 ### Consequences
 
@@ -82,5 +82,5 @@ The spec's Server Configuration section states "Dedicated LXC container … (not
 ## More Information
 
 - **Findings that forced the decision:** open-questions.md [`#5` (backup) and `#6` (observability)](../open-questions.md) "Live-state findings" blocks, and resolved question **RQ5** (CT-vs-VM).
-- **Downstream consequences:** OQ3 (DB-RPO acceptance) remains open; **OQ4 settled 2026-07-03 → own Postgres inside the disk-search CT** (self-contained); gap #2 (secrets via local OpenBao Agent).
+- **Downstream consequences:** OQ3 (DB-RPO acceptance) remains open; **OQ4 settled 2026-07-03 → own Postgres inside the hw-radar CT** (self-contained); gap #2 (secrets via local OpenBao Agent).
 - **Live infrastructure specifics** (container IDs, script paths, addresses) live in the **private `homelab` repo** under `infrastructure/servers/hetzner-dedicated/` — deliberately kept out of this public repo.

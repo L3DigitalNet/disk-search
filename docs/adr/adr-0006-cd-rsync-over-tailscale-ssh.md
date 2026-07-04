@@ -1,6 +1,6 @@
 ---
 schema_version: '1.1'
-id: 'adr-0006-disk-search-cd-rsync-over-tailscale-ssh'
+id: 'adr-0006-hw-radar-cd-rsync-over-tailscale-ssh'
 title: 'ADR 0006: CD via GitHub-hosted runner + rsync over Tailscale SSH'
 description: 'Deploy from a GitHub-hosted runner that joins the tailnet ephemerally and rsyncs to the private CT over Tailscale SSH, rather than running a self-hosted runner on the box — because a public repo must not expose infrastructure to untrusted fork code.'
 doc_type: 'adr'
@@ -19,7 +19,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/disk-search.md'
+  - 'docs/specs/hw-radar.md'
   - 'docs/open-questions.md'
   - 'docs/research/2026-07-03-github-actions-cd-private-debian-vm.md'
 supersedes: []
@@ -55,7 +55,7 @@ Chosen option: **Option 2 — GitHub-hosted runner, then `rsync` over Tailscale 
 
 A GitHub-hosted `ubuntu-latest` runner builds and tests (nothing to harden; torn down after each run). The deploy job **joins the tailnet ephemerally** (`tailscale/github-action` with an OAuth client or a short-TTL pre-authorized ephemeral auth key), `rsync`s the checked-out source (or a `uv`-built artifact) to the CT, and triggers the remote restart over `tailscale ssh`. No public SSH port; no persistent runner.
 
-**Trigger + secret discipline:** deploy only on `push` / `workflow_dispatch` to `main` (never `pull_request`/`pull_request_target`); put the deploy job behind a GitHub **Environment with a required reviewer**; store the Tailscale auth key + deploy SSH key as **Environment secrets** so PR-triggered runs can't read them; scope the tailnet ACL so the ephemeral runner node can reach **only** the disk-search CT's SSH.
+**Trigger + secret discipline:** deploy only on `push` / `workflow_dispatch` to `main` (never `pull_request`/`pull_request_target`); put the deploy job behind a GitHub **Environment with a required reviewer**; store the Tailscale auth key + deploy SSH key as **Environment secrets** so PR-triggered runs can't read them; scope the tailnet ACL so the ephemeral runner node can reach **only** the hw-radar CT's SSH.
 
 **Build & release mechanics:** build the venv **on the CT** (`uv sync --frozen`) to avoid arch/path skew; run migrations **before** restart using **expand/contract** (backward-compatible with the still-running old code). **Service topology (systemd):** a **web** unit (gunicorn + uvicorn workers, `ExecReload=kill -HUP $MAINPID`) and **worker** unit(s) (`Restart=on-failure`) under a **dedicated non-root user** with `ProtectSystem=strict`/`NoNewPrivileges`; periodic scrapes run under **systemd timers**, not an in-process scheduler. Avoid `Type=notify` — plain gunicorn never calls `sd_notify()` and the unit would time out.
 
@@ -74,7 +74,7 @@ open-questions.md gap #4 records this decision (superseding the earlier self-hos
 
 ## Open Question
 
-The **ephemeral-runner tailnet auth mechanism** is **settled (2026-07-04, verified against the live ACL):** the **Tailscale OAuth client** at OpenBao `secret/infra/tailscale-oauth` (purpose "GitHub Actions CI/CD deploy via Tailscale"), minting an ephemeral `tag:ci` node via `tailscale/github-action` v4 (open-questions.md OQ2). One forward dependency: the tailnet grants are still wildcard, so when the wildcard→scoped ACL migration lands, add an explicit `tag:ci → disk-search CT:22` grant. This ADR's CD decision holds regardless.
+The **ephemeral-runner tailnet auth mechanism** is **settled (2026-07-04, verified against the live ACL):** the **Tailscale OAuth client** at OpenBao `secret/infra/tailscale-oauth` (purpose "GitHub Actions CI/CD deploy via Tailscale"), minting an ephemeral `tag:ci` node via `tailscale/github-action` v4 (open-questions.md OQ2). One forward dependency: the tailnet grants are still wildcard, so when the wildcard→scoped ACL migration lands, add an explicit `tag:ci → hw-radar CT:22` grant. This ADR's CD decision holds regardless.
 
 ## More Information
 

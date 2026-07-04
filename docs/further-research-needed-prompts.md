@@ -1,6 +1,6 @@
 # Further Research — Deep Research Prompts & Completed Reports
 
-> **Status (2026-07-03): the original 12 prompts have all been run** — each maps to a completed report under [`docs/research/`](research/). **One follow-up prompt — [#13](#13-scraper-testing-finalization--per-tier-canaries--cassette-strategy) — is newly queued and not yet run** (owner-requested, from [`open-questions.md` OQ8](open-questions.md#oq8--scraper-testing-finalization)). For the 12, this document is a **completion tracker**: the original prompt text is kept verbatim (provenance + re-runnable), and a status banner above each links its report, states the headline finding, and flags any residual gap. Prompt #13 instead carries a **⏳ Queued** banner. Next steps: **reconcile the 12 findings back into [`disk-search.md`](specs/disk-search.md)** (resolve the `_TBD_` markers) **and run #13** when ready.
+> **Status (2026-07-03): the original 12 prompts have all been run** — each maps to a completed report under [`docs/research/`](research/). **One follow-up prompt — [#13](#13-scraper-testing-finalization--per-tier-canaries--cassette-strategy) — is newly queued and not yet run** (owner-requested, from [`open-questions.md` OQ8](open-questions.md#oq8--scraper-testing-finalization)). For the 12, this document is a **completion tracker**: the original prompt text is kept verbatim (provenance + re-runnable), and a status banner above each links its report, states the headline finding, and flags any residual gap. Prompt #13 instead carries a **⏳ Queued** banner. Next steps: **reconcile the 12 findings back into [`hw-radar.md`](specs/hw-radar.md)** (resolve the `_TBD_` markers) **and run #13** when ready.
 
 These prompts were written for ChatGPT **Deep Research**. Each is self-contained (Deep Research can't see this repo), states the gap it fills, and dictates an output shape to fold back into the spec.
 
@@ -200,7 +200,7 @@ Deliver a recommended default (with a one-line justification for why the heavier
 
 ## 10. Web framework, database & environment-management stack decision
 
-> **✅ Answered** — [`opinionated-core-stack-recommendations`](research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md). Resolves all three `_TBD_` markers: **Django** (server-rendered templates + HTMX, over FastAPI/Flask) for a CRUD/dashboard/auth/ingestion app, **PostgreSQL 18** (JSONB + full-text; **no** TimescaleDB and no partitioning until the price-history table demands it), and **uv** for env/dependency management. **Residual:** none — but the spec still lists these as undecided; reconcile into [`disk-search.md`](specs/disk-search.md) and update CLAUDE.md's "FastAPI or Django (undecided)" note.
+> **✅ Answered** — [`opinionated-core-stack-recommendations`](research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md). Resolves all three `_TBD_` markers: **Django** (server-rendered templates + HTMX, over FastAPI/Flask) for a CRUD/dashboard/auth/ingestion app, **PostgreSQL 18** (JSONB + full-text; **no** TimescaleDB and no partitioning until the price-history table demands it), and **uv** for env/dependency management. **Residual:** none — but the spec still lists these as undecided; reconcile into [`hw-radar.md`](specs/hw-radar.md) and update CLAUDE.md's "FastAPI or Django (undecided)" note.
 
 **Gap it fills:** Fills the three explicit `_TBD_` markers in the spec (Web Framework, Database engine, Environment Management) with a reasoned recommendation rather than a coin flip.
 
@@ -278,7 +278,7 @@ Deliver: a per-tier canary-frequency table with the risk rationale; a per-source
 
 ## Reconciliation order (research → spec)
 
-All 12 prompts are run; the work now is folding their findings into [`disk-search.md`](specs/disk-search.md). This order front-loads the decisions that unblock the most design/scaffolding work — the same priority that once front-loaded the research now front-loads the spec updates.
+All 12 prompts are run; the work now is folding their findings into [`hw-radar.md`](specs/hw-radar.md). This order front-loads the decisions that unblock the most design/scaffolding work — the same priority that once front-loaded the research now front-loads the spec updates.
 
 | Priority | Prompt | What it resolves in the spec |
 | --: | --- | --- |

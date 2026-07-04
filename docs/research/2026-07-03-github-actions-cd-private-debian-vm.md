@@ -241,7 +241,7 @@ Practical flow for this project:
 
 ## Handoff
 
-Persisted at `/home/chris/projects/disk-search/docs/research/2026-07-03-github-actions-cd-private-debian-vm.md`. Downstream skills that may consume it:
+Persisted at `/home/chris/projects/hw-radar/docs/research/2026-07-03-github-actions-cd-private-debian-vm.md`. Downstream skills that may consume it:
 
 - `superpowers:brainstorming` — feed Open Questions (vTPM availability, framework choice) into a design conversation
 - `feature-dev:feature-dev` — start implementing the systemd units + OpenBao agent config from this background

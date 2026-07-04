@@ -1,6 +1,6 @@
 ---
 schema_version: '1.1'
-id: 'adr-0008-disk-search-currency-landed-cost-normalization'
+id: 'adr-0008-hw-radar-currency-landed-cost-normalization'
 title: 'ADR 0008: Currency & landed-cost normalization'
 description: 'Normalize every listing price to USD via a daily ECB-anchored Frankfurter rate stamped on each observation, fold known domestic shipping (and tax where known) into the $/TB score, and flag cross-border listings rather than applying a fixed international overhead haircut or computing exact duty.'
 doc_type: 'adr'
@@ -20,7 +20,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/disk-search.md'
+  - 'docs/specs/hw-radar.md'
   - 'docs/open-questions.md'
   - 'docs/research/2026-07-03-currency-conversion-and-landed-cost-estimation-for-cross-border-drive-price-scoring.md'
 supersedes: []

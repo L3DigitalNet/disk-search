@@ -1,8 +1,8 @@
 ---
 schema_version: '1.1'
-id: 'adr-0009-disk-search-secrets-runtime-openbao-agent'
+id: 'adr-0009-hw-radar-secrets-runtime-openbao-agent'
 title: 'ADR 0009: Secrets runtime — local OpenBao Agent on the CT'
-description: 'Resolve runtime secrets via a local OpenBao Agent on the disk-search CT that AppRole-auto-auths against the Hetzner-local bao-services store and templates to tmpfs, delivered by a persistent CIDR-bound SecretID issued operator-to-CT; the public-repo CD job holds no OpenBao credential.'
+description: 'Resolve runtime secrets via a local OpenBao Agent on the hw-radar CT that AppRole-auto-auths against the Hetzner-local bao-services store and templates to tmpfs, delivered by a persistent CIDR-bound SecretID issued operator-to-CT; the public-repo CD job holds no OpenBao credential.'
 doc_type: 'adr'
 status: 'active'
 created: '2026-07-03'
@@ -19,7 +19,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/disk-search.md'
+  - 'docs/specs/hw-radar.md'
   - 'docs/open-questions.md'
   - 'docs/research/2026-07-03-github-actions-cd-private-debian-vm.md'
 supersedes: []
@@ -45,7 +45,7 @@ MADR status: **accepted**.
 
 The org standard is **OpenBao as the credential store**; the spec, however, originally said secrets live in a committed-excluded `.env`, and never answered the load-bearing question: **how does the deployed app obtain secrets at runtime** without a plaintext secret at rest? The contradiction is sharpened by two facts already decided:
 
-- disk-search deploys as an **LXC container**, which has **no per-container vTPM** (shared host kernel), so `systemd-creds --with-key=tpm2` hardware-bound storage is unavailable (ADR 0003; open-questions.md RQ3/RQ5).
+- Hardware Radar deploys as an **LXC container**, which has **no per-container vTPM** (shared host kernel), so `systemd-creds --with-key=tpm2` hardware-bound storage is unavailable (ADR 0003; open-questions.md RQ3/RQ5).
 - CD runs from a **GitHub-hosted runner on a public repo** (ADR 0006), so **CI can hold no OpenBao credential** — anything the workflow can read, the public world's threat model must assume is reachable.
 
 So the app needs live secrets, the container can't hardware-bind them, and the delivery pipeline can't carry them. What resolves secrets at runtime, and how does the bootstrap credential (the AppRole `secret_id`) reach the box?
@@ -61,9 +61,9 @@ The research report [`github-actions-cd-private-debian-vm`](../research/2026-07-
 
 ## Decision Outcome
 
-Chosen option: **Option 1.** Settled and **verified against the live infrastructure** while resolving open-questions.md OQ1 — disk-search onboards as the _next_ `bao-services` consumer, the exact pattern already running for the LiteLLM service (the wave-1 reference consumer).
+Chosen option: **Option 1.** Settled and **verified against the live infrastructure** while resolving open-questions.md OQ1 — Hardware Radar onboards as the _next_ `bao-services` consumer, the exact pattern already running for the LiteLLM service (the wave-1 reference consumer).
 
-**Runtime path.** A local **OpenBao Agent** (`bao-agent`) runs on the disk-search CT under its own hardened systemd unit. It **AppRole-auto-auths** against the **Hetzner-local `bao-services` store** (not a remote store reached over the tailnet) and **templates secrets to a tmpfs render path** (convention: `/run/bao-agent/disk-search.env`, root-owned, app-group-readable, gone on reboot). App services depend on that unit via `After=`. There is **no plaintext `.env` at rest** and no secret baked into a unit file. The `role_id` ships in the CT config-management; it is not a secret.
+**Runtime path.** A local **OpenBao Agent** (`bao-agent`) runs on the hw-radar CT under its own hardened systemd unit. It **AppRole-auto-auths** against the **Hetzner-local `bao-services` store** (not a remote store reached over the tailnet) and **templates secrets to a tmpfs render path** (convention: `/run/bao-agent/hw-radar.env`, root-owned, app-group-readable, gone on reboot). App services depend on that unit via `After=`. There is **no plaintext `.env` at rest** and no secret baked into a unit file. The `role_id` ships in the CT config-management; it is not a secret.
 
 **SecretID delivery.** The bootstrap `secret_id` is delivered **operator→CT** (a short-lived response-wrapped token pushed to the container by the issuer script), then unwrapped and stored at a root-only path. It is **persistent** (`remove_secret_id_file_after_reading=false`) so an agent restart re-reads it, and the consumer AppRole is **long-lived** (`num_uses=0, ttl=0`). The active security control is a **CIDR bind on the SecretID**, not a TTL treadmill — the credential is only usable from the container's own address. Rotation is a re-run of the issuer, not a scheduled renewal.
 
@@ -80,7 +80,7 @@ Option 2 was **rejected (and explicitly withdrawn from the spec)**: it would pla
 - **Good** — **no renewal treadmill**: a persistent, long-lived, CIDR-bound SecretID means the agent survives restarts unattended; rotation is a deliberate operator action.
 - **Bad (accepted)** — security rests on the **CIDR bind + host file permissions**, not on a short TTL. Acceptable given the single-host, Tailscale-only, physically-controlled environment, but it means a compromise _of that container's network identity_ is the threat to guard, and the SecretID file's `0600` root ownership is load-bearing.
 - **Bad (operational)** — onboarding is a **manual wave-2 step** (issue SecretID, drop the agent config/unit); it is not yet automated in the ansible scaffold. An implementation task, not a design gap.
-- **Spec reconciliation (follow-ups):** the spec still references the withdrawn `/run/disk-search/secrets.env` path and a GMK-direct store — reconcile to `/run/bao-agent/disk-search.env` and the Hetzner-local `bao-services` store; ensure the consumer AppRole's CIDR bind includes the disk-search CT's address (value kept in the `homelab` repo).
+- **Spec reconciliation (follow-ups):** the spec still references the withdrawn `/run/hw-radar/secrets.env` path and a GMK-direct store — reconcile to `/run/bao-agent/hw-radar.env` and the Hetzner-local `bao-services` store; ensure the consumer AppRole's CIDR bind includes the hw-radar CT's address (value kept in the `homelab` repo).
 
 ### Confirmation
 

@@ -1,4 +1,4 @@
-# disk-search — Agent Instructions
+# Hardware Radar — Agent Instructions
 
 Cross-agent entry point for this repository. It follows the **Python Tooling SSOT Standard**
 (uv · Ruff · BasedPyright strict · pytest + coverage · pip-audit). This file is the
@@ -7,11 +7,11 @@ Claude Code sessions but are **git-ignored and absent on a fresh clone** — do 
 
 ## Project status: scaffolded — toolchain live, feature implementation not started
 
-The repo is scaffolded and the verification gate below is **live and green**. `src/disk_search`
+The repo is scaffolded and the verification gate below is **live and green**. `src/hw_radar`
 is a version-only skeleton — no features yet. Build features from here under the `src/` layout,
 adding real deps with `uv add`. Standard deviations are recorded in `docs/adr/` (ADR-0002).
 
-The planned stack (see `docs/specs/disk-search.md` and `docs/open-questions.md`): **Django** +
+The planned stack (see `docs/specs/hw-radar.md` and `docs/open-questions.md`): **Django** +
 server-rendered templates + HTMX, PostgreSQL (+ TimescaleDB), Scrapy, deployed to a single VM.
 
 ## Operating model

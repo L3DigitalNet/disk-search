@@ -1,6 +1,6 @@
 ---
 schema_version: '1.1'
-id: 'adr-0007-disk-search-datastore-postgresql-timescaledb'
+id: 'adr-0007-hw-radar-datastore-postgresql-timescaledb'
 title: 'ADR 0007: Datastore — PostgreSQL as system-of-record + TimescaleDB'
 description: 'Use PostgreSQL as the system-of-record with the TimescaleDB extension for the price-history observation workload, rather than MySQL, a plain-PostgreSQL-only build, or ClickHouse-as-primary — the data splits into stable relational dimensions and high-volume mutable time-series.'
 doc_type: 'adr'
@@ -19,7 +19,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/disk-search.md'
+  - 'docs/specs/hw-radar.md'
   - 'docs/open-questions.md'
   - 'docs/research/database-architecture.md'
 supersedes: []
@@ -71,7 +71,7 @@ Option 2 is the explicit **fallback**, not a rejection: core PostgreSQL already 
 - **Good** — backs Django's ORM/migrations (ADR 0004) natively; `pg_trgm` gives entity-resolution fuzzy matching without a separate search service.
 - **Good** — a clean scale-out path remains (OpenSearch as a companion index if search UX demands it; ClickHouse as an analytics warehouse) without re-platforming the source of truth.
 - **Bad** — TimescaleDB is an extension to install, version-track, and keep compatible with the PostgreSQL major; it adds an upgrade dependency the plain-PostgreSQL fallback avoids.
-- **Bad (interacts with ADR 0003)** — the backup disk-search *inherits* is **hourly logical `pg_dump`** (ADR 0003 — no physical backup exists; physical is only an optional RPO upgrade in open-questions.md OQ3). Logical dumps are precisely the TimescaleDB mode with caveats: restore requires `timescaledb_pre_restore()` / `post_restore()`, and native-compression state is not preserved. **So a TimescaleDB database is *not* correctly protected merely by adding it to the dump allowlist** (as ADR 0003's wiring step implies for an ordinary DB): the dump/restore step must be made **TimescaleDB-aware**, *or* in-CT **physical** backup (`pg_basebackup` / pgBackRest — needs no special handling) must be added (open-questions.md OQ3, gap #5). The plain-PostgreSQL fallback (Option 2) sidesteps this caveat entirely — a real, if modest, cost of the extension.
+- **Bad (interacts with ADR 0003)** — the backup Hardware Radar *inherits* is **hourly logical `pg_dump`** (ADR 0003 — no physical backup exists; physical is only an optional RPO upgrade in open-questions.md OQ3). Logical dumps are precisely the TimescaleDB mode with caveats: restore requires `timescaledb_pre_restore()` / `post_restore()`, and native-compression state is not preserved. **So a TimescaleDB database is *not* correctly protected merely by adding it to the dump allowlist** (as ADR 0003's wiring step implies for an ordinary DB): the dump/restore step must be made **TimescaleDB-aware**, *or* in-CT **physical** backup (`pg_basebackup` / pgBackRest — needs no special handling) must be added (open-questions.md OQ3, gap #5). The plain-PostgreSQL fallback (Option 2) sidesteps this caveat entirely — a real, if modest, cost of the extension.
 - **Neutral** — the specific PostgreSQL major is not fixed here; it follows what the deployment CT provides. The canonical-entity **schema** (drive-model / listing / observation) is a separate decision (future ADR + `database-architecture.md`), not settled by this engine choice.
 
 ### Confirmation

@@ -8,7 +8,7 @@ status: active
 created: '2026-07-03'
 updated: '2026-07-03'
 reviewed: '2026-07-03'
-owner: disk-search
+owner: hw-radar
 tags:
 - currency-conversion
 - landed-cost
@@ -132,7 +132,7 @@ Recommended pragmatic model:
 
 ## Handoff
 
-Persisted at `/home/chris/projects/disk-search/docs/research/2026-07-03-currency-conversion-and-landed-cost-estimation-for-cross-border-drive-price-scoring.md`. Downstream skills that may consume it:
+Persisted at `/home/chris/projects/hw-radar/docs/research/2026-07-03-currency-conversion-and-landed-cost-estimation-for-cross-border-drive-price-scoring.md`. Downstream skills that may consume it:
 
 - `superpowers:brainstorming` — feed Open Questions (esp. #1, the tariff-volatility question) into a design conversation about how often to revisit the flat overhead constant
 - `feature-dev:feature-dev` — implement the Frankfurter-based FX fetch/store pipeline and the international-listing flag described in the recommended model

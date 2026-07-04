@@ -1,6 +1,6 @@
 ---
 schema_version: '1.1'
-id: 'adr-0005-disk-search-single-account-session-auth'
+id: 'adr-0005-hw-radar-single-account-session-auth'
 title: 'ADR 0005: Single-account session authentication'
 description: 'Protect the internet-facing app with a single strong-password account (Argon2id session login) rather than Tailscale-only or full multi-user, load-bearing on the constraint that the app holds no sensitive data; Authelia forward-auth is reserved for a future multi-user end state.'
 doc_type: 'adr'
@@ -18,7 +18,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/disk-search.md'
+  - 'docs/specs/hw-radar.md'
   - 'docs/open-questions.md'
   - 'docs/research/2026-07-03-auth-for-self-hosted-single-maintainer-python-app.md'
 supersedes: []

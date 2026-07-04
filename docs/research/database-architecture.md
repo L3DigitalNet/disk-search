@@ -2,7 +2,7 @@
 schema_version: '1.1'
 id: database-architecture
 title: Database Architecture for Tracking SSD and HDD Market Data
-description: Recommends PostgreSQL as system-of-record with TimescaleDB for the price-history workload at single-VM scale, plus a drive-model vs listing vs offer-snapshot schema with pg_trgm fuzzy matching for the disk-search catalog.
+description: Recommends PostgreSQL as system-of-record with TimescaleDB for the price-history workload at single-VM scale, plus a drive-model vs listing vs offer-snapshot schema with pg_trgm fuzzy matching for the hw-radar catalog.
 doc_type: research
 status: active
 created: '2026-07-03'

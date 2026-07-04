@@ -19,7 +19,7 @@ tags:
 aliases:
 - postgres backup and DR research
 - pg backup strategy single VM
-- disk-search backup research
+- hw-radar backup research
 related: []
 source:
 - https://pgbackrest.org
@@ -101,7 +101,7 @@ Sources: pgBackRest official docs and config reference [official](https://pgback
 ```
 [Debian 13 VM]
   postgresql.conf: archive_mode=on, archive_command -> pgbackrest archive-push
-  pgBackRest stanza "disksearch":
+  pgBackRest stanza "hwradar":
     repo1 (local disk, different volume than PGDATA): retention-full=2, type=time
     repo2 (S3-compatible: B2 or Hetzner object storage): retention-full=4 (~1 month), cipher=aes-256-cbc
 

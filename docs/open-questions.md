@@ -1,6 +1,6 @@
-# Open Questions — `disk-search.md`
+# Open Questions — `hw-radar.md`
 
-**Date:** 2026-07-03 **Subject:** The **unsettled** engineering/design decisions for [`disk-search.md`](specs/disk-search.md), front-loaded — plus the resolved decisions and gap analysis they came out of, kept below for provenance.
+**Date:** 2026-07-03 **Subject:** The **unsettled** engineering/design decisions for [`hw-radar.md`](specs/hw-radar.md), front-loaded — plus the resolved decisions and gap analysis they came out of, kept below for provenance.
 
 > This file began as a **gap analysis** of the spec (12 operational/product-engineering gaps not covered by research). Most of those gaps are now decided. What remains open is distilled into the **[Open questions](#open-questions)** section; the full gap write-ups and every settled decision have moved to **[Resolved](#resolved)**.
 
@@ -22,7 +22,7 @@
 
 ## Table of Contents
 
-- [Open Questions — `disk-search.md`](#open-questions--disk-searchmd)
+- [Open Questions — `hw-radar.md`](#open-questions--hw-radarmd)
   - [How to maintain this document](#how-to-maintain-this-document)
   - [Table of Contents](#table-of-contents)
   - [Open questions](#open-questions)
@@ -88,7 +88,7 @@
 | **OQ1** ✅ | `secret_id` delivery — **settled** | gap #2 | ✅ 2026-07-04 (verified live): onboard as the next **`bao-services` (CT 115)** consumer via a local **bao-agent**; SecretID via `bao-issue-secret-id.sh` (wrap + `pct push`) → `/etc/bao-agent/secret-id`, persistent + CIDR-bound. See [OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct). |
 | **OQ2** ✅ | Ephemeral-runner tailnet auth — **settled** | gap #4 | ✅ 2026-07-04 (verified live): **Tailscale OAuth client** (`secret/infra/tailscale-oauth`, `tag:ci`) via `tailscale/github-action` v4. ⚠️ add a `tag:ci→CT` grant when the wildcard ACL is scoped. See [OQ2](#oq2--ephemeral-runner-tailnet-auth). |
 | **OQ3** | DB RPO (+ TimescaleDB dumps) | gap #5 | accept ≤1 h / no-PITR vs layer pgBackRest + WAL inside the CT |
-| **OQ4** ✅ | DB placement — **settled** | gap #5 | ✅ 2026-07-03: own Postgres **inside the disk-search CT** (self-contained; shared-datastores-CT rejected). See [OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct). |
+| **OQ4** ✅ | DB placement — **settled** | gap #5 | ✅ 2026-07-03: own Postgres **inside the hw-radar CT** (self-contained; shared-datastores-CT rejected). See [OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct). |
 | **OQ5** ✅ | Off-box heartbeat — **settled** | gap #6 | ✅ 2026-07-03: **off-site GMK Uptime Kuma** watches the CT (also swept by the Hetzner Fleet Digest; healthchecks.io rejected). See [OQ5](#oq5--off-box-heartbeat). |
 | **OQ6** | Final UI inventory + dismiss→suppress | gap #7 | confirm pages; decide if a user _dismiss_ silences re-alerts; purchase-tracking scope |
 | **OQ7** | Running-cost budget model | gap #10 | pricing pass ✅ (2026-07-03 → ~$8–15/mo search-API envelope; AgentMail free); residual = encode per-source poll budgets at build |
@@ -100,9 +100,9 @@
 
 ### OQ1 — `secret_id` out-of-band delivery to the CT
 
-> **✅ SETTLED (owner hunch confirmed + verified live on Hetzner, 2026-07-04):** disk-search onboards as the **next `bao-services` consumer** — the exact pattern already live for **LiteLLM on CT 110**. A local **bao-agent** sidecar on the disk-search CT AppRole-auto-auths against the Hetzner-local **`bao-services` store (CT 115)** and renders secrets to tmpfs. The `secret_id` is delivered **operator→CT** by `bao-issue-secret-id.sh` (300 s response-wrap token + `pct push`) and stored at `/etc/bao-agent/secret-id` (mode 0600, **persistent** — `remove_secret_id_file_after_reading=false`), re-read on every agent restart; the consumer AppRole is **long-lived** (`num_uses=0, ttl=0`) with **CIDR binding** as the active security control (not TTL). No renewal treadmill — re-run the issuer only to rotate. The owner's "bao-agent will resolve this" is confirmed. Kept in place to preserve the `#oq1` anchor; also recorded in [Resolved gap #2](#gap-2--env-secrets-model--openbao-settled-except-secret_id-delivery).
+> **✅ SETTLED (owner hunch confirmed + verified live on Hetzner, 2026-07-04):** hw-radar onboards as the **next `bao-services` consumer** — the exact pattern already live for **LiteLLM on CT 110**. A local **bao-agent** sidecar on the hw-radar CT AppRole-auto-auths against the Hetzner-local **`bao-services` store (CT 115)** and renders secrets to tmpfs. The `secret_id` is delivered **operator→CT** by `bao-issue-secret-id.sh` (300 s response-wrap token + `pct push`) and stored at `/etc/bao-agent/secret-id` (mode 0600, **persistent** — `remove_secret_id_file_after_reading=false`), re-read on every agent restart; the consumer AppRole is **long-lived** (`num_uses=0, ttl=0`) with **CIDR binding** as the active security control (not TTL). No renewal treadmill — re-run the issuer only to rotate. The owner's "bao-agent will resolve this" is confirmed. Kept in place to preserve the `#oq1` anchor; also recorded in [Resolved gap #2](#gap-2--env-secrets-model--openbao-settled-except-secret_id-delivery).
 
-**From:** gap #2 (resolved). **Decided:** how the OpenBao AppRole `secret_id` reaches the disk-search CT (public-repo CI holds **no** OpenBao credential) → **reuse the live `bao-services`/`bao-agent` consumer pattern** — the `secret_id` is delivered locally on the box, never through CI.
+**From:** gap #2 (resolved). **Decided:** how the OpenBao AppRole `secret_id` reaches the hw-radar CT (public-repo CI holds **no** OpenBao credential) → **reuse the live `bao-services`/`bao-agent` consumer pattern** — the `secret_id` is delivered locally on the box, never through CI.
 
 The secrets _path_ is settled (local bao-agent, AppRole auto-auth, renders to tmpfs). The `role_id` ships in the CT config-management. The `secret_id` delivery/renewal is now settled per the banner.
 
@@ -110,7 +110,7 @@ The secrets _path_ is settled (local bao-agent, AppRole auto-auth, renders to tm
 
 - **Verified live (2026-07-04):** CT 115 `bao-services` (OpenBao 2.5.3, auto-unsealed via GMK Transit, Tailscale-only) and CT 110 (the LiteLLM consumer) are both **running**. The consumer fleet is documented in `homelab/infrastructure/servers/hetzner-dedicated/bao-agent/` — `configs/hetzner-litellm/` is the reference (`agent.hcl` + `openbao-agent.service` + a `*-bao-gate.conf` systemd drop-in), onboarding via `bao-agent/runbooks/onboard-consumer.md`; SecretID issued by `bao-services/tools/bao-issue-secret-id.sh`.
 - **SecretID model (pilot-amended — supersedes OQ1's original response-wrap-and-delete assumption):** the spec's `remove_secret_id_file_after_reading=true` **breaks restart safety** (wrap token is single-use → any restart fails), so the live pattern uses a **persistent, long-lived, CIDR-bound** SecretID at `/etc/bao-agent/secret-id` instead. Adopt the live pattern, not the withdrawn one.
-- **Spec-reconciliation follow-ups (disk-search side, for the next spec pass):** (1) secrets are consumed from the **Hetzner-local `bao-services` CT 115**, not GMK CT 111 directly; (2) the render-path convention is **`/run/bao-agent/disk-search.env`**, not `/run/disk-search/secrets.env`; (3) the consumer AppRole's **CIDR bind must include the disk-search CT's private IP** (`10.0.100.x`).
+- **Spec-reconciliation follow-ups (hw-radar side, for the next spec pass):** (1) secrets are consumed from the **Hetzner-local `bao-services` CT 115**, not GMK CT 111 directly; (2) the render-path convention is **`/run/bao-agent/hw-radar.env`**, not `/run/hw-radar/secrets.env`; (3) the consumer AppRole's **CIDR bind must include the hw-radar CT's private IP** (`10.0.100.x`).
 - **Onboarding is wave-2** (LiteLLM was wave-1, manual): either follow the manual pattern or populate the intentionally-empty `robertdebock.openbao_agent` ansible scaffold. Implementation choice, not a design decision.
 - The vTPM / `systemd-creds --with-key=tpm2` shortcut is **out** — a CT has no per-container TPM (it shares the host kernel), so that path would reduce to host-key-only encryption (see [RQ3](#resolved-questions), [RQ5](#resolved-questions)). The local OpenBao Agent is therefore the only secrets path.
 - Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md) §3.
@@ -123,14 +123,14 @@ SSH into Hetzner and look at the existing infra automation, particularly the CT 
 
 ### OQ2 — Ephemeral-runner tailnet auth
 
-> **✅ SETTLED (owner criterion met + verified against the live ACL, 2026-07-04): use the Tailscale OAuth client.** The owner's rule was "if the ACLs allow an OAuth client, use it." Verified: the tailnet's `tag:ci` is defined and admin-owned ("added 2026-03-24 for GitHub Actions CI/CD deploy"), and an OAuth client already exists at OpenBao **`secret/infra/tailscale-oauth`** with `purpose: "GitHub Actions CI/CD deploy via Tailscale"` — it completed the client-credentials flow and read the ACL (HTTP 200). So disk-search's CD uses `tailscale/github-action` **v4** (built for ephemeral GitHub-hosted runners; its post-step auto-`tailscale logout` is a feature here) authenticating via that OAuth client, minting an ephemeral node tagged `tag:ci`. **No pre-generated ephemeral auth key needed.** Kept in place to preserve the `#oq2` anchor; also recorded in [Resolved gap #4](#gap-4--deployment--service-topology-settled-adr-0006).
+> **✅ SETTLED (owner criterion met + verified against the live ACL, 2026-07-04): use the Tailscale OAuth client.** The owner's rule was "if the ACLs allow an OAuth client, use it." Verified: the tailnet's `tag:ci` is defined and admin-owned ("added 2026-03-24 for GitHub Actions CI/CD deploy"), and an OAuth client already exists at OpenBao **`secret/infra/tailscale-oauth`** with `purpose: "GitHub Actions CI/CD deploy via Tailscale"` — it completed the client-credentials flow and read the ACL (HTTP 200). So hw-radar's CD uses `tailscale/github-action` **v4** (built for ephemeral GitHub-hosted runners; its post-step auto-`tailscale logout` is a feature here) authenticating via that OAuth client, minting an ephemeral node tagged `tag:ci`. **No pre-generated ephemeral auth key needed.** Kept in place to preserve the `#oq2` anchor; also recorded in [Resolved gap #4](#gap-4--deployment--service-topology-settled-adr-0006).
 
 **From:** gap #4 (resolved, [ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)). **Decided:** which mechanism authenticates the ephemeral GitHub-hosted runner onto the tailnet → the **Tailscale OAuth client** (already provisioned for exactly this purpose), not a pre-generated ephemeral auth key. ADR 0006's CD decision holds.
 
 #### Agent notes
 
 - **Verified live (2026-07-04):** the OAuth client at `secret/infra/tailscale-oauth` (`client_id`/`client_secret`, purpose "GitHub Actions CI/CD deploy via Tailscale") authenticated and GET-ed the tailnet ACL; `tag:ci` is present in `tagOwners` (`["autogroup:admin"]`). `tailscale/github-action` v4 is the correct action for an **ephemeral** GitHub-hosted runner — the opposite of the persistent VM 200 runner, which rejected it (auto-logout would sever a persistent `tag:ci`) per the Tailscale-ACL research.
-- **⚠️ Latent dependency — the tailnet ACL grants are still wildcard** (`src:* dst:* ip:*`). Today a `tag:ci` node reaches the disk-search CT with **no extra grant**; but the pending **wildcard→scoped migration** (`homelab/docs/superpowers/plans/2026-05-14-homelab-tailnet-wildcard-removal.md`) will remove that blanket access — when it lands, add an explicit grant `{src:["tag:ci"], dst:["<disk-search CT>"], ip:["22"]}` or the deploy silently breaks.
+- **⚠️ Latent dependency — the tailnet ACL grants are still wildcard** (`src:* dst:* ip:*`). Today a `tag:ci` node reaches the hw-radar CT with **no extra grant**; but the pending **wildcard→scoped migration** (`homelab/docs/superpowers/plans/2026-05-14-homelab-tailnet-wildcard-removal.md`) will remove that blanket access — when it lands, add an explicit grant `{src:["tag:ci"], dst:["<hw-radar CT>"], ip:["22"]}` or the deploy silently breaks.
 - **Transport nuance:** the live `ssh` block is `action:check` for `autogroup:member → autogroup:self` **only** — it does not cover `tag:ci → CT` for _Tailscale SSH_. Prefer **bare OpenSSH + a deploy key** over the tailnet (the wildcard grant opens port 22; matches the VM 200 precedent), or add a `tag:ci → CT` ssh rule if Tailscale SSH is wanted. ADR 0006 says "restarts over `tailscale ssh`" → reconcile to bare-ssh or add the ssh rule.
 - **Operational finding (resolved 2026-07-04):** the stored `secret/infra/tailscale-api` token had **expired 2026-06-22**; owner minted a new one (now valid to 2026-10-01, verified HTTP 200). Independent of CD — the OAuth client is what CD uses.
 - Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md); tailnet ACL scoping in `homelab/docs/research/2026-05-14-tailscale-acl-wildcard-to-scoped-ci-runner.md`.
@@ -149,8 +149,8 @@ A second driver is coupled to this: TimescaleDB ([ADR 0007](adr/adr-0007-datasto
 
 #### Agent notes
 
-- **Owner direction (2026-07-03):** don't pick an RPO in the abstract — **first author a backup-requirements doc** (RPO, PITR, and the TimescaleDB dump/restore constraints) for disk-search in the private **`homelab` repo**, coordinated with the existing Hetzner backup strategy; then evaluate the inherited **≤1 h RPO / no-PITR** against those documented requirements and expand only if they demand it. **Non-blocking** — can land in parallel with or after deploy, **but must precede the first backup being taken.**
-- **Requirements doc written (2026-07-04):** `homelab/docs/plans/2026-07-04-disk-search-backup-requirements.md` (verified live against `backup-dumps.sh`/`backup-restic.sh`). **Headline finding:** disk-search is the fleet's **first TimescaleDB consumer**, but every existing dump is plain `pg_dump --format=custom` with no hypertable awareness → a naïve allowlist entry **restores incorrectly**. So the real work is **TimescaleDB-correct dumps + wiring coverage, not tighter RPO** — the inherited **≤1 h RPO / no-PITR is accepted for v1** (revisit if OQ9 sets sub-hourly polling). Own-CT Postgres (OQ4) matches the CT 109/112/114 pattern. _(OQ3 stays open pending the owner's confirmation of the doc's §7 decisions — RPO, join-B2-tier-1, logical-vs-physical — and the provisioning-time wiring.)_
+- **Owner direction (2026-07-03):** don't pick an RPO in the abstract — **first author a backup-requirements doc** (RPO, PITR, and the TimescaleDB dump/restore constraints) for hw-radar in the private **`homelab` repo**, coordinated with the existing Hetzner backup strategy; then evaluate the inherited **≤1 h RPO / no-PITR** against those documented requirements and expand only if they demand it. **Non-blocking** — can land in parallel with or after deploy, **but must precede the first backup being taken.**
+- **Requirements doc written (2026-07-04):** `homelab/docs/plans/2026-07-04-hw-radar-backup-requirements.md` (verified live against `backup-dumps.sh`/`backup-restic.sh`). **Headline finding:** hw-radar is the fleet's **first TimescaleDB consumer**, but every existing dump is plain `pg_dump --format=custom` with no hypertable awareness → a naïve allowlist entry **restores incorrectly**. So the real work is **TimescaleDB-correct dumps + wiring coverage, not tighter RPO** — the inherited **≤1 h RPO / no-PITR is accepted for v1** (revisit if OQ9 sets sub-hourly polling). Own-CT Postgres (OQ4) matches the CT 109/112/114 pattern. _(OQ3 stays open pending the owner's confirmation of the doc's §7 decisions — RPO, join-B2-tier-1, logical-vs-physical — and the provisioning-time wiring.)_
 - **Fallback design if tighter RPO/PITR is wanted:** pgBackRest physical backup + continuous WAL archiving on-CT (`repo1`) with a second repo (`repo2`) on S3-compatible storage (Backblaze B2 or Hetzner Storage Box), pgBackRest AES-256 encryption → PITR + offsite 3-2-1. Supplement with a weekly `pg_dumpall`.
 - TimescaleDB: **physical** backups (pgBackRest / `pg_basebackup`) need no special handling; only logical (`pg_dump`) backups carry hypertable caveats — prefer physical.
 - Keep the **monthly restore-test** discipline regardless — an untested backup is a hope. **Patch PostgreSQL/tooling** (recent `pg_dump`/`pg_basebackup`/`pg_rewind` CVEs live in the tools).
@@ -158,15 +158,15 @@ A second driver is coupled to this: TimescaleDB ([ADR 0007](adr/adr-0007-datasto
 
 #### My Comments
 
-Create a document of all backup requirements and constraints, including RPO, PITR, and TimescaleDB considerations. Evaluate the current backup strategy against these requirements and determine if the current ≤1 h RPO is acceptable or if a more robust solution is needed. Go into the `homelab` repo and create appropriate documentation for disk-search and document it's backup needs there. The backup strategy will have to be coordinated with the existing Hetzner backup strategy and any other relevant infrastructure. We can expand/improve as necessary, but the first step is to document the requirements and constraints. This is not a blocker, it can be completed in parallel or after the project is deployed, but it should be done before the first backup is taken.
+Create a document of all backup requirements and constraints, including RPO, PITR, and TimescaleDB considerations. Evaluate the current backup strategy against these requirements and determine if the current ≤1 h RPO is acceptable or if a more robust solution is needed. Go into the `homelab` repo and create appropriate documentation for hw-radar and document it's backup needs there. The backup strategy will have to be coordinated with the existing Hetzner backup strategy and any other relevant infrastructure. We can expand/improve as necessary, but the first step is to document the requirements and constraints. This is not a blocker, it can be completed in parallel or after the project is deployed, but it should be done before the first backup is taken.
 
 ---
 
 ### OQ4 — DB placement: own CT vs shared datastores CT
 
-> **✅ SETTLED (owner, 2026-07-03):** own Postgres **inside the disk-search CT** — the app and its database are **self-contained in one CT** (consistent with the spec's "same container" intent; simpler to deploy and manage). The shared-datastores-CT option is **rejected**. Kept here rather than physically moved to Resolved, to preserve the `#oq4` anchor (ADR 0003, TODO); the resolution is also recorded in [Resolved gap #5](#gap-5--backup--disaster-recovery-settled-ct-path-adr-0003).
+> **✅ SETTLED (owner, 2026-07-03):** own Postgres **inside the hw-radar CT** — the app and its database are **self-contained in one CT** (consistent with the spec's "same container" intent; simpler to deploy and manage). The shared-datastores-CT option is **rejected**. Kept here rather than physically moved to Resolved, to preserve the `#oq4` anchor (ADR 0003, TODO); the resolution is also recorded in [Resolved gap #5](#gap-5--backup--disaster-recovery-settled-ct-path-adr-0003).
 
-**From:** gap #5 (resolved CT path, [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)). **Decided:** ~~own Postgres inside the disk-search CT vs the shared datastores CT~~ → **own Postgres inside the disk-search CT**.
+**From:** gap #5 (resolved CT path, [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)). **Decided:** ~~own Postgres inside the hw-radar CT vs the shared datastores CT~~ → **own Postgres inside the hw-radar CT**.
 
 **Residual (implementation, not a decision):** at provisioning, add the CT's DB to `backup-dumps.sh` — with the **TimescaleDB-aware** dump caveat from [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling). Compatible with ADR 0003.
 
@@ -176,13 +176,13 @@ Create a document of all backup requirements and constraints, including RPO, PIT
 
 #### My Comments
 
-The app/project and it's associated database should be self-contained in the disk-search CT. This is consistent with the spec's intent and simplifies deployment and management.
+The app/project and it's associated database should be self-contained in the hw-radar CT. This is consistent with the spec's intent and simplifies deployment and management.
 
 ---
 
 ### OQ5 — Off-box heartbeat
 
-> **✅ SETTLED (owner, 2026-07-03):** use the **off-site GMK Uptime Kuma** to watch the disk-search CT (reuses existing infra; already alerts by email), additionally swept periodically by the **Hetzner EX130-R · Fleet Digest** (see the `homelab` repo). The **healthchecks.io** option is **rejected**. **Non-blocking** — land before entering production. Kept in place to preserve the `#oq5` anchor (OQ10, gap #6, the research README, TODO); resolution also recorded in [Resolved gap #6](#gap-6--application-self-observability-settled-ct-path-except-off-box-heartbeat).
+> **✅ SETTLED (owner, 2026-07-03):** use the **off-site GMK Uptime Kuma** to watch the hw-radar CT (reuses existing infra; already alerts by email), additionally swept periodically by the **Hetzner EX130-R · Fleet Digest** (see the `homelab` repo). The **healthchecks.io** option is **rejected**. **Non-blocking** — land before entering production. Kept in place to preserve the `#oq5` anchor (OQ10, gap #6, the research README, TODO); resolution also recorded in [Resolved gap #6](#gap-6--application-self-observability-settled-ct-path-except-off-box-heartbeat).
 
 **From:** gap #6 (resolved CT path). **Decided:** the one real observability gap after the CT decision was the missing **off-box watchdog** (a total-box outage caught by no external observer) → **off-site GMK Uptime Kuma** (not healthchecks.io).
 
@@ -194,7 +194,7 @@ The app/project and it's associated database should be self-contained in the dis
 
 #### My Comments
 
-We will use the existing GMK Uptime Kuma instance to monitor the disk-search CT. This is consistent with the existing infrastructure and will provide the necessary off-box heartbeat monitoring. This will also be monitored periodically by the `Hetzner EX130-R · Fleet Digest` (see the `homelab` repo) for details. This is not a blocker, it can be completed in parallel or after the project is deployed, but should be done before entering production.
+We will use the existing GMK Uptime Kuma instance to monitor the hw-radar CT. This is consistent with the existing infrastructure and will provide the necessary off-box heartbeat monitoring. This will also be monitored periodically by the `Hetzner EX130-R · Fleet Digest` (see the `homelab` repo) for details. This is not a blocker, it can be completed in parallel or after the project is deployed, but should be done before entering production.
 
 ---
 
@@ -289,7 +289,7 @@ Agent comments look good, but I want to conduct a full deep research with ChatGP
 
 ### OQ9 — Acquisition cadence, throttle & skip policy
 
-**From:** General Design Principles audit (folds findings #1 + #5). **Principles-level wording settled:** the old "Stewardship & Responsibility" principle was replaced in the spec with **"Moderate Aggressive Usage"** ([`disk-search.md:21`](specs/disk-search.md)). **Owner posture (2026-07-03):** poll as aggressively — up to real-time/continuous — as each source _tolerates_, and moderate **only** when a service-side protection or red-line would be crossed. The spec's "real-time (or near real-time)" Features framing is therefore **consistent and stays as-is — no reword** (the earlier "reword the real-time framing" task is **withdrawn**). **Decision needed:** the concrete numbers that operationalize "aggressive but self-moderating":
+**From:** General Design Principles audit (folds findings #1 + #5). **Principles-level wording settled:** the old "Stewardship & Responsibility" principle was replaced in the spec with **"Moderate Aggressive Usage"** ([`hw-radar.md:21`](specs/hw-radar.md)). **Owner posture (2026-07-03):** poll as aggressively — up to real-time/continuous — as each source _tolerates_, and moderate **only** when a service-side protection or red-line would be crossed. The spec's "real-time (or near real-time)" Features framing is therefore **consistent and stays as-is — no reword** (the earlier "reword the real-time framing" task is **withdrawn**). **Decision needed:** the concrete numbers that operationalize "aggressive but self-moderating":
 
 - **per-source cadence** — target poll frequency per source/tier (research floor: single-digit daily checks per SKU; go faster where the source tolerates it);
 - **adaptive throttle / back-off** — which signals mark an approaching red-line (HTTP 429/503, soft-block challenge, latency spikes) and the cooldown they trigger, so aggressiveness self-limits _before_ tripping a protection;
@@ -352,7 +352,7 @@ Cross-cutting questions the research surfaced, now closed. Referenced by ADRs/sp
 | --- | --- | --- |
 | **RQ1** | Framework: Django or FastAPI? | **Django** + server-rendered templates + HTMX — the app's center of gravity is an authenticated listings DB + dashboards + CRUD + alerts, not an API platform. **[ADR 0004](adr/adr-0004-web-framework-django-htmx.md).** Locks in `manage.py migrate`, `contrib.auth`, and the Django admin as back-office. |
 | **RQ2** | Public URL required, or Tailscale-only acceptable? | **Public URL required**, with a single strong-password account; Tailscale-only rejected. Drives the auth model (resolved gap #1, [ADR 0005](adr/adr-0005-single-account-session-auth.md)). |
-| **RQ3** | Does the Proxmox host give a per-service vTPM? | The host has `swtpm` installed, so a full **VM** could get a vTPM — but disk-search deploys as a **CT** (RQ5), which has **no per-container TPM** (shared host kernel). So `systemd-creds --with-key=tpm2` is **not** available → secrets go via the local OpenBao Agent (resolved gap #2, [OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct)). |
+| **RQ3** | Does the Proxmox host give a per-service vTPM? | The host has `swtpm` installed, so a full **VM** could get a vTPM — but hw-radar deploys as a **CT** (RQ5), which has **no per-container TPM** (shared host kernel). So `systemd-creds --with-key=tpm2` is **not** available → secrets go via the local OpenBao Agent (resolved gap #2, [OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct)). |
 | **RQ4** | Existing Hetzner backup & monitoring coverage? | **Characterized on 2026-07-03** (specifics in the private `homelab` repo). **Backup:** file-level restic + hourly logical dumps to two offsite repos, but **opt-in per service via a hardcoded allowlist**, **no PITR** (≤1 h RPO), **no VM-image backup**. **Monitoring:** rich but **on-box only**, **no off-site watchdog**; a CT is auto-discovered by the health check, a VM is not. Net: a CT maximizes infra reuse; an off-box heartbeat ([OQ5](#oq5--off-box-heartbeat)) and a DB-RPO decision ([OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling)) are the two things to add. |
 | **RQ5** | Deployment model — CT vs VM? | **Dedicated LXC container**, superseding the spec's "VM". Aligns with the "every service in a dedicated LXC" standard and maximizes infra reuse (fleet-digest auto-discovers the CT; its data is reachable by the host's file-level restic). **[ADR 0003](adr/adr-0003-deploy-as-lxc-container.md).** Consequences: vTPM off the table (RQ3) → local OpenBao Agent; backup is **not** automatic (wire the CT into `backup-restic.sh`/`backup-dumps.sh`); DB on a container Postgres ([OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct)). |
 | **RQ6** | Datastore: PostgreSQL or MySQL? | **PostgreSQL (system-of-record) + TimescaleDB** for the price-history/observation side. **[ADR 0007](adr/adr-0007-datastore-postgresql-timescaledb.md).** Adds the TimescaleDB-aware-dump driver to [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling). |
@@ -382,26 +382,26 @@ Full write-ups of the twelve gaps. For split gaps, only the **settled** part is 
 
 #### Gap 1 — Web-app authentication (settled, ADR 0005)
 
-**Was:** the spec asserted "user authentication for secure access" and anticipated future multi-user, but defined no auth model, mechanism, or user schema. Evidence: [`disk-search.md:7`](specs/disk-search.md), [`:79`](specs/disk-search.md).
+**Was:** the spec asserted "user authentication for secure access" and anticipated future multi-user, but defined no auth model, mechanism, or user schema. Evidence: [`hw-radar.md:7`](specs/hw-radar.md), [`:79`](specs/hw-radar.md).
 
 **Decision → [ADR 0005](adr/adr-0005-single-account-session-auth.md):** a single strong-password account with **Argon2id** session login (Django `contrib.auth`), internet-facing; the load-bearing constraint is that the app holds **no in-app secrets**. Stub a `users` table now; **Authelia forward-auth** reserved for the multi-user end state. Full context and the forward-auth security rules (localhost bind, header overwrite, CVE-pinned gateway) live in the ADR. Research: [`auth-for-self-hosted-single-maintainer-python-app.md`](research/2026-07-03-auth-for-self-hosted-single-maintainer-python-app.md).
 
 #### Gap 2 — `.env` secrets model → OpenBao (settled except `secret_id` delivery)
 
-**Was:** the spec repeatedly said secrets live in a committed-excluded `.env`, but the org standard is **OpenBao as the credential store**, and it never answered **how the deployed app obtains secrets at runtime** — a real contradiction, sharpened by the repo being public. Evidence: [`disk-search.md:62`](specs/disk-search.md), [`:82`](specs/disk-search.md), [`:95`](specs/disk-search.md), [`:107`](specs/disk-search.md), [`:111`](specs/disk-search.md).
+**Was:** the spec repeatedly said secrets live in a committed-excluded `.env`, but the org standard is **OpenBao as the credential store**, and it never answered **how the deployed app obtains secrets at runtime** — a real contradiction, sharpened by the repo being public. Evidence: [`hw-radar.md:62`](specs/hw-radar.md), [`:82`](specs/hw-radar.md), [`:95`](specs/hw-radar.md), [`:107`](specs/hw-radar.md), [`:111`](specs/hw-radar.md).
 
 **Decision:**
 
-- **Runtime injection via OpenBao Agent** (`bao agent`, its own hardened systemd unit) using **AppRole auto-auth**. The agent templates secrets to a root-owned, `0640`, app-group-readable file on **tmpfs** (`/run/disk-search/secrets.env`, gone on reboot); app services depend on it via `After=`. No plaintext `.env` at rest, no secrets baked into unit files.
+- **Runtime injection via OpenBao Agent** (`bao agent`, its own hardened systemd unit) using **AppRole auto-auth**. The agent templates secrets to a root-owned, `0640`, app-group-readable file on **tmpfs** (`/run/hw-radar/secrets.env`, gone on reboot); app services depend on it via `After=`. No plaintext `.env` at rest, no secrets baked into unit files.
 - **The Agent runs locally on the CT, fully decoupled from CI.** Because CD is `rsync` over Tailscale SSH from a **GitHub-hosted** runner (gap #4), the public-repo CI job holds **no OpenBao credential at all** — it only rsyncs code and triggers `systemctl restart`; the running services pick up secrets the Agent has already templated. The `role_id` lives in the CT image/config-management.
 - **Reconcile the spec's language:** `.env` is acceptable **for local development only**; production resolves secrets from OpenBao at runtime.
-- **Settled 2026-07-04 (verified live) → [ADR 0009](adr/adr-0009-secrets-runtime-openbao-agent.md):** the `secret_id` delivery/renewal path → disk-search onboards as the next **`bao-services` (CT 115)** consumer via a local **bao-agent**; a persistent, long-lived, **CIDR-bound** SecretID at `/etc/bao-agent/secret-id` delivered operator→CT by `bao-issue-secret-id.sh` (wrap token + `pct push`) → **[OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct)**. (The earlier "CD job fetches a response-wrapped `secret_id`" mechanism is withdrawn — CI holds no OpenBao credential; the Agent on the CT consumes locally. The spec's `remove_secret_id_file_after_reading=true` is also superseded — it breaks restart safety.)
+- **Settled 2026-07-04 (verified live) → [ADR 0009](adr/adr-0009-secrets-runtime-openbao-agent.md):** the `secret_id` delivery/renewal path → hw-radar onboards as the next **`bao-services` (CT 115)** consumer via a local **bao-agent**; a persistent, long-lived, **CIDR-bound** SecretID at `/etc/bao-agent/secret-id` delivered operator→CT by `bao-issue-secret-id.sh` (wrap token + `pct push`) → **[OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct)**. (The earlier "CD job fetches a response-wrapped `secret_id`" mechanism is withdrawn — CI holds no OpenBao credential; the Agent on the CT consumes locally. The spec's `remove_secret_id_file_after_reading=true` is also superseded — it breaks restart safety.)
 
 Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md) §3.
 
 #### Gap 3 — Currency / landed-cost normalization (settled, ADR 0008)
 
-**Was:** the score is `USD` per `TB`, but several ranked merchants (ETB Technologies, Bargain Hardware) are UK/EU resellers pricing in GBP/EUR, and the buyer is US-based — cross-border listings scored on a false basis. Evidence: [`disk-search.md:13`](specs/disk-search.md), merchants at [`:40`–`:41`](specs/disk-search.md).
+**Was:** the score is `USD` per `TB`, but several ranked merchants (ETB Technologies, Bargain Hardware) are UK/EU resellers pricing in GBP/EUR, and the buyer is US-based — cross-border listings scored on a false basis. Evidence: [`hw-radar.md:13`](specs/hw-radar.md), merchants at [`:40`–`:41`](specs/hw-radar.md).
 
 **Decision (owner, 2026-07-03 — accepted with changes) → [ADR 0008](adr/adr-0008-currency-landed-cost-normalization.md):**
 
@@ -414,15 +414,15 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 #### Gap 4 — Deployment & service topology (settled, ADR 0006)
 
-**Was:** "GitHub Actions → automatic deployment to Hetzner on merge to main" stated the _what_, never the _how_: transport, how the app runs as a service, how CI reaches a non-public target. Evidence: [`disk-search.md:72`–`:75`](specs/disk-search.md).
+**Was:** "GitHub Actions → automatic deployment to Hetzner on merge to main" stated the _what_, never the _how_: transport, how the app runs as a service, how CI reaches a non-public target. Evidence: [`hw-radar.md:72`–`:75`](specs/hw-radar.md).
 
 **Decision → [ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md):** a **GitHub-hosted `ubuntu-latest`** runner builds/tests, joins the tailnet **ephemerally**, then `rsync`s to the CT and restarts over `tailscale ssh` (self-hosted runner rejected on a public repo). Systemd web + worker units under a dedicated non-root user; **timers** for scrapes; venv built on the CT (`uv sync --frozen`); expand/contract migrations before restart. Full trigger/secret discipline lives in the ADR. **Settled 2026-07-04 (verified live):** the ephemeral-runner tailnet auth → the **Tailscale OAuth client** (`secret/infra/tailscale-oauth`, minting a `tag:ci` ephemeral node) via `tailscale/github-action` v4 → **[OQ2](#oq2--ephemeral-runner-tailnet-auth)**. Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md); per-source scheduling refined in [`orchestration-choice…md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md).
 
 #### Gap 5 — Backup / disaster recovery (settled CT path, ADR 0003)
 
-**Was:** the accumulated historical price data _is_ the tool's compounding value; a single box with no backup means one disk failure erases the moat. Evidence: [`disk-search.md:19`](specs/disk-search.md), [`:22`](specs/disk-search.md); DB co-located per [`:69`](specs/disk-search.md).
+**Was:** the accumulated historical price data _is_ the tool's compounding value; a single box with no backup means one disk failure erases the moat. Evidence: [`hw-radar.md:19`](specs/hw-radar.md), [`:22`](specs/hw-radar.md); DB co-located per [`:69`](specs/hw-radar.md).
 
-**Decision (CT path) — [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md):** add the disk-search **CT** to the existing Hetzner restic + hourly-dump pipeline; keep the monthly restore-test discipline. **Settled 2026-07-03:** DB placement → **own Postgres inside the disk-search CT** (self-contained; [OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct)). **Still open:** DB-RPO acceptance → **[OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling)** (owner: document requirements in the `homelab` repo first).
+**Decision (CT path) — [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md):** add the hw-radar **CT** to the existing Hetzner restic + hourly-dump pipeline; keep the monthly restore-test discipline. **Settled 2026-07-03:** DB placement → **own Postgres inside the hw-radar CT** (self-contained; [OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct)). **Still open:** DB-RPO acceptance → **[OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling)** (owner: document requirements in the `homelab` repo first).
 
 **Live-state findings (2026-07-03 — verified on the server; specifics in the private `homelab` repo):**
 
@@ -436,7 +436,7 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 #### Gap 6 — Application self-observability (settled CT path except off-box heartbeat)
 
-**Was:** deal alerts tell the _user_ about drives; nothing tells the _operator_ that the app is down, out of disk, a scrape stopped, or alert emails aren't delivered. Evidence: [`disk-search.md:11`](specs/disk-search.md).
+**Was:** deal alerts tell the _user_ about drives; nothing tells the _operator_ that the app is down, out of disk, a scrape stopped, or alert emails aren't delivered. Evidence: [`hw-radar.md:11`](specs/hw-radar.md).
 
 **Decision (CT path):** split the concern — **infrastructure health** (up/disk/CPU/RAM) rides the existing Hetzner monitoring, which **auto-discovers the CT**; **application-level health** stays in-app via the **`scraper_runs` table** (shared with gap #9 / OQ8), a **dead-man's-switch heartbeat**, and **email-delivery confirmation**. **Settled 2026-07-03:** the off-box heartbeat → the **off-site GMK Uptime Kuma** watches the CT (also swept by the Hetzner Fleet Digest) → **[OQ5](#oq5--off-box-heartbeat)**.
 
@@ -450,13 +450,13 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 #### Gap 7 — UI/UX (settled: Django + HTMX + post-alert model; inventory open)
 
-**Was:** "Provides a user-friendly web-based interface" with no page inventory, flows, or post-alert action model. Evidence: [`disk-search.md:20`](specs/disk-search.md).
+**Was:** "Provides a user-friendly web-based interface" with no page inventory, flows, or post-alert action model. Evidence: [`hw-radar.md:20`](specs/hw-radar.md).
 
 **Decision (settled parts):** **rendering — [ADR 0004](adr/adr-0004-web-framework-django-htmx.md):** Django + server-rendered templates + HTMX, matching a single-maintainer, data-heavy CRUD+dashboard app without an SPA build chain; use the **Django admin as internal back-office**. **Post-alert model:** a per-watch, per-listing **state machine** (`none / pending / firing / cooling / digested`), first-class snooze at two granularities, one-click HMAC-signed action links, watch-as-unit-of-opt-out; dedup on listing + alert fingerprints. **Watch-rule UI:** hard filters separate from thresholds, no free-text title matching. **Still open:** the final page inventory, the dismiss→suppress feedback path, and purchase-tracking scope → **[OQ6](#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking)**. Research: [`opinionated-core-stack-recommendations…md`](research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md), [`designing-a-low-noise-alerting-layer…md`](research/designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor.md).
 
 #### Gap 8 — v1 scope / phasing / acceptance criteria (settled)
 
-**Was:** the spec said v1 "will not" optimize for other users, but never stated what v1 **does** include vs defers across 20 marketplaces + scoring + entity resolution + a web UI. Evidence: [`disk-search.md:7`](specs/disk-search.md).
+**Was:** the spec said v1 "will not" optimize for other users, but never stated what v1 **does** include vs defers across 20 marketplaces + scoring + entity resolution + a web UI. Evidence: [`hw-radar.md:7`](specs/hw-radar.md).
 
 **Decision — phased milestones accepted as planning input;** the authoritative phased spec will be authored with the **`spec-pipeline`** plugin (these milestones map onto its phases, and the acceptance criteria are the raw material for each phase's exit gate).
 
@@ -492,7 +492,7 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 #### Gap 9 — Scraper testing strategy (settled stack + amendments; build-time params open)
 
-**Was:** CI names "testing workflows" but the spec never said **how** to test scrapers against sites that change and fight bots. Evidence: [`disk-search.md:73`](specs/disk-search.md).
+**Was:** CI names "testing workflows" but the spec never said **how** to test scrapers against sites that change and fight bots. Evidence: [`hw-radar.md:73`](specs/hw-radar.md).
 
 **Decision (settled):**
 
@@ -505,13 +505,13 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 #### Gap 10 — Running-cost / budget model (settled approach; pricing pass open)
 
-**Was:** paid search APIs, AgentMail, object storage, and possible managed-scraping APIs had no aggregate budget or ceiling to design polling frequency against. Evidence: [`disk-search.md:55`](specs/disk-search.md), [`:109`–`:111`](specs/disk-search.md).
+**Was:** paid search APIs, AgentMail, object storage, and possible managed-scraping APIs had no aggregate budget or ceiling to design polling frequency against. Evidence: [`hw-radar.md:55`](specs/hw-radar.md), [`:109`–`:111`](specs/hw-radar.md).
 
 **Decision (approach):** **prefer free official feeds** (eBay Browse/Feed, structured-data parsing) over paid search calls — search APIs are for _discovery_, not per-poll refresh. **Config-driven per-source poll budget** held under a stated **monthly ceiling**, reusing the orchestration research's **two-level token buckets** (per-source + per-domain). Track actuals via the `scraper_runs` table. Managed-scraping APIs avoided for this merchant set (free structured data covers it; reserve them for a hostile tail — or skip the source). **Still open:** the build-time pricing pass (current Serper/Brave/Tavily per-call pricing, AgentMail, backup object-storage costs; Brave storage-rights plan) → **[OQ7](#oq7--running-cost-budget-model-build-time-pricing-pass)**. Research: [`programmatic-acquisition…md`](research/programmatic-acquisition-research-for-enterprise-and-nas-drive-merchants.md), [`tavily-brave-serper.md`](research/tavily-brave-serper.md), [`pragmatic-architecture…md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md), [`orchestration-choice…md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md).
 
 #### Gap 11 — Shipping (and tax) in the `$/TB` score (settled)
 
-**Was:** `$/TB` on item price alone misranks a cheap drive with high shipping — even domestically. Evidence: [`disk-search.md:13`](specs/disk-search.md).
+**Was:** `$/TB` on item price alone misranks a cheap drive with high shipping — even domestically. Evidence: [`hw-radar.md:13`](specs/hw-radar.md).
 
 **Decision (accepted):**
 
@@ -523,7 +523,7 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 #### Gap 12 — Cold-start scoring (settled)
 
-**Was:** the moving-baseline / percentile scoring needs accumulated history that doesn't exist at launch. Evidence: [`disk-search.md:19`](specs/disk-search.md), [`:22`](specs/disk-search.md).
+**Was:** the moving-baseline / percentile scoring needs accumulated history that doesn't exist at launch. Evidence: [`hw-radar.md:19`](specs/hw-radar.md), [`:22`](specs/hw-radar.md).
 
 **Decision (resolved via research):**
 
