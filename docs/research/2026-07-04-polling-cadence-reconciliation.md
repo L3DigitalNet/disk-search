@@ -121,8 +121,8 @@ Introduce `availability_heartbeat_observation` above `offer_snapshot` (extends [
 | eBay official recert storefronts | ✅ | 10–15 min (Browse API saved search) | Native cheap heartbeat; already T0 |
 | ServerPartDeals (recert collection) | ✅ | 2–5 min heartbeat | Drop-prone (post-2026-interruption) + Shopify; low-regret |
 | Other confirmed-Shopify specialists (TechMikeNY, SaveMyServer, The Server Store `parts.`) | ⚠️ conditional | 5–10 min heartbeat | Cheap; add if finite-lot recert behaviour confirmed |
-| WD direct recert | ⏳ pending | 2–5 min _if_ endpoint found; else 30–60 min | Drop-prone but needs XHR-recon spike (§6) |
-| Seagate direct recert | ⏳ pending | as WD; or via eBay/SPD surface | Existence of a _direct_ pollable store unconfirmed (§6) |
+| WD direct recert | ✅ (spike 2026-07-04) | 2–5 min heartbeat | Endpoint **found**: unauthenticated SAP-Commerce OCC JSON (variant SKU + exact price + stock counts) — [recon spike](2026-07-04-wd-seagate-recert-endpoint-recon.md) |
+| Seagate direct recert | ✅ (spike 2026-07-04) | 2–5 min heartbeat (one category-page GET; crawl-delay 20 s) | Direct store **exists** (`/products/seagate-recertified/`); robots-allowed category page embeds per-SKU `final_price`+`stock_status` bootstrap JSON. ⚠️ `store.seagate.com` GraphQL is cheaper but robots-**disallowed** — [recon spike](2026-07-04-wd-seagate-recert-endpoint-recon.md) |
 | Amazon / Newegg / VARs / refurb-server / DiskPrices | ❌ | per class SLO | Churning/stable or no cheap signal |
 
 ## 5. Failure modes to design around (union of both runs)
@@ -145,8 +145,8 @@ Introduce `availability_heartbeat_observation` above `offer_snapshot` (extends [
 
 | # | Item | How it resolves |
 | --- | --- | --- |
-| 1 | Do WD.com / Seagate.com expose an internal XHR/bootstrap stock endpoint? | Browser dev-tools network-tab recon spike against the live sites — highest-value follow-up (turns the two best drop-prone sources into fast-lane candidates) |
-| 2 | Does Seagate sell recert **direct** (pollable store) or only via SPD/eBay? | Factual verification at implementation; qdev assumed a direct store, ChatGPT was skeptical |
+| 1 | ~~Do WD.com / Seagate.com expose an internal XHR/bootstrap stock endpoint?~~ | ✅ **Resolved 2026-07-04 by the [endpoint-recon spike](2026-07-04-wd-seagate-recert-endpoint-recon.md):** both do — WD via unauthenticated OCC JSON API, Seagate via bootstrap JSON in the robots-allowed category page (its store GraphQL is robots-disallowed). Both fast-lane eligible. |
+| 2 | ~~Does Seagate sell recert **direct** (pollable store) or only via SPD/eBay?~~ | ✅ **Resolved 2026-07-04 (same spike):** yes — `seagate.com/products/seagate-recertified/` (Exos subcategory, 6 SKUs 16–28 TB, active promo). qdev's assumption was right. |
 | 3 | Is Magento storefront GraphQL `stock_status`/`only_x_left_in_stock` exposed unauthenticated on ETB / Bargain Hardware / PCNation / ServerMonkey? | Direct probe of each live `/graphql` (version/config-dependent industry-wide) |
 | 4 | Real volatility of the ~8 evidence-thin long-tail/B2B sources | hw-radar's own price-history once collecting; or targeted community searches (r/homelabsales) |
 | 5 | Actual SPD/WD/Seagate clear-times under 2026 market conditions | hw-radar's own timestamped transition data post-launch (self-correcting registry values) |

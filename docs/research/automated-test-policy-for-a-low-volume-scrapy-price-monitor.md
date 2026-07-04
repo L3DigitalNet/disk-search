@@ -6,7 +6,7 @@ description: Build-time test-strategy finalization for a low-volume Scrapy price
 doc_type: research
 status: active
 created: '2026-07-03'
-updated: '2026-07-03'
+updated: '2026-07-04'
 reviewed: null
 owner: chris
 tags:
@@ -374,3 +374,19 @@ The highest-confidence conclusion is the public-repo one: for the named marketpl
 Two source-specific nuances are worth calling out. WD’s accessible terms evidence was weaker than Seagate/Newegg/ServerPartDeals because the fetched Terms page was not easy to inspect in English lines, but the search result still clearly surfaced a personal, non-commercial use restriction and a no-copy/no-distribution restriction, which is already enough for a conservative synthetic-only recommendation for public fixtures. goHardDrive’s terms, by contrast, were accessible and did **not** surface an explicit no-scraping clause in the fetched text, but they still prohibit broader reproduction/distribution of site content, which is why the public-fixture recommendation remains synthetic-only there as well.
 
 Everything above is a risk-control recommendation, not legal advice. If you later obtain written permission from a specific seller, or a source publishes a redistribution-friendly test-data policy, that should override the conservative defaults here.
+
+## Sources
+
+_The original Deep Research export lost its inline citations; the links below were reconstructed 2026-07-04 against the claims in the text and each verified live (HTTP 200). The marketplace/manufacturer terms pages the original run fetched (Amazon Associates, eBay API License Agreement, Google Programmable Search, Newegg, Seagate, WD, ServerPartDeals, goHardDrive) are deliberately not re-linked — their fetched-text findings are summarized in "Open questions and limitations" above, and terms URLs/content churn; re-verify the live terms before relying on them._
+
+| URL | Title | Date | Authority |
+| --- | --- | --- | --- |
+| https://vcrpy.readthedocs.io/en/latest/usage.html | VCR.py — Usage (record modes, incl. `none`) | verified 2026-07-04 | official |
+| https://vcrpy.readthedocs.io/en/latest/advanced.html | VCR.py — Advanced (filter sensitive data before cassette write) | verified 2026-07-04 | official |
+| https://github.com/syrupy-project/syrupy | Syrupy README (`pytest --snapshot-update` approval path) | verified 2026-07-04 | official |
+| https://docs.pydantic.dev/latest/concepts/models/ | Pydantic v2 — Models (validation contract) | verified 2026-07-04 | official |
+| https://docs.scrapy.org/en/latest/topics/selectors.html | Scrapy — Selectors (CSS/XPath structure binding) | verified 2026-07-04 | official |
+| https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data | Google Search Central — Structured data intro (JSON-LD recommended) | verified 2026-07-04 | official |
+| https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches | GitHub Docs — About protected branches (required status checks) | verified 2026-07-04 | official |
+| https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions | GitHub Docs — Workflow syntax (`permissions` block) | verified 2026-07-04 | official |
+| https://github.com/actions/github-script | actions/github-script (GitHub API from workflows) | verified 2026-07-04 | official |
