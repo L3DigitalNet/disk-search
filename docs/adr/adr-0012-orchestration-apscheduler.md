@@ -79,7 +79,7 @@ Option 2 was rejected: independent timer units make *shared* back-off/circuit-br
 
 ### Confirmation
 
-Implementation confirmation (M1/M5): the poller runs as one `Active` systemd service; per-source cadence, jitter, and the adaptive 429/503 cooldown are observable in `scraper_runs`; a source that trips the breaker moves to `paused_pending_fix` without halting the others.
+Implementation confirmation (MS-1/MS-5): the poller runs as one `Active` systemd service; per-source cadence, jitter, and the adaptive 429/503 cooldown are observable in `scraper_runs`; a source that trips the breaker moves to `paused_pending_fix` without halting the others.
 
 ## More Information
 

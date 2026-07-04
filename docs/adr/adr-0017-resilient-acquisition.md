@@ -82,7 +82,7 @@ Option 1 was rejected: try/except without persisted state loses the failure hist
 
 ### Confirmation
 
-Implementation confirmation (M5): a deliberately failed source moves to `paused_pending_fix` while the other sources keep polling; a deliberately broken parser trips a `parser_rot` alert within one scheduled cycle; a source returning empty/challenge bodies trips the silent-degradation detector rather than being trusted; a fixed source clears its recovery probe and returns to `active`.
+Implementation confirmation (MS-5): a deliberately failed source moves to `paused_pending_fix` while the other sources keep polling; a deliberately broken parser trips a `parser_rot` alert within one scheduled cycle; a source returning empty/challenge bodies trips the silent-degradation detector rather than being trusted; a fixed source clears its recovery probe and returns to `active`.
 
 ## More Information
 

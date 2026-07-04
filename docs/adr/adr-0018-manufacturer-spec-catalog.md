@@ -91,7 +91,7 @@ Chosen option: **Option 2**, with a bounded **bootstrap** allowance from Option 
 
 ### Confirmation
 
-Implementation confirmation (milestone: catalog seed precedes the entity-resolver hardening, ~M1–M2): the reference pipeline ingests a vendor's datasheet set and produces `product_model` + `drive_spec` + `product_alias` rows carrying `retention_class = manufacturer_reference` with no `offer_snapshot`/score/alert side effects; a single enterprise family (e.g. an Exos or Ultrastar line) lands as one `product_family` with its full set of per-MPN `product_variant`/alias rows; a listing whose MPN matches an alias inherits the authoritative `drive_spec`; a listing with no match is persisted and enqueued for backfill rather than dropped; a model discontinued upstream on a later refresh is retained, not deleted.
+Implementation confirmation (milestone: catalog seed precedes the entity-resolver hardening, ~MS-1–MS-2): the reference pipeline ingests a vendor's datasheet set and produces `product_model` + `drive_spec` + `product_alias` rows carrying `retention_class = manufacturer_reference` with no `offer_snapshot`/score/alert side effects; a single enterprise family (e.g. an Exos or Ultrastar line) lands as one `product_family` with its full set of per-MPN `product_variant`/alias rows; a listing whose MPN matches an alias inherits the authoritative `drive_spec`; a listing with no match is persisted and enqueued for backfill rather than dropped; a model discontinued upstream on a later refresh is retained, not deleted.
 
 ## More Information
 

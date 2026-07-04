@@ -80,7 +80,7 @@ Option 2 was rejected: a hardcoded percentage is **false precision** — the rea
 
 ### Confirmation
 
-The spec's `$/TB` scoring and cross-border handling reflect this decision, and gaps #3 and #11 in resolved-questions.md are recorded settled. Implementation-time confirmation (M1/M2): every non-USD listing carries a stored `fx_rate` + `fx_rate_date` and a normalized USD price; international listings are flagged; domestic listings with known shipping fold it into `$/TB`; a VAT-inclusive foreign shelf price is not mistaken for the export price.
+The spec's `$/TB` scoring and cross-border handling reflect this decision, and gaps #3 and #11 in resolved-questions.md are recorded settled. Implementation-time confirmation (MS-1/MS-2): every non-USD listing carries a stored `fx_rate` + `fx_rate_date` and a normalized USD price; international listings are flagged; domestic listings with known shipping fold it into `$/TB`; a VAT-inclusive foreign shelf price is not mistaken for the export price.
 
 ## More Information
 

@@ -84,7 +84,7 @@ Option 2 was **rejected (and explicitly withdrawn from the spec)**: it would pla
 
 ### Confirmation
 
-resolved-questions.md **OQ1** is recorded settled (verified live), and gap #2 records the runtime-injection decision. Provisioning-time confirmation (M0): the web service serves an authenticated page and **reads at least one secret sourced from OpenBao** with **no plaintext `.env` on the CT**; the `bao-agent` unit is `Active`, renders to the tmpfs path, and survives a container restart without re-issuing the SecretID.
+resolved-questions.md **OQ1** is recorded settled (verified live), and gap #2 records the runtime-injection decision. Provisioning-time confirmation (MS-0): the web service serves an authenticated page and **reads at least one secret sourced from OpenBao** with **no plaintext `.env` on the CT**; the `bao-agent` unit is `Active`, renders to the tmpfs path, and survives a container restart without re-issuing the SecretID.
 
 ## More Information
 

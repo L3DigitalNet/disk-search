@@ -73,7 +73,7 @@ Option 3 (Postmark/SES) was rejected **for v1 only** on the no-cost constraint â
 
 ### Confirmation
 
-Implementation confirmation (M4): a single qualifying price drop sends **exactly one** email via the Graph path from the branded sender; a send failure is **detectably surfaced** (delivery-confirmation signal); the AgentMail fallback can be exercised on demand.
+Implementation confirmation (MS-4): a single qualifying price drop sends **exactly one** email via the Graph path from the branded sender; a send failure is **detectably surfaced** (delivery-confirmation signal); the AgentMail fallback can be exercised on demand.
 
 ## More Information
 

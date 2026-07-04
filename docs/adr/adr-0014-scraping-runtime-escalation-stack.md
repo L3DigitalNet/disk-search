@@ -2,7 +2,7 @@
 schema_version: '1.1'
 id: 'adr-0014-hw-radar-scraping-runtime-escalation-stack'
 title: 'ADR 0014: Scraping runtime — HTTP-first, structured-data-first, browser-last escalation stack'
-description: 'Adopt a four-tier acquisition stack — Scrapy orchestrator with a structured-data detector in front of every parser, curl_cffi for the TLS-fingerprint gap, Playwright via scrapy-playwright for genuine JS rendering, managed unblocker or skip for the hostile tail — and defer the curl_cffi and Playwright tiers to M5, shipping the five M1 recert sources on plain HTTP + structured-data parsing.'
+description: 'Adopt a four-tier acquisition stack — Scrapy orchestrator with a structured-data detector in front of every parser, curl_cffi for the TLS-fingerprint gap, Playwright via scrapy-playwright for genuine JS rendering, managed unblocker or skip for the hostile tail — and defer the curl_cffi and Playwright tiers to MS-5, shipping the five MS-1 recert sources on plain HTTP + structured-data parsing.'
 doc_type: 'adr'
 status: 'active'
 created: '2026-07-04'
@@ -50,7 +50,7 @@ Research [`pragmatic-architecture-for-low-volume-python-e-commerce-scraping`](..
 ## Considered Options
 
 - **Option 1 — Adopt the full four-tier stack now.**
-- **Option 2 — Adopt the tiered stack as the architecture, but defer the browser/TLS tiers to M5**, shipping the M1 recert sources on plain HTTP + structured-data parsing. (chosen)
+- **Option 2 — Adopt the tiered stack as the architecture, but defer the browser/TLS tiers to MS-5**, shipping the MS-1 recert sources on plain HTTP + structured-data parsing. (chosen)
 - **Option 3 — Reach for a browser (or a managed scraping API) as the default** for JS-looking sites.
 
 ## Decision Outcome
@@ -66,7 +66,7 @@ Chosen option: **Option 2.**
 
 **Answering the owner's Playwright question directly:** Playwright is a **code-driven, headless browser-automation library — nothing to do with an AI agent or LLM** (that would be a separate "browser agent" category, which this project does not use). It runs deterministically on the server, driven entirely by our code, and via `scrapy-playwright` only requests explicitly marked as needing a browser go through Chromium; everything else stays on plain HTTP.
 
-**Defer tiers 2–3 to M5.** M1's five recert sources (WD/Seagate Recertified, ServerPartDeals, goHardDrive, eBay Browse/Feed) are the "easy" tier — plain HTTP + structured-data parsing. `curl_cffi` and Playwright are added only when a specific source demands them, keeping the M1 surface small.
+**Defer tiers 2–3 to MS-5.** MS-1's five recert sources (WD/Seagate Recertified, ServerPartDeals, goHardDrive, eBay Browse/Feed) are the "easy" tier — plain HTTP + structured-data parsing. `curl_cffi` and Playwright are added only when a specific source demands them, keeping the MS-1 surface small.
 
 Option 1 was rejected (premature complexity — most sources never need a browser). Option 3 was rejected: assuming "JS framework ⇒ use a browser" is the key mistake the research warns against, and it multiplies compute and anti-bot surface for no benefit.
 
@@ -74,12 +74,12 @@ Option 1 was rejected (premature complexity — most sources never need a browse
 
 - **Good** — smallest, cheapest, most stable path per source; the browser is a scalpel, not the default engine.
 - **Good** — dovetails with the spec's **Special Considerations guardrails** (`ROBOTSTXT_OBEY=True`, AUTOTHROTTLE, honor `429`/`Retry-After`, no anti-bot bypass) and shares the **same skip cutoff** as OQ9's skip policy — decided consistently.
-- **Good** — M1 stays lean; the browser/TLS tiers arrive with M5 breadth, when a hostile source actually justifies them.
+- **Good** — MS-1 stays lean; the browser/TLS tiers arrive with MS-5 breadth, when a hostile source actually justifies them.
 - **Bad (accepted)** — a source that later hardens its anti-bot posture may need escalation up the ladder; the OQ9 back-off/skip logic detects this (a soft-block that maxes the 24 h cooldown), so escalation is a measured event, not a surprise.
 
 ### Confirmation
 
-Implementation confirmation: M1's five sources yield normalized listings on plain HTTP + structured-data parsing; M5 adds `curl_cffi`/Playwright only where the tier ladder measurably requires it.
+Implementation confirmation: MS-1's five sources yield normalized listings on plain HTTP + structured-data parsing; MS-5 adds `curl_cffi`/Playwright only where the tier ladder measurably requires it.
 
 ## More Information
 

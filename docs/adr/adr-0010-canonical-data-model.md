@@ -111,7 +111,7 @@ Four of the five extensibility axes are already met by the data-driven spine (ma
 
 ### Confirmation
 
-The spec's Database Schema section is updated to reference this ladder (superseding the `drive_model`/`listing`/`observation` shorthand). Implementation confirmation (M0/M1): initial migrations create `category → product_family → product_model → product_variant → listing → offer_snapshot` with `product_alias` and the `drive_spec` satellite; a recert and a new listing of the same drive resolve to **one `product_model`, two `product_variant`s**; `offer_snapshot` is a TimescaleDB hypertable; every evidence table has a non-null `retention_class`; no table stores image bytes.
+The spec's Database Schema section is updated to reference this ladder (superseding the `drive_model`/`listing`/`observation` shorthand). Implementation confirmation (MS-0/MS-1): initial migrations create `category → product_family → product_model → product_variant → listing → offer_snapshot` with `product_alias` and the `drive_spec` satellite; a recert and a new listing of the same drive resolve to **one `product_model`, two `product_variant`s**; `offer_snapshot` is a TimescaleDB hypertable; every evidence table has a non-null `retention_class`; no table stores image bytes.
 
 ## More Information
 
