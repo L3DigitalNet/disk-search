@@ -47,7 +47,7 @@ The core ranking metric is **USD per TB**, but several of the ranked merchants (
 Two coupled questions fall out of this and must be answered together, because both feed the same `$/TB` computation and the same `observation` schema (ADR 0007):
 
 - **FX** — which rate source normalizes foreign prices to USD, and how is it recorded so a historical score stays reproducible and auditable as rates drift?
-- **Landed cost** — how much of the *real* cost of acquiring a drive (foreign-exchange risk, shipping, import duty, VAT handling) is baked into the score versus surfaced to the buyer as a flag? A precise landed-cost figure is tempting but rests on volatile, jurisdiction-specific inputs.
+- **Landed cost** — how much of the _real_ cost of acquiring a drive (foreign-exchange risk, shipping, import duty, VAT handling) is baked into the score versus surfaced to the buyer as a flag? A precise landed-cost figure is tempting but rests on volatile, jurisdiction-specific inputs.
 
 The research report [`currency-conversion-and-landed-cost-estimation…`](../research/2026-07-03-currency-conversion-and-landed-cost-estimation-for-cross-border-drive-price-scoring.md) analyzes the FX sources and the US import regime directly.
 
@@ -64,7 +64,7 @@ Chosen option: **Option 1.** Owner-accepted 2026-07-03 (with changes), resolving
 
 **FX.** Use **Frankfurter** — ECB-anchored, free, no API key, MIT-licensed, self-hostable — refreshed once per day. Normalize every price to USD, and store `fx_rate`, `fx_pair`, `fx_rate_date`, and `fx_source` **on each `observation`** (ADR 0007), not just on the current listing. Stamping the rate per observation is what makes a historical score reproducible and auditable: re-deriving last month's `$/TB` uses the rate that was actually applied, not today's.
 
-**Landed cost is flagged, not estimated.** Normalize the price to USD, then **flag** cross-border listings (e.g. `"international — extra shipping/duty likely; verify before buying"`) and let the buyer decide, rather than encoding a fixed overhead. **Known domestic shipping (and tax where known) *is* folded into `$/TB`** (gap #11); when shipping is unknown, apply a penalty or flag rather than silently scoring as if free. So the split is: *domestic, knowable* costs enter the number; *cross-border, volatile* costs become a flag.
+**Landed cost is flagged, not estimated.** Normalize the price to USD, then **flag** cross-border listings (e.g. `"international — extra shipping/duty likely; verify before buying"`) and let the buyer decide, rather than encoding a fixed overhead. **Known domestic shipping (and tax where known) _is_ folded into `$/TB`** (gap #11); when shipping is unknown, apply a penalty or flag rather than silently scoring as if free. So the split is: _domestic, knowable_ costs enter the number; _cross-border, volatile_ costs become a flag.
 
 Option 2 was rejected: a hardcoded percentage is **false precision** — the real cross-border surcharge (shipping + potential customs) varies too much to compress into one constant, and a wrong constant silently mis-ranks. Option 3 was rejected because its inputs are in active legal flux and would go stale: as of 2026-07-03 the US **de-minimis exemption is suspended indefinitely** and the add-on tariff rate for UK/EU goods is unsettled; HDDs classify under **HTS 8471.70 at a 0% base (MFN) rate**, so the volatile part is precisely the surcharge the flag defers to the buyer — computing an "exact" duty would manufacture a number that is wrong the moment policy shifts. Option 4 was rejected as the original defect: it misranks a cheap drive with high shipping even domestically.
 
@@ -76,7 +76,7 @@ Option 2 was rejected: a hardcoded percentage is **false precision** — the rea
 - **Good** — Frankfurter adds no API key, no cost, and no vendor lock-in (self-hostable, MIT).
 - **Bad (accepted)** — cross-border listings are **not fully comparable**: the buyer must manually weigh the flagged extra cost. This is deliberate — the tool's own analysis is that a cross-border purchase is rarely worthwhile, so surfacing the risk beats fabricating precision.
 - **VAT footgun (must be handled in ingestion)** — UK/EU VAT should be **zero-rated on export**, but many storefronts display **VAT-inclusive** shelf prices pre-checkout. The scraper must not treat a VAT-inclusive shelf price as the export price, or it will over-state the true USD cost of an international listing.
-- **Neutral** — this ADR fixes the *normalization contract*, not the deal-score math (cohort percentile, warm-up, cohort key) — that is a separate, still-to-be-folded scoring decision (open-questions.md gap #12).
+- **Neutral** — this ADR fixes the _normalization contract_, not the deal-score math (cohort percentile, warm-up, cohort key) — that is a separate, still-to-be-folded scoring decision (open-questions.md gap #12).
 
 ### Confirmation
 

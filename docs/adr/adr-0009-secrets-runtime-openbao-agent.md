@@ -39,7 +39,7 @@ project:
 
 MADR status: **accepted**.
 
-> **Public repository.** This ADR records the *decision and its shape only*. Concrete infrastructure specifics — container IDs, private addresses, the SecretID's CIDR bind, and exact script/unit paths — live in the private `homelab` repo (`infrastructure/servers/hetzner-dedicated/bao-agent/`), following the ADR 0003 disclosure boundary.
+> **Public repository.** This ADR records the _decision and its shape only_. Concrete infrastructure specifics — container IDs, private addresses, the SecretID's CIDR bind, and exact script/unit paths — live in the private `homelab` repo (`infrastructure/servers/hetzner-dedicated/bao-agent/`), following the ADR 0003 disclosure boundary.
 
 ## Context and Problem Statement
 
@@ -61,7 +61,7 @@ The research report [`github-actions-cd-private-debian-vm`](../research/2026-07-
 
 ## Decision Outcome
 
-Chosen option: **Option 1.** Settled and **verified against the live infrastructure** while resolving open-questions.md OQ1 — disk-search onboards as the *next* `bao-services` consumer, the exact pattern already running for the LiteLLM service (the wave-1 reference consumer).
+Chosen option: **Option 1.** Settled and **verified against the live infrastructure** while resolving open-questions.md OQ1 — disk-search onboards as the _next_ `bao-services` consumer, the exact pattern already running for the LiteLLM service (the wave-1 reference consumer).
 
 **Runtime path.** A local **OpenBao Agent** (`bao-agent`) runs on the disk-search CT under its own hardened systemd unit. It **AppRole-auto-auths** against the **Hetzner-local `bao-services` store** (not a remote store reached over the tailnet) and **templates secrets to a tmpfs render path** (convention: `/run/bao-agent/disk-search.env`, root-owned, app-group-readable, gone on reboot). App services depend on that unit via `After=`. There is **no plaintext `.env` at rest** and no secret baked into a unit file. The `role_id` ships in the CT config-management; it is not a secret.
 
@@ -78,7 +78,7 @@ Option 2 was **rejected (and explicitly withdrawn from the spec)**: it would pla
 - **Good** — **no plaintext secret at rest** and **no OpenBao credential in public-repo CI**; the two exposure surfaces that motivated the decision are both closed.
 - **Good** — maximal reuse of a **battle-tested, already-running pattern** (`bao-services` + `bao-agent`, wave-1 on the LiteLLM consumer): a documented onboarding runbook and issuer script already exist.
 - **Good** — **no renewal treadmill**: a persistent, long-lived, CIDR-bound SecretID means the agent survives restarts unattended; rotation is a deliberate operator action.
-- **Bad (accepted)** — security rests on the **CIDR bind + host file permissions**, not on a short TTL. Acceptable given the single-host, Tailscale-only, physically-controlled environment, but it means a compromise *of that container's network identity* is the threat to guard, and the SecretID file's `0600` root ownership is load-bearing.
+- **Bad (accepted)** — security rests on the **CIDR bind + host file permissions**, not on a short TTL. Acceptable given the single-host, Tailscale-only, physically-controlled environment, but it means a compromise _of that container's network identity_ is the threat to guard, and the SecretID file's `0600` root ownership is load-bearing.
 - **Bad (operational)** — onboarding is a **manual wave-2 step** (issue SecretID, drop the agent config/unit); it is not yet automated in the ansible scaffold. An implementation task, not a design gap.
 - **Spec reconciliation (follow-ups):** the spec still references the withdrawn `/run/disk-search/secrets.env` path and a GMK-direct store — reconcile to `/run/bao-agent/disk-search.env` and the Hetzner-local `bao-services` store; ensure the consumer AppRole's CIDR bind includes the disk-search CT's address (value kept in the `homelab` repo).
 
