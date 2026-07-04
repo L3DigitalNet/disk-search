@@ -39,22 +39,22 @@ MADR status: **accepted**.
 
 ## Context and Problem Statement
 
-This repository is adopting the project-standards **ADR Standard** (MADR body format + a `docs/adr/` directory and index). That standard's adoption runbook, however, names the **Markdown Frontmatter Standard as a hard prerequisite** — "Adopt the Frontmatter Standard first" — because it treats ADRs as *managed Markdown documents* validated by shared CI tooling. Adopting the Frontmatter Standard in full means: a root `.project-standards.yml`, a reusable CI validator workflow pinned to `@v3`, and retrofitting a conformant 11-plus-field frontmatter block onto **every** managed document (`README.md` and all of `docs/**/*.md`), then keeping ids, dates, enums, and key order conformant on every future edit.
+This repository is adopting the project-standards **ADR Standard** (MADR body format + a `docs/adr/` directory and index). That standard's adoption runbook, however, names the **Markdown Frontmatter Standard as a hard prerequisite** — "Adopt the Frontmatter Standard first" — because it treats ADRs as _managed Markdown documents_ validated by shared CI tooling. Adopting the Frontmatter Standard in full means: a root `.project-standards.yml`, a reusable CI validator workflow pinned to `@v3`, and retrofitting a conformant 11-plus-field frontmatter block onto **every** managed document (`README.md` and all of `docs/**/*.md`), then keeping ids, dates, enums, and key order conformant on every future edit.
 
 Should `disk-search` — a **single-maintainer, design-phase** repo with no application code yet — take on that full standard, or decline it and adopt only the ADR format?
 
 ## Decision Drivers
 
-- **Team size and value model.** The Frontmatter Standard's payoff is *machine-enforced consistency across many documents and many contributors* (a fleet/CI concern). This repo has one maintainer and low doc churn, so that payoff is marginal.
+- **Team size and value model.** The Frontmatter Standard's payoff is _machine-enforced consistency across many documents and many contributors_ (a fleet/CI concern). This repo has one maintainer and low doc churn, so that payoff is marginal.
 - **Adoption + carrying cost.** Retrofitting validated frontmatter onto the README, the spec, `gap-analysis.md`, `further-research-needed-prompts.md`, and the research index — plus a CI job that must stay green on every edit — is real friction during a phase whose whole point is fast design iteration.
-- **Keep the genuinely useful part.** ADRs benefit from *structured* `status` / `supersedes` / `superseded_by` metadata (the supersession workflow depends on it). That value is local to the ADRs, not the whole doc tree.
+- **Keep the genuinely useful part.** ADRs benefit from _structured_ `status` / `supersedes` / `superseded_by` metadata (the supersession workflow depends on it). That value is local to the ADRs, not the whole doc tree.
 - **Fewer moving CI parts** are easier to reason about on a public repo.
 - **Reversibility.** Declining now does not burn the bridge — the standard can be adopted later if the repo grows.
 
 ## Considered Options
 
 - **Option 1 — Adopt the Markdown Frontmatter Standard in full** (config + CI validator + retrofit every managed doc), as the ADR Standard's runbook prescribes.
-- **Option 2 — Decline the Frontmatter Standard; adopt the ADR format only**, keeping frontmatter as an *unvalidated local convention scoped to ADR files*.
+- **Option 2 — Decline the Frontmatter Standard; adopt the ADR format only**, keeping frontmatter as an _unvalidated local convention scoped to ADR files_.
 - **Option 3 — Decline frontmatter entirely**, including on ADRs (pure MADR prose, status tracked in body text).
 
 ## Decision Outcome

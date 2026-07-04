@@ -10,7 +10,7 @@ These prompts were written for ChatGPT **Deep Research**. Each is self-contained
 
 ## Table of Contents
 
-- [Further Research Needed — ChatGPT Deep Research Prompts](#further-research-needed--chatgpt-deep-research-prompts)
+- [Further Research — Deep Research Prompts \& Completed Reports](#further-research--deep-research-prompts--completed-reports)
   - [Table of Contents](#table-of-contents)
   - [Completion status](#completion-status)
   - [1. Data acquisition for the 17 non-API marketplaces](#1-data-acquisition-for-the-17-non-api-marketplaces)
@@ -25,7 +25,7 @@ These prompts were written for ChatGPT **Deep Research**. Each is self-contained
   - [10. Web framework, database \& environment-management stack decision](#10-web-framework-database--environment-management-stack-decision)
   - [11. Notification \& alerting design, deliverability, and dedup](#11-notification--alerting-design-deliverability-and-dedup)
   - [12. Manufacturer \& specialty-reseller warranty/serial-verification data sources](#12-manufacturer--specialty-reseller-warrantyserial-verification-data-sources)
-  - [Suggested priority order](#suggested-priority-order)
+  - [Reconciliation order (research → spec)](#reconciliation-order-research--spec)
 
 ---
 
@@ -34,7 +34,7 @@ These prompts were written for ChatGPT **Deep Research**. Each is self-contained
 The 12 topics, the gap each filled, and the report that now answers it. **All 12 are complete (✅).** "Residual" flags the honestly-scoped open questions the reports surfaced — none is a new research prompt.
 
 | # | Topic (gap it filled) | Status | Report | Residual |
-| --: | --- | :--: | --- | --- |
+| --: | --- | :-: | --- | --- |
 | 1 | Data acquisition, 17 non-API merchants | ✅ | [acquisition](research/programmatic-acquisition-research-for-enterprise-and-nas-drive-merchants.md) | JSON-LD unconfirmed for most merchants — verify live |
 | 2 | HDD/SSD grading & applicability taxonomy | ✅ | [taxonomy](research/machine-usable-drive-suitability-taxonomy-for-24-7-nas-and-server-scoring.md) | none |
 | 3 | Recertified-drive risk & warranty | ✅ | [recert](research/recertified-enterprise-hard-drives-for-homelab-and-small-business-buyers.md) | no rigorous recert-vs-new study exists (domain gap) |

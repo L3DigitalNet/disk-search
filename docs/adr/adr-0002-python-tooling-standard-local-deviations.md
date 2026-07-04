@@ -41,7 +41,7 @@ MADR status: **accepted**.
 
 ## Context and Problem Statement
 
-This repository adopts the project-standards **Python Tooling SSOT Standard** (uv · Ruff · BasedPyright strict · pytest + coverage · pip-audit). Two facts about *this* repo collide with the standard as written, and the standard (§20) requires any deviation to be recorded as an ADR:
+This repository adopts the project-standards **Python Tooling SSOT Standard** (uv · Ruff · BasedPyright strict · pytest + coverage · pip-audit). Two facts about _this_ repo collide with the standard as written, and the standard (§20) requires any deviation to be recorded as an ADR:
 
 1. **No application code exists yet.** The repo is in the design phase. The standard's core is a **verification gate** (`ruff format --check → ruff check → basedpyright → coverage run -m pytest → coverage report → pip-audit`) and a CI workflow that runs it. With no `src/` package and no tests, the gate cannot pass (pytest fails on no tests; `coverage report` fails `fail_under = 85`) and a committed CI workflow would paint a permanent failing check on this **public** repo.
 2. **Public-repo file hygiene.** The standard expects `.vscode/` and `CLAUDE.md` committed to version control. This repo's established convention keeps agent/editor local config **out** of the public repo — `.gitignore` excludes `.vscode/`, `CLAUDE.md`, `.claude/`, `docs/handoff.md`, and `TODO.md`.
@@ -69,7 +69,7 @@ Option 1 was rejected because a broken CI check and reversed hygiene are worse t
 ### Consequences
 
 - Good, because no failing CI on a public repo, and public-repo hygiene is preserved.
-- Good, because the toolchain (versions, strictness, rules) is fixed and reviewable now; scaffolding only has to *activate* it, not decide it.
+- Good, because the toolchain (versions, strictness, rules) is fixed and reviewable now; scaffolding only has to _activate_ it, not decide it.
 - Good, because `AGENTS.md` carries the full contract, so a fresh clone with no `CLAUDE.md`/`.vscode/` is still fully instructed.
 - Bad, because the gate is **not enforced** until scaffolding — correctness during design relies on author discipline.
 - Bad, because contributors don't get the shared `.vscode/` config from the repo; they must recreate it from the standard (mitigated: `AGENTS.md` lists the tasks/commands).
