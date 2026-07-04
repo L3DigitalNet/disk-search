@@ -3,8 +3,8 @@ spec_id: SPEC-0000
 title: 'Hardware Radar (hw-radar)'
 status: draft # draft | review | approved | superseded
 profile: standard # template default — unresolved; full skeleton retained regardless, by owner direction (see Revision History note)
-owner: '<person or team>'
-implementer: '<person, team, or coding agent>'
+owner: 'Chris Purcell'
+implementer: 'Chris Purcell (supervising) + Claude Code coding agent'
 created: '2026-07-04'
 last_reviewed: '2026-07-04'
 supersedes: 'docs/archived/hw-radar.md' # original spec; it predates the template and has no spec_id
@@ -40,11 +40,12 @@ related:
 
 ---
 
-## Revision History `[Light]`
+## Revision History
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
 | 0.1 | 2026-07-04 | Claude (consolidation, owner-directed) | Initial consolidation of the original spec (`docs/archived/hw-radar.md`), ADRs 0001–0017, and the resolved/open question record into SPEC-0000. |
+| 0.2 | 2026-07-04 | Claude (owner-ratified) | Consolidation-call ratification (TODO §Claude items 1–2): filled frontmatter `owner`/`implementer`; demoted FR-009 to **Should**; split FR-010 (snooze-granularity carved out to new **FR-013**/Should; the permanent-dismiss + state-tracking guarantee stays **FR-010**/Must, so G-002's low-noise trace keeps a Must backing); stripped the 29 inline heading tailoring tags (profile→section map retained in Appendix D); corrected the over-broad `provisional` marker on the search-settings rows (row architecture is ADR-0016-ratified — only values are provisional). Status deliberately remains `draft`. |
 
 **Spec lifecycle:** This document is **living until `approved`**, then **change-controlled**: post-approval edits require a new revision row and, for scope-affecting changes, re-approval by the owner. Implementation deviations are recorded in the [Deviations Log](#deviations-log-light), not silently patched into requirements. When replaced, set `status: superseded` and `superseded_by:` in the frontmatter.
 
@@ -56,7 +57,7 @@ related:
 
 ---
 
-## 1. Purpose & Background `[Light]`
+## 1. Purpose & Background
 
 Hardware Radar is a search-and-monitoring tool that watches ~20 online marketplaces — manufacturer recertified stores, storage-specialist resellers, major retailers/marketplaces (eBay, Amazon, Newegg), business VARs, and refurbished-server sellers — for hard disk drives (HDDs) and solid-state drives (SSDs). It scores each listing (0–100) on price, availability, seller reputation, and fitness-for-purpose to surface the best deals for a homelab/small-business buyer who favors **enterprise/NAS-grade** and **recertified** drives, and it alerts on availability and price drops.
 
@@ -76,7 +77,7 @@ Hardware Radar is a search-and-monitoring tool that watches ~20 online marketpla
 
 ---
 
-## 2. Scope `[Light]`
+## 2. Scope
 
 ### 2.1 In Scope
 
@@ -121,7 +122,7 @@ Hardware Radar is a search-and-monitoring tool that watches ~20 online marketpla
 
 ---
 
-## 3. Context `[Standard]`
+## 3. Context
 
 ### 3.1 Current State
 
@@ -159,18 +160,18 @@ A dedicated LXC container on the Hetzner Proxmox host runs the Django web app, t
 
 ---
 
-## 4. Goals `[Standard]`
+## 4. Goals
 
 | ID | Goal | Success Signal | Achieved By |
 | --- | --- | --- | --- |
 | G-001 | Surface the best HDD/SSD deals across the monitored marketplaces with a quantitative, explainable score. | Owner can rank/filter deals by score and inspect _why_ each listing scored what it did. | FR-001–FR-006, FR-009 |
-| G-002 | Alert the owner on availability and price drops with low noise. | A matching drop fires exactly one actionable email (gap #8 / M4 acceptance). | FR-007, FR-010 |
+| G-002 | Alert the owner on availability and price drops with low noise. | A matching drop fires exactly one actionable email (gap #8 / M4 acceptance). | FR-007, FR-010, FR-013 |
 | G-003 | Accumulate a durable price-history dataset (the compounding moat) enabling trend analysis and cohort-relative scoring. | Repeated runs produce time-series observations under stable canonical entities; history survives failures (backups restore-tested). | FR-003, FR-006, DR-002, DR-005, §18.6 |
 | G-004 | Operate with minimal marginal cost and ops burden by reusing existing homelab infrastructure. | Zero-cost email path; search spend inside the owner's band; CT auto-monitored; backups ride the existing pipeline. | C-004, C-008, D-003, D-013, §18 |
 
 ---
 
-## 5. Stakeholders and Users `[Full]`
+## 5. Stakeholders and Users
 
 Single-stakeholder project: the owner/maintainer is simultaneously the end user, operator, developer (with coding-agent implementers bound by Appendix B), and approver. The original spec's Audience section records that v1 is optimized for the owner's convenience only, while remaining extensible to other users later.
 
@@ -181,7 +182,7 @@ Single-stakeholder project: the owner/maintainer is simultaneously the end user,
 
 ---
 
-## 6. Glossary `[Standard]`
+## 6. Glossary
 
 | Term | Definition | Notes / Not to be confused with |
 | --- | --- | --- |
@@ -208,7 +209,7 @@ Single-stakeholder project: the owner/maintainer is simultaneously the end user,
 
 ---
 
-## 7. Requirements `[Light — FR only; Standard — all subsections]`
+## 7. Requirements
 
 > **Provenance note:** the original spec expressed requirements as a Features list plus milestone acceptance criteria (resolved gap #8); the sources do not assign formal requirement IDs or Must/Should priorities. The IDs below are assigned by this consolidation for traceability; priorities are derived from milestone placement (M0–M5 all gate v1) and are **subject to owner ratification** — see the Stage 2 consolidation report.
 
@@ -224,10 +225,11 @@ Single-stakeholder project: the owner/maintainer is simultaneously the end user,
 | FR-006 | The system shall persist every listing's per-subscore explanation payload (percentile + margin, seller evidence, fitness pieces, cap reason) — the glass-box "why it matched" view. | Scores must stay explainable and owner-inspectable. | M2/M3: listing detail renders the per-factor breakdown and pass-margin explanations. | Must |
 | FR-007 | The system shall send email alerts on watch matches and price drops with dedup/debounce: listing + alert fingerprints, cooldown/hysteresis, HMAC-signed one-click action links, and delivery confirmation, via the M365 Graph path with AgentMail free as fallback. | Alerts are the product's payload and must not spam or double-fire ([ADR 0013](../adr/adr-0013-notification-transport-m365-graph.md); gap #7). | M4: one qualifying drop fires exactly one email; a repost under a new URL is de-duplicated; signed snooze/stop links verify; delivery failure detectably surfaced. | Must |
 | FR-008 | The system shall provide a session-authenticated web UI: Dashboard, Listing detail (score breakdown + "why it matched"), Watches manager (hard filters vs thresholds, no free-text title matching), Price-history view, and listing-state controls, with the Django admin as internal back-office. _(page inventory provisional — [resolved-questions.md OQ6](../resolved-questions.md#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking), no ADR)_ | Owner's working surface (gap #7; [ADR 0004](../adr/adr-0004-web-framework-django-htmx.md)). | M3: owner can filter the dashboard by brand/capacity/tier/interface/condition and create/edit/delete a watch; state changes persist. | Must |
-| FR-009 | The system shall support sorting, filtering, and historical analysis of listings and price trends over time. | Informed purchasing decisions (original spec, Features). | Price-history view renders per-variant trend data from stored observations. | Must |
-| FR-010 | The system shall track post-alert state per watch × listing (`none / pending / firing / cooling / digested`), support snooze at watch and listing granularity, and treat dismiss as a permanent per-listing suppression (a terminal `watch_match_state` enum value). _(provisional — resolved-questions.md OQ6, no ADR)_ | Low-noise alerting; "done with this" is binary and permanent in every comparable tool. | Dismissed listings never re-alert; snoozes expire on schedule. | Must |
+| FR-009 | The system shall support sorting, filtering, and historical analysis of listings and price trends over time. | Informed purchasing decisions (original spec, Features). | Price-history view renders per-variant trend data from stored observations. | Should |
+| FR-010 | The system shall track post-alert state per watch × listing (`none / pending / firing / cooling / digested`) and treat dismiss as a permanent per-listing suppression (a terminal `watch_match_state` enum value). _(provisional — resolved-questions.md OQ6, no ADR)_ | Low-noise alerting; "done with this" is binary and permanent in every comparable tool. | Dismissed listings never re-alert. | Must |
 | FR-011 | The system shall govern its own outbound search-API calls with the ordered `SearchBudgetGate`: kill switch → persisted spend-cap circuit-breaker (reserve-then-call) → failing-provider breaker → per-provider token bucket, with per-provider user settings. _(architecture ratified by [ADR 0016](../adr/adr-0016-search-api-self-governance.md); starting rate/spend values provisional — [resolved-questions.md OQ7](../resolved-questions.md#oq7--running-cost-budget-model-build-time-pricing-pass))_ | Runaway-bug cost guard; provider dashboard caps are alert-only. | A provider whose daily cap is exhausted fails safe (`budget_exhausted`) before the call is made. | Must |
 | FR-012 | The system shall record a `purchased` status flag (+ optional nullable price/date fields) on listings, as scaffolding only. _(provisional — resolved-questions.md OQ6, no ADR)_ | Stop tracking purchased items; analytics deferred (WH-005). | Marking purchased stops tracking/alerting for that listing. | Could |
+| FR-013 | The system shall support snooze at watch and listing granularity, with snoozes expiring on schedule. _(provisional — resolved-questions.md OQ6, no ADR; split from FR-010 in the 2026-07-04 ratification pass)_ | Snooze granularity is a low-noise convenience refinement, not a core alerting guarantee — separable in priority from FR-010's permanent-dismiss guarantee. | A listing snooze suppresses only that listing, a watch snooze the whole watch; both expire on schedule. | Should |
 
 ### 7.2 Non-Functional Requirements
 
@@ -269,7 +271,7 @@ Single-stakeholder project: the owner/maintainer is simultaneously the end user,
 
 ---
 
-## 8. Architecture and Design `[Standard]`
+## 8. Architecture and Design
 
 ### 8.1 Architecture Summary
 
@@ -357,7 +359,7 @@ The ADRs are the authoritative record; each row is a pointer, not a restatement.
 | D-017 | Resilient acquisition = per-source isolation + a persisted source-state lifecycle (`active ↔ backing-off → paused_pending_fix → active`, `→ SKIP`) driven by the failure-classification tree, with silent-degradation detection + health alerting. | One source failing must never halt the others; the failure class routes each source to the right remedy (retry / quarantine / human fix / alert). | Monolithic run with best-effort try/except; retry-only with no terminal states | [ADR 0017](../adr/adr-0017-resilient-acquisition.md) |
 | D-018 | Manufacturer spec catalog = a first-class **reference-data** source class (datasheet/structured-data-first, own slow cadence, append-only/never-delete) that authoritatively populates `product_model` / `drive_spec` / `product_alias` (the full family→model→variant MPN matrix); it enriches entity resolution and never gates the observation stream (unmatched listing → backfill queue). | Listing-inferred specs are unauthoritative and leave the resolver no match target; the finite manufacturer set makes an authoritative catalog tractable; discontinued models (the recert core) must be retained. | Infer specs from listings only; buy a third-party spec feed as sole authority | [ADR 0018](../adr/adr-0018-manufacturer-spec-catalog.md) |
 
-### 8.4 Solution Alternatives Considered `[Full]`
+### 8.4 Solution Alternatives Considered
 
 <placeholder-guidance>
 Solution-level alternatives (buy vs. build, existing tool X, prior architecture Y) — distinct from the per-decision alternatives above. One row each prevents relitigating.
@@ -382,7 +384,7 @@ Constraints the implementer must not violate:
 - Watch-rule UI: hard filters separate from thresholds; no free-text title matching (gap #7).
 - Do not build or act on a derived **eBay price model** (retention research §8 gray area — counsel-flagged); storing current-offer observations per the Browse API terms is the permitted posture.
 
-### 8.6 Dependency Policy `[Full]`
+### 8.6 Dependency Policy
 
 | Dependency | Allowed? | Reason |
 | --- | --- | --- |
@@ -403,7 +405,7 @@ Constraints the implementer must not violate:
 
 ---
 
-## 9. Data Model `[Standard]`
+## 9. Data Model
 
 The canonical data model is **fixed by [ADR 0010](../adr/adr-0010-canonical-data-model.md)** (the topology and grain rules); exhaustive column lists are deliberately delegated to the research ([`database-architecture.md`](../research/database-architecture.md) for the base schema, generated columns, and indexing; the [suitability taxonomy](../research/machine-usable-drive-suitability-taxonomy-for-24-7-nas-and-server-scoring.md) for the `drive_spec` field tables) so they can evolve without a new ADR. Concrete DDL/migrations land at M0/M1.
 
@@ -426,13 +428,13 @@ Supporting tables: `product_alias` (external identifiers — GTIN/UPC, ASIN, ePI
 
 **Retention & provenance:** every evidence/observation record carries `retention_class` + `expires_at` (DR-001); FX stamps live per observation (DR-002); no image bytes anywhere (DR-003); score explanation payloads are persisted (DR-004).
 
-**Downstream table groups** (attach to this spine; specified in their own research, to get their own ADRs or milestone implementations — ADR 0010 "deferred detail"): scoring (`cohort_baseline`, `seller_rating_observation`, `listing_score`), alerting (`watch`, `watch_selector`, `watch_match_state`, `notification_event`), scraper-ops (`source`, `scraper_runs`), reference/seed (`model_family_ref` + the manufacturer spec catalog seeding `product_model`/`drive_spec`/`product_alias` — now **fixed by [ADR 0018](../adr/adr-0018-manufacturer-spec-catalog.md)**, D-018; `hdd/ssd_price_baseline`), plus the `users` stub (D-005) and per-provider search-governance settings rows (_provisional_, OQ7).
+**Downstream table groups** (attach to this spine; specified in their own research, to get their own ADRs or milestone implementations — ADR 0010 "deferred detail"): scoring (`cohort_baseline`, `seller_rating_observation`, `listing_score`), alerting (`watch`, `watch_selector`, `watch_match_state`, `notification_event`), scraper-ops (`source`, `scraper_runs`), reference/seed (`model_family_ref` + the manufacturer spec catalog seeding `product_model`/`drive_spec`/`product_alias` — now **fixed by [ADR 0018](../adr/adr-0018-manufacturer-spec-catalog.md)**, D-018; `hdd/ssd_price_baseline`), plus the `users` stub (D-005) and per-provider search-governance settings rows (row architecture ADR-0016-ratified; starting _values_ provisional, OQ7).
 
 **Retention & archival policy:** per-source `retention_class` TTLs (DR-001); backups per §18.6 (RPO ≤1 h accepted for v1 — OQ3, resolved).
 
 ---
 
-## 10. Behavior and Workflows `[Standard]`
+## 10. Behavior and Workflows
 
 ### 10.1 Primary Workflow
 
@@ -535,7 +537,7 @@ Stateful-automation contract (gap #7): dedup on **listing + alert fingerprints**
 
 ---
 
-## 11. UI Pages / API Endpoints `[Standard — if the system has a UI or API surface]`
+## 11. UI Pages / API Endpoints
 
 Page inventory confirmed as-is 2026-07-04 — _provisional_ ([resolved-questions.md OQ6](../resolved-questions.md#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking), no ADR; validated against CamelCamelCamel, Keepa, changedetection.io, Slickdeals). Rendering: Django server-rendered templates + HTMX (D-004).
 
@@ -552,7 +554,7 @@ Page inventory confirmed as-is 2026-07-04 — _provisional_ ([resolved-questions
 
 ---
 
-## 12. Error Handling and Recovery `[Standard]`
+## 12. Error Handling and Recovery
 
 ### 12.1 Expected Failures
 
@@ -582,7 +584,7 @@ Deploy rollback: redeploy the previous SHA via the same rsync path — demonstra
 
 ---
 
-## 13. Security and Privacy `[Standard]`
+## 13. Security and Privacy
 
 ### 13.1 Authentication
 
@@ -646,7 +648,7 @@ Confirm each item is addressed above or mark N/A with a reason:
 
 ---
 
-## 14. Capacity and Scale Assumptions `[Full]`
+## 14. Capacity and Scale Assumptions
 
 | Dimension | v1 Expectation | Growth Assumption | Design Consequence |
 | --- | --- | --- | --- |
@@ -659,7 +661,7 @@ Confirm each item is addressed above or mark N/A with a reason:
 
 ---
 
-## 15. Risks `[Full]`
+## 15. Risks
 
 | ID | Risk | Likelihood | Impact | Mitigation | Owner |
 | --- | --- | --- | --- | --- | --- |
@@ -676,7 +678,7 @@ Confirm each item is addressed above or mark N/A with a reason:
 
 ---
 
-## 16. Compliance, Licensing, and Data Rights `[Full — if applicable]`
+## 16. Compliance, Licensing, and Data Rights
 
 - [x] Third-party API terms of service reviewed — per-source acquisition/retention verdicts (re-verified 2026-07-03) are encoded as `retention_class` (DR-001): eBay Browse ≤6 h/delete-on-delist/PII-delete (not a Restricted API — the pricing-tool consent bar does not apply, but no derived eBay price _model_, §8 gray area); Google Programmable Search prohibits non-transitory storage (discontinues 2027-01-01); Serper URL-only persistence; Brave storage rights require the sales-led plan (now Enterprise-only — get a live quote); Amazon = display/discovery only, ASIN-persistable, 24 h cache, no image bytes; SP-API seller-only, Creators API gated behind 10 qualified sales/30 days, PA-API closed to new registrations → **discovery-only via the search-API stack** ([OQ15 resolved](../resolved-questions.md#oq15--amazon-acquisition-path-after-pa-api-deprecation), [research](../research/2026-07-04-amazon-data-acquisition-after-paapi-getitems-deprecation.md)). See [`us-scraping-and-data-retention-landscape…`](../research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md).
 - [x] Scraped/ingested data rights posture — merchant public pages scraped as **facts, not expression**; guardrails C-007; items tagged for counsel review are noted in the research report.
@@ -686,7 +688,7 @@ Confirm each item is addressed above or mark N/A with a reason:
 
 ---
 
-## 17. Testing and Acceptance `[Light — DoD only; Standard — all]`
+## 17. Testing and Acceptance
 
 ### 17.1 Definition of Done
 
@@ -727,7 +729,7 @@ The implementer fills this in as the completion evidence (Appendix B.3). No impl
 
 ---
 
-## 18. Deployment and Operations `[Standard]`
+## 18. Deployment and Operations
 
 ### 18.1 Runtime Environment
 
@@ -780,7 +782,7 @@ Per [ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md):
 7. Smoke test/health confirmation (M0 acceptance: zero manual steps).
 8. Rollback: redeploy the previous SHA (demonstrated at M0).
 
-### 18.4 Rollout Controls `[Full]`
+### 18.4 Rollout Controls
 
 - Kill switches: per-provider search `kill_switch` (_provisional_, OQ7); per-source `enabled`/SKIP registry state (OQ9).
 - Canary / staged rollout: production scraper canaries per source/tier (§17.2) — deployment itself is single-instance, no cohort rollout in sources.
@@ -805,7 +807,7 @@ Split concern (resolved gap #6): **infrastructure health** (up/disk/CPU/RAM) rid
 | CT down | Off-box Uptime Kuma probe fails | Critical | Owner |
 | Email delivery failure | Send failure surfaced (ERR-005) | Warning | Owner; check Graph/fallback |
 
-### 18.6 Backup and Disaster Recovery `[Standard — if the system owns durable data]`
+### 18.6 Backup and Disaster Recovery
 
 **RPO (max acceptable data loss):** inherited **≤1 h, no PITR** (hourly logical dumps) — **accepted for v1** ([OQ3](../resolved-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling), owner-ratified 2026-07-04; revisit if OQ9 sets sub-hourly polling). · **RTO (max acceptable downtime): ≤24 h, manual-runbook restore** — **accepted for v1** ([OQ18](../resolved-questions.md#oq18--recovery-time-objective-rto-for-v1), owner-ratified 2026-07-04): 24 h covers noticing the outage and running the restore by hand; no provisioning/restore automation for v1. The ≥once-by-M5 timed restore test (table below) verifies the bound.
 
@@ -832,11 +834,11 @@ Checklist tied to the DoD:
 
 ---
 
-## 19. Implementation Plan `[Standard]`
+## 19. Implementation Plan
 
 The six-milestone MVP plan was accepted as planning input (resolved gap #8); the **authoritative phased spec is to be authored with the `spec-pipeline` plugin** — these milestones map onto its phases and the acceptance criteria are the raw material for each phase's exit gate.
 
-### Waves `[Full — for breadth that ships incrementally]`
+### Waves
 
 <placeholder-guidance>
 | Wave | Scope | Exit Criteria |
@@ -877,7 +879,7 @@ _Tasks:_ build Dashboard, Listing detail (score breakdown + "why it matched"), W
 
 _Acceptance:_ owner can filter the dashboard by brand/capacity/tier/interface/condition and **create, edit, and delete a watch**; a listing detail renders the **pass-margin** explanation for each crossed threshold; state changes persist and re-render.
 
-### M4 — Automation / notifications / external actions `[if applicable]`
+### M4 — Automation / notifications / external actions
 
 **Repo milestone: "M4 — Alerts"** (resolved gap #8). Applicable — alerting is core to the product.
 
@@ -906,7 +908,7 @@ _Acceptance:_ **≥15 sources** live; a backup is **restore-tested into a scratc
 
 ---
 
-## 20. Success Evaluation `[Full]`
+## 20. Success Evaluation
 
 | Area | Target | Measurement |
 | --- | --- | --- |
@@ -921,7 +923,7 @@ _No latency/throughput performance targets are stated in the sources._
 
 ---
 
-## 21. Open Questions and Decisions `[Light]`
+## 21. Open Questions and Decisions
 
 Repo convention: open decisions live in [`open-questions.md`](../open-questions.md); settled ones in [`resolved-questions.md`](../resolved-questions.md); ADRs are the authoritative decision record. This table mirrors that state — the four remaining "Answered (provisional)" rows (OQ-005/006/008/009) are settled working positions **not yet ADR-ratified** (their full substance lives in `resolved-questions.md`, which is their record); OQ-007 and OQ-010 were ADR-ratified 2026-07-04 ([ADR 0016](../adr/adr-0016-search-api-self-governance.md) / [ADR 0017](../adr/adr-0017-resilient-acquisition.md)); rows OQ-016–OQ-020 were raised by the 2026-07-04 spec gap analysis and **all five were owner-resolved later that day** (recorded in `resolved-questions.md`; OQ-017/OQ-020 research-backed). No open questions remain as of 2026-07-04.
 
@@ -943,7 +945,7 @@ Repo convention: open decisions live in [`open-questions.md`](../open-questions.
 
 ---
 
-## Deviations Log `[Light]`
+## Deviations Log
 
 Maintained by the **implementer** during the build (Appendix B). Any divergence from this spec is recorded here — never silently patched into requirements text. No implementation exists yet; the log is empty.
 
@@ -953,7 +955,7 @@ Maintained by the **implementer** during the build (Appendix B). Any divergence 
 
 ---
 
-## References `[Standard]`
+## References
 
 ### Standards
 
@@ -1242,7 +1244,7 @@ CREATE INDEX job_run_job_time_idx ON job_run (job_name, started_at DESC);
 
 ## Appendix D: Tailoring Guide
 
-Pick the smallest profile that fits; upgrade if the project grows. A section tagged at a higher tier than your profile is deleted, not left empty. _(Consolidation note: for this spec, profile-based pruning is **overridden by owner direction** — the full skeleton is retained; see the Revision History note.)_
+Pick the smallest profile that fits; upgrade if the project grows. Under normal template use, a section belonging to a higher tier than your profile is deleted, not left empty. _(Consolidation note: for this spec, profile-based pruning is **overridden by owner direction** — the full skeleton is retained; see the Revision History note. The per-heading `[Light]`/`[Standard]`/`[Full]` tags were **stripped** in the 2026-07-04 ratification pass because pruning is off and they duplicated this table — the profile→section map below is now the sole tailoring reference.)_
 
 | Profile | Use For | Required Sections |
 | --- | --- | --- |
