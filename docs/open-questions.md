@@ -49,6 +49,12 @@ Read **[Open questions](#open-questions)** for anything that still needs a call.
     - [OQ8 — Scraper testing finalization](#oq8--scraper-testing-finalization)
       - [Agent notes](#agent-notes-7)
       - [My Comments](#my-comments-7)
+    - [OQ9 — Acquisition cadence & stewardship posture](#oq9--acquisition-cadence--stewardship-posture)
+      - [Agent notes](#agent-notes-8)
+      - [My Comments](#my-comments-8)
+    - [OQ10 — Reliability / resilient acquisition](#oq10--reliability--resilient-acquisition)
+      - [Agent notes](#agent-notes-9)
+      - [My Comments](#my-comments-9)
   - [Resolved](#resolved)
     - [Resolved questions](#resolved-questions)
     - [Gap summary (all 12, for reference)](#gap-summary-all-12-for-reference)
@@ -71,7 +77,7 @@ Read **[Open questions](#open-questions)** for anything that still needs a call.
 
 ## Open questions
 
-Eight decisions remain. Each is the still-open part of an original gap (linked); the settled part of that gap is in [Resolved](#resolved).
+Ten decisions remain. **OQ1–OQ8** are the still-open parts of the original gaps (linked; the settled part of each is in [Resolved](#resolved)). **OQ9–OQ10** surfaced from the spec's General Design Principles consistency audit.
 
 ### At a glance
 
@@ -85,6 +91,8 @@ Eight decisions remain. Each is the still-open part of an original gap (linked);
 | **OQ6** | Final UI inventory + dismiss→suppress | gap #7 | confirm pages; decide if a user _dismiss_ silences re-alerts; purchase-tracking scope |
 | **OQ7** | Running-cost budget model | gap #10 | build-time pricing pass + per-source poll budgets |
 | **OQ8** | Scraper testing finalization | gap #9 | per-tier canary frequencies; synthetic vs real cassettes per source |
+| **OQ9** | Acquisition cadence & stewardship | principles §1+5 | periodic rate-limited polling + tier ladder; reword the spec's "real-time" framing |
+| **OQ10** | Reliability / resilient acquisition | principle §4 | per-source isolation, retry/backoff, circuit-break, health alerts |
 
 ---
 
@@ -138,7 +146,7 @@ A second driver is coupled to this: TimescaleDB ([ADR 0007](adr/adr-0007-datasto
 
 #### My Comments
 
-_(none yet)_
+Create a document of all backup requirements and constraints, including RPO, PITR, and TimescaleDB considerations. Evaluate the current backup strategy against these requirements and determine if the current ≤1 h RPO is acceptable or if a more robust solution is needed. Go into the `homelab` repo and create appropriate documentation for disk-search and document it's backup needs there. The backup strategy will have to be coordinated with the existing Hetzner backup strategy and any other relevant infrastructure. We can expand/improve as necessary, but the first step is to document the requirements and constraints. This is not a blocker, it can be completed in parallel or after the project is deployed, but it should be done before the first backup is taken.
 
 ---
 
@@ -154,7 +162,7 @@ Either way the DB must be added to `backup-dumps.sh`. Both are compatible with A
 
 #### My Comments
 
-_(none yet)_
+The app/project and it's associated database should be self-contained in the disk-search CT. This is consistent with the spec's intent and simplifies deployment and management.
 
 ---
 
@@ -226,6 +234,49 @@ _(none yet)_
 - **Classify failure type** in the counter layer — recoverable **parser rot** vs **now-anti-bot-protected** (a soft-block often returns HTTP 200 + challenge/empty body). The latter is a _stop/escalate_ decision, not a fix.
 - Shares the `scraper_runs` table with [OQ5](#oq5--off-box-heartbeat) / gap #6.
 - Research: [`lightweight-observability-and-scraper-health-monitoring.md`](research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md), [`pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md), [`us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md`](research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md).
+
+#### My Comments
+
+_(none yet)_
+
+---
+
+### OQ9 — Acquisition cadence & stewardship posture
+
+**From:** General Design Principles audit (folds findings #1 + #5). **Decision needed:** the spec's "**real-time / continuously scans**" framing (Features; "Integration with Marketplaces") conflicts with the **Stewardship** and **Engineered-to-Needs** principles and the settled periodic-polling design. Decide and document the acquisition policy, then reword those spec lines to match:
+
+- periodic, **rate-limited** cadence (research: single-digit daily checks per SKU) — not continuous/real-time;
+- the **tier ladder** — official APIs → machine-readable structured data → headless scrape → **skip** a hostile source rather than fight it;
+- ToS / robots posture and per-source politeness (jitter, two-level token buckets).
+
+Mostly settled by research; the open part is the concrete per-source cadence/politeness numbers and confirming the skip policy.
+
+#### Agent notes
+
+- The reword targets [`disk-search.md`](specs/disk-search.md) Features ("Real-time (or near real-time) Monitoring… Continuously… scans") and "Integration with Marketplaces" ("real-time where possible").
+- The cadence + rate-limit mechanism is already designed: the orchestration research's **two-level token buckets** (per-source + per-domain; `cadence`/`jitter`/`rate`/`burst`) — shared with [OQ7](#oq7--running-cost-budget-model-build-time-pricing-pass). Recommended cadence: single-digit daily per SKU; circuit-break chronically failing sources.
+- The tier ladder and "**skip** rather than fight anti-bot" is the settled acquisition posture (gap #10 / OQ7 and the scraping research).
+- Research: [`orchestration-choice-for-a-single-vm-price-polling-service.md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md), [`pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md), [`us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md`](research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md).
+
+#### My Comments
+
+_(none yet)_
+
+---
+
+### OQ10 — Reliability / resilient acquisition
+
+**From:** General Design Principles audit (finding #4). **Decision needed:** the **Reliability** principle requires graceful degradation, but the spec defines no failure model. Decide the acquisition failure model, then add a Features note:
+
+- **per-source failure isolation** — one marketplace being down, rate-limited, or changing its markup must not halt the others;
+- **retry/backoff** policy and **circuit-breaking** thresholds (a source that fails repeatedly is paused → `paused_pending_fix`) instead of silently returning stale/empty data;
+- **health alerting** on repeated failure, wired to the `scraper_runs` table.
+
+#### Agent notes
+
+- Ties into [OQ5](#oq5--off-box-heartbeat) (off-box heartbeat) and [OQ8](#oq8--scraper-testing-finalization) (failure-type classification — parser-rot vs anti-bot); the `scraper_runs` table (gap #6 / gap #9) is the shared substrate.
+- Circuit-break state (`paused_pending_fix`) is from the orchestration research; the count-vs-rolling-average + empty-result assertion (gap #9) is the silent-failure detector.
+- Research: [`orchestration-choice-for-a-single-vm-price-polling-service.md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md), [`lightweight-observability-and-scraper-health-monitoring.md`](research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md).
 
 #### My Comments
 

@@ -73,7 +73,7 @@ This tool is designed for my personal/business use to assist with monitoring and
 - **GitHub Repository:** `[L3DigitalNet public repo](https://github.com/L3DigitalNet/disk-search)`
   - _Branching Strategy:_ Main branch for stable releases, development branch for ongoing work, and feature branches for new features or bug fixes.
   - _Commit Guidelines:_ Follow conventional commit messages for clarity and consistency. Commit directly to branches, do not use Pull Requests for personal development work unless collaborating with others.
-  - _Note_: This project lives in my Organization account on GitHub because I am intending to use this to purchase hard drives for L3Digital. The repository is public, but sensitive information such as API keys and credentials will be stored in a `.env` file and not committed to the repository.
+  - _Note_: This project lives in my Organization account on GitHub because I am intending to use this to purchase hard drives for L3Digital. The repository is public; secrets (API keys, credentials) are **never committed, hard-coded, or exposed**. In production the app resolves them from **OpenBao at runtime** via a local OpenBao Agent ([open-questions.md](../open-questions.md) gap #2 / OQ1); a local `.env` is used **for development only**.
 - **Local Clone:** `~/projects/disk-search`
 - **Server Configuration:**
   - _Location:_ Hetzner dedicated server
@@ -94,9 +94,11 @@ This tool is designed for my personal/business use to assist with monitoring and
 
 ### Special Considerations
 
-- **Public Repository:** The repository will be public, but sensitive information such as API keys and credentials will be stored in a `.env` file and not committed to the repository.
+- **Public Repository:** The repository is public. Secrets (API keys, credentials) are **never committed, hard-coded, or otherwise exposed** — production resolves them from **OpenBao at runtime**, and a local `.env` is for development only. Public-repo constraints also shape CI: the runner holds **no OpenBao credential** ([ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md)).
 
 ## Database Schema
+
+_Full schema is deferred to a data-model ADR (canonical `drive_model` / `listing` / `observation`; see [`docs/research/database-architecture.md`](../research/database-architecture.md))._ **Extensibility constraint (per [General Design Principles](#general-design-principles)):** model the catalog around a generic **product / category** abstraction rather than hard-coding drive-only fields, so additional **hardware types** (RAM, GPUs, …), marketplaces, scoring criteria, and users can be added without a schema rewrite. v1 implements the drive category only.
 
 ## Scoring System
 
@@ -111,7 +113,7 @@ This tool is designed for my personal/business use to assist with monitoring and
 **API:**
 
 - _Key Name:_ AGENTMAIL_API_BEARER_TOKEN
-- _Key/Value Location:_ Stored in `.env` file, not committed to the repository.
+- _Key/Value Location:_ **OpenBao** (path below) at runtime; a local `.env` for development only — never committed.
 - _OpenBao Path:_ `secret/api-keys/ai/agentmail`
   - Also contains the agent inbox email address; likely not needed for v1 but may be useful for future versions.
 - _Usage:_
