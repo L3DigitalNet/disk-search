@@ -1,8 +1,8 @@
 # Research
 
-This directory is the project's **research corpus** — 20 deep-research reports that ground the design of Hardware Radar in evidence rather than assumption. Alongside [`../specs/hw-radar.md`](../specs/hw-radar.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
+This directory is the project's **research corpus** — 21 deep-research reports that ground the design of Hardware Radar in evidence rather than assumption. Alongside [`../specs/hw-radar.md`](../specs/hw-radar.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
 
-Each report is a **dated, frozen snapshot** of what was found on the day it was run (all 2026-07-03), with inline citations. They are not living documents — findings get **reconciled forward** into the spec, the ADRs, and [`../open-questions.md`](../open-questions.md), rather than edited in place here.
+Each report is a **dated, frozen snapshot** of what was found on the day it was run (the original corpus 2026-07-03, plus a 2026-07-04 email-path follow-up), with inline citations. They are not living documents — findings get **reconciled forward** into the spec, the ADRs, and [`../open-questions.md`](../open-questions.md), rather than edited in place here.
 
 ## How to use this directory
 
@@ -47,6 +47,7 @@ Each report is a **dated, frozen snapshot** of what was found on the day it was 
 | Report | Answers | Landed in |
 | --- | --- | --- |
 | [designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor](designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor.md) | Dedup fingerprints, cooldown/hysteresis, email deliverability, the post-alert state machine | Alerting — gap #7 post-alert model / OQ6 |
+| [choosing-an-outbound-email-path-for-a-low-volume-alerting-system](choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md) | Outbound email path: Postmark primary, SES fallback, AgentMail as secondary agent-inbox tool; custom-domain SPF/DKIM/DMARC, why datacenter SMTP fails | Notification transport & deliverability — [OQ13](../open-questions.md#oq13--notification-transport--deliverability-agentmail-vs-transactional-provider) / [prompt #14](../further-research-needed-prompts.md#14-agentmail-deliverability--sending-domain-model) |
 | [opinionated-core-stack-recommendations-for-a-python-drive-price-monitor](opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md) | Framework/stack fit: Django + server-rendered templates + HTMX, PostgreSQL, uv | [ADR 0004](../adr/adr-0004-web-framework-django-htmx.md); open-questions RQ1 |
 
 ### Deployment & operations — running it

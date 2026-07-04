@@ -2,8 +2,6 @@
 
 **Date:** 2026-07-03 **Subject:** The **unsettled** engineering/design decisions for [`hw-radar.md`](specs/hw-radar.md), front-loaded — plus the resolved decisions and gap analysis they came out of, kept below for provenance.
 
-> This file began as a **gap analysis** of the spec (12 operational/product-engineering gaps not covered by research). Most of those gaps are now decided. What remains open is distilled into the **[Open questions](#open-questions)** section; the full gap write-ups and every settled decision have moved to **[Resolved](#resolved)**.
-
 ## How to maintain this document
 
 - Read **[Open questions](#open-questions)** for anything that still needs a call. Everything under **[Resolved](#resolved)** is settled and kept only for provenance — you should not have to read it to know what's outstanding.
@@ -57,6 +55,18 @@
     - [OQ10 — Reliability / resilient acquisition](#oq10--reliability--resilient-acquisition)
       - [Agent notes](#agent-notes-9)
       - [My Comments](#my-comments-9)
+    - [OQ11 — Composite scoring model (adopt research #4)](#oq11--composite-scoring-model-adopt-research-4)
+      - [Agent notes](#agent-notes-10)
+      - [My Comments](#my-comments-10)
+    - [OQ12 — Orchestration engine (APScheduler vs systemd timers)](#oq12--orchestration-engine-apscheduler-vs-systemd-timers)
+      - [Agent notes](#agent-notes-11)
+      - [My Comments](#my-comments-11)
+    - [OQ13 — Notification transport \& deliverability (AgentMail vs transactional provider)](#oq13--notification-transport--deliverability-agentmail-vs-transactional-provider)
+      - [Agent notes](#agent-notes-12)
+      - [My Comments](#my-comments-12)
+    - [OQ14 — Scraping runtime escalation stack](#oq14--scraping-runtime-escalation-stack)
+      - [Agent notes](#agent-notes-13)
+      - [My Comments](#my-comments-13)
   - [Resolved](#resolved)
     - [Resolved questions](#resolved-questions)
     - [Gap summary (all 12, for reference)](#gap-summary-all-12-for-reference)
@@ -79,7 +89,7 @@
 
 ## Open questions
 
-**Six decisions remain open** — **OQ3** and **OQ6–OQ10** (OQ9–OQ10 surfaced from the spec's General Design Principles consistency audit; the rest are the still-open parts of the original gaps). **OQ1, OQ2, OQ4, and OQ5 are settled** (OQ1/OQ2 on 2026-07-04 by live verification against the Hetzner infra + tailnet during the owner-directed investigation; OQ4/OQ5 on 2026-07-03 by owner decision); they are marked ✅ below and kept in place — rather than physically relocated to Resolved — to preserve their `#oq1`/`#oq2`/`#oq4`/`#oq5` anchors (referenced by ADR 0003/0006, TODO, the research README, and OQ10). Their resolutions are also recorded in [Resolved](#resolved).
+**Ten decisions remain open** — **OQ3** and **OQ6–OQ14** (OQ9–OQ10 surfaced from the spec's General Design Principles consistency audit; **OQ11–OQ14 surfaced from the 2026-07-04 gap analysis — research-complete, ADR-ready decisions carried by domain-research prompts #4/#9/#11/#8 that had a landed report but no prior OQ or ADR**; the rest are the still-open parts of the original gaps). **OQ1, OQ2, OQ4, and OQ5 are settled** (OQ1/OQ2 on 2026-07-04 by live verification against the Hetzner infra + tailnet during the owner-directed investigation; OQ4/OQ5 on 2026-07-03 by owner decision); they are marked ✅ below and kept in place — rather than physically relocated to Resolved — to preserve their `#oq1`/`#oq2`/`#oq4`/`#oq5` anchors (referenced by ADR 0003/0006, TODO, the research README, and OQ10). Their resolutions are also recorded in [Resolved](#resolved).
 
 ### At a glance
 
@@ -92,9 +102,13 @@
 | **OQ5** ✅ | Off-box heartbeat — **settled** | gap #6 | ✅ 2026-07-03: **off-site GMK Uptime Kuma** watches the CT (also swept by the Hetzner Fleet Digest; healthchecks.io rejected). See [OQ5](#oq5--off-box-heartbeat). |
 | **OQ6** | Final UI inventory + dismiss→suppress | gap #7 | confirm pages; decide if a user _dismiss_ silences re-alerts; purchase-tracking scope |
 | **OQ7** | Running-cost budget model | gap #10 | pricing pass ✅ (2026-07-03 → ~$8–15/mo search-API envelope; AgentMail free); residual = encode per-source poll budgets at build |
-| **OQ8** | Scraper testing finalization | gap #9 | per-tier canary frequencies; synthetic vs real cassettes per source |
+| **OQ8** | Scraper testing finalization | gap #9 | per-tier canary frequencies; synthetic vs real cassettes per source (Deep Research #13 ✅ landed — reconcile findings) |
 | **OQ9** | Acquisition cadence, throttle & skip | principles §1+5 | per-source cadence numbers + adaptive back-off thresholds + tier-ladder skip cutoff (no spec reword — real-time-where-tolerated is in scope) |
 | **OQ10** | Reliability / resilient acquisition | principle §4 | per-source isolation, retry/backoff, circuit-break, health alerts |
+| **OQ11** | Composite scoring model | research #4 | ratify weighted-geometric-mean + 4 subscores + weights (0.50/0.25/0.15/0.10) + veto gates → fills empty spec §Scoring System · candidate ADR-0011 |
+| **OQ12** | Orchestration engine | research #9 | APScheduler vs systemd timers — resolves the ADR-0006 "timers" contradiction; blocks OQ7/OQ9/OQ10 · candidate ADR-0012 |
+| **OQ13** | Notification transport & deliverability | research #11, #14 | prompt #14 **landed** → research recommends **Postmark primary / SES fallback / AgentMail secondary**; now an owner call vs the AgentMail lean · candidate ADR-0013 |
+| **OQ14** | Scraping runtime escalation stack | research #8 | ratify Scrapy + scrapy-playwright + curl_cffi tier stack · candidate ADR-0014 / spec fold |
 
 ---
 
@@ -176,7 +190,7 @@ Create a document of all backup requirements and constraints, including RPO, PIT
 
 #### My Comments
 
-The app/project and it's associated database should be self-contained in the hw-radar CT. This is consistent with the spec's intent and simplifies deployment and management.
+The app/project and its associated database should be self-contained in the hw-radar CT. This is consistent with the spec's intent and simplifies deployment and management.
 
 ---
 
@@ -217,7 +231,7 @@ We will use the existing GMK Uptime Kuma instance to monitor the hw-radar CT. Th
 
 #### My Comments
 
-_(none yet)_
+This question has been open for a while. We need to confirm the final MVP page inventory and flows in case new information changes your recommendation. If necessary, conduct research using /qdev:research and update the open question and existing research doc(s) with the findings.
 
 ---
 
@@ -278,12 +292,16 @@ I have active accounts for each search service and I keep them topped up with fu
 - **Do not commit real cassettes for retention-restricted sources** (Amazon PA/Creators 24 h TTL, Google/Serper "transient only", stored images) — use **synthetic/hand-crafted fixtures**; real recorded cassettes are fine for the recert specialists. **Scrub cassettes of PII before commit** (a compliance requirement).
 - **Classify failure type** in the counter layer — recoverable **parser rot** vs **now-anti-bot-protected** (a soft-block often returns HTTP 200 + challenge/empty body). The latter is a _stop/escalate_ decision, not a fix.
 - Shares the `scraper_runs` table with [OQ5](#oq5--off-box-heartbeat) / gap #6.
-- **Queued for ChatGPT Deep Research** (owner, 2026-07-03): prompt **#13** in [`further-research-needed-prompts.md`](further-research-needed-prompts.md) covers exactly this build-time finalization (risk-weighted per-tier canary frequencies; synthetic-vs-real cassette assignment per source). OQ8 stays **open** pending that report.
+- **Deep Research prompt #13 — report LANDED** (2026-07-03, indexed 2026-07-04): [`automated-test-policy-for-a-low-volume-scrapy-price-monitor.md`](research/automated-test-policy-for-a-low-volume-scrapy-price-monitor.md) answers exactly this build-time finalization (risk-weighted per-tier canary cadence + degradation alerts; per-source real-vs-synthetic cassette commit policy; vcrpy PII-scrubbing; a parser-rot-vs-anti-bot failure-classification tree; CI wiring). OQ8 stays **open** pending **reconciliation of the report's findings** into this OQ + the spec — a distinct, not-yet-done follow-up (the report is the input, not the decision). Prompt #13 itself is in [`further-research-needed-prompts.md`](further-research-needed-prompts.md).
 - Research: [`lightweight-observability-and-scraper-health-monitoring.md`](research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md), [`pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md), [`us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md`](research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md).
 
 #### My Comments
 
 Agent comments look good, but I want to conduct a full deep research with ChatGPT looking into this. Add an entry and prompt to `docs/further-research-needed-prompts.md`.
+
+I think this was done? Check `docs/research/` and `docs/further-research-needed-prompts.md` to see if this was already done. If it was, then we can close this OQ. If not, then we need to do the research and update the OQ with the findings.
+
+If additional research is needed, we should use the `/qdev:research` command to conduct the research and update the open question and existing research doc(s) as applicable with the findings.
 
 ---
 
@@ -303,6 +321,8 @@ Agent comments look good, but I want to conduct a full deep research with ChatGP
 - Research: [`orchestration-choice-for-a-single-vm-price-polling-service.md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md), [`pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md), [`us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md`](research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md).
 
 #### My Comments
+
+Research any outstanding questions about the per-source cadence/politeness numbers and confirm the skip policy. Do this research using /qdev:research and update the open question and existing research doc(s) as applicable with the findings.
 
 I have changed the spec to remove:
 
@@ -330,13 +350,100 @@ Update the open question to reflect that the spec has been updated to remove the
 
 #### Agent notes
 
-- **Status (2026-07-03):** both dependencies are moving — [OQ5](#oq5--off-box-heartbeat) is **settled** (off-box heartbeat = the off-site GMK Uptime Kuma) and [OQ8](#oq8--scraper-testing-finalization) is **queued for Deep Research** (prompt #13; parser-rot-vs-anti-bot failure classification). OQ10 stays **open** until OQ8 lands that failure model; the resilience substrate itself — per-source failure isolation, retry/backoff, circuit-break (`paused_pending_fix`), and the `scraper_runs` table (gap #6 / gap #9) — is already settled and only needs wiring.
+- **Status (updated 2026-07-04):** both dependencies have moved — [OQ5](#oq5--off-box-heartbeat) is **settled** (off-box heartbeat = the off-site GMK Uptime Kuma) and [OQ8](#oq8--scraper-testing-finalization)'s Deep Research (prompt #13) **has landed** ([the test-policy report](research/automated-test-policy-for-a-low-volume-scrapy-price-monitor.md) carries the parser-rot-vs-anti-bot failure-classification tree). OQ10 stays **open** until that failure model is **reconciled** into OQ8/the spec and wired; the resilience substrate itself — per-source failure isolation, retry/backoff, circuit-break (`paused_pending_fix`), and the `scraper_runs` table (gap #6 / gap #9) — is already settled and only needs wiring.
 - Circuit-break state (`paused_pending_fix`) is from the orchestration research; the count-vs-rolling-average + empty-result assertion (gap #9) is the silent-failure detector.
 - Research: [`orchestration-choice-for-a-single-vm-price-polling-service.md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md), [`lightweight-observability-and-scraper-health-monitoring.md`](research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md).
 
 #### My Comments
 
 See [OQ5](#oq5--off-box-heartbeat) and [OQ8](#oq8--scraper-testing-finalization) for the shared substrate. Then update or close this question based on the decisions made in those two questions.
+
+---
+
+### OQ11 — Composite scoring model (adopt research #4)
+
+**From:** domain-research **prompt #4** (landed: [`principled-deal-score…`](research/principled-deal-score-for-hard-drive-listings.md)) — _not_ one of the twelve operational gaps, which is why it carries no prior OQ or ADR. **Decision needed:** ratify the composite scoring algorithm so the **empty** spec `## Scoring System` section ([`hw-radar.md:108`](specs/hw-radar.md)) can be written and a **candidate ADR-0011** recorded. The research recommendation is concrete; the open forks are owner sign-off calls:
+
+1. **Aggregation:** adopt the **weighted geometric mean (weighted product model)** over four normalized subscores, or override toward an arithmetic sum / TOPSIS? (Research recommends the geometric mean and explicitly rejects TOPSIS as the primary score.)
+2. **Subscores + weights:** confirm the four subscores — price cheapness-percentile · seller trust (Bayesian + Wilson) · fitness-for-purpose rubric · availability — at default weights **0.50 / 0.25 / 0.15 / 0.10**, or reweight for a value-focused enterprise/recert buyer.
+3. **Non-compensatory caps (vetoes):** confirm the hard gates that cap the max score regardless of price — e.g. **device-managed SMR** and **no-return-policy**. Which conditions are hard vetoes vs soft penalties is the load-bearing product call.
+4. **Explainability payload:** confirm the glass-box per-subscore explanation is a first-class **stored** output (already assumed by [OQ6](#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking)'s listing-detail "why it matched" view).
+
+#### Agent notes
+
+- **ADR-ready now — no new research.** The blocker is ratification, not information: prompt #4 delivered the formula, default weights, gates, and a four-listing worked example.
+- The **price subscore's internals are already settled** by gap #11 (shipping/tax folded into `$/TB`) and gap #12 (cohort percentile + continuous warm-up `λ = min(1, n_eff/50)`). OQ11 is the **outer composite** — how the four subscores combine and where the vetoes sit — which those gaps did not cover.
+- The **fitness** subscore consumes the suitability taxonomy (prompt #2: tier ladder, SMR hard-reject, PLP penalty) and recert risk (prompt #3: warranty/SMART penalty-bonus table); the **seller-trust** subscore uses cross-marketplace Bayesian + Wilson shrinkage for low-sample sellers (prompt #4).
+- Once ratified, this fills spec `## Scoring System` (blank) and maps onto milestone **M2** (whose acceptance criteria already assume this model — reproducible 0–100 with per-factor breakdown).
+- Research: [`principled-deal-score…`](research/principled-deal-score-for-hard-drive-listings.md), [`machine-usable-drive-suitability-taxonomy…`](research/machine-usable-drive-suitability-taxonomy-for-24-7-nas-and-server-scoring.md), [`recertified-enterprise-hard-drives…`](research/recertified-enterprise-hard-drives-for-homelab-and-small-business-buyers.md), [`drive-deal-tracker…baselines…`](research/drive-deal-tracker-research-baselines-tools-shucking-and-timing.md).
+
+#### My Comments
+
+Before writing an ADR on the scoring model, I want to test it against mock data to see if it produces reasonable results. Does it actually rate items that are expected to be high or low correctly? Claude will create a small dataset of hard drive listings with various attributes and run the scoring algorithm to see if the output aligns with expectations. Conduct any additional research necessary: do this research using /qdev:research and update the open question and existing research doc(s) with the findings. Also create a comprehensive report/results document at `docs/research/drive-deal-scoring-model-test-results.md` that includes the dataset, the scoring results, and any analysis or conclusions drawn from the test.
+
+---
+
+### OQ12 — Orchestration engine (APScheduler vs systemd timers)
+
+**From:** domain-research **prompt #9** (landed: [`orchestration-choice…`](research/orchestration-choice-for-a-single-vm-price-polling-service.md)), surfaced against **[ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)**. **Decision needed:** name the scheduler that runs the recurring `fetch → parse → normalize → entity-resolve → score → persist → alert` pipeline, and resolve a **live contradiction** — ADR 0006 says "**timers** for scrapes," but prompt #9 recommends **APScheduler 3.11.x** in a systemd-supervised long-running poller with PostgreSQL job state. **Candidate ADR-0012.**
+
+- **The fork:** **APScheduler in-process** (per-source cadence, jitter, two-level token buckets, adaptive 429/503 cooldown, dead-letter + circuit-breaker — all in one supervised process, sharing state) **vs. systemd timers** (leaner, but per-source rate modeling and _shared_ back-off/circuit-breaker state are awkward across independent one-shot units).
+- **This blocks OQ7 / OQ9 / OQ10:** all three assume the **two-level token-bucket** cadence/back-off substrate, which is an in-process (APScheduler-style) model, _not_ independent systemd timers. Deciding the engine is a prerequisite to operationalizing their cadence numbers and circuit-breaker thresholds.
+
+#### Agent notes
+
+- **ADR-ready now — no new research.** Prompt #9 explicitly flags **Celery / RQ / Dramatiq / Prefect / Dagster / Airflow as over-engineered** at ~20 sources on one VM; the real choice is APScheduler vs plain timers, with APScheduler favored for per-source scheduling flexibility, retry/back-off, and _shared_ circuit-breaker state.
+- **ADR 0006 reconciliation is mandatory whichever way this goes:** if APScheduler wins, amend ADR 0006's "timers for scrapes" line (systemd still _supervises_ the poller process; it no longer _schedules_ each scrape). If timers win, OQ7/OQ9/OQ10's token-bucket model must be re-specified for stateless one-shot units.
+- Shares the `scraper_runs` table (gaps #6/#9) for run state and the `paused_pending_fix` circuit-breaker state ([OQ10](#oq10--reliability--resilient-acquisition)).
+- Research: [`orchestration-choice…`](research/orchestration-choice-for-a-single-vm-price-polling-service.md).
+
+#### My Comments
+
+I am leaning toward APScheduler as the orchestration engine. However, the research that labeled the other solutions as over-engineered may have been done prior to the recent changes in the scraping architecture and number of sources. Plus, we need to consider the general design principles of the project and whether APScheduler is consistent with those principles. Further research should be done to confirm that APScheduler is still the best choice given the current architecture and number of sources. Do this research using /qdev:research and update the open question and existing research doc(s) with the findings.
+
+---
+
+### OQ13 — Notification transport & deliverability (AgentMail vs transactional provider)
+
+**From:** domain-research **prompt #11** (landed) + **prompt #14** (landed 2026-07-04: [`choosing-an-outbound-email-path…`](research/choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md)), against the spec's **AgentMail** standardization ([`hw-radar.md:68`](specs/hw-radar.md), OpenBao `secret/api-keys/ai/agentmail`). **Research is now complete — the remaining decision is an owner call.** Confirm the email-send path and its deliverability setup so alerts do not spam-folder. **Candidate ADR-0013.**
+
+- **The tension (now with a research recommendation):** prompt #11 recommended a **transactional provider (Postmark preferred, SES for cost)** over raw datacenter SMTP; prompt #14 characterized the missing piece — **AgentMail specifically** — and recommends **Postmark primary → SES fallback → AgentMail as a _secondary_ agent-inbox tool, not the primary alert channel.** The spec + OpenBao standardize on AgentMail and the owner leans AgentMail (see [OQ7 My Comments](#oq7--running-cost-budget-model-build-time-pricing-pass)), so the open decision is now a **conscious owner call: accept the Postmark-primary recommendation, or override toward AgentMail.**
+- **Deciding factor (per #14):** _not_ a capability gap — AgentMail **does** support custom-domain **SPF/DKIM/DMARC**, so it is not disqualified on authentication. The factor is AgentMail's **thinner public deliverability track record** for must-not-miss transactional mail vs Postmark's/SES's long-established transactional-delivery model.
+- **Cost caveat — undercuts OQ7's "AgentMail is free":** #14 found AgentMail's **free tier sends from `@agentmail.to` only**; **branded custom-domain sending (`chris@l3digital.net`) requires the $20/mo Developer plan.** "Free" therefore holds only for an _unbranded_ from-address — for a branded business alert the cost is comparable to Postmark/SES, which weakens the main reason to prefer AgentMail.
+- **Open forks:** (1) **primary provider** — Postmark (research pick) vs AgentMail (owner lean), now that both cost ~$20/mo for branded sending; (2) **fallback** provider (research: SES cold-standby on the same domain); (3) whether SES's initial **sandbox** (200 msg/day, verified-recipients-only until production access is granted) is acceptable for a one-recipient failover.
+
+#### Agent notes
+
+- **Scope is narrow — transport + deliverability only.** The **alert-rule data model, dedup/debounce/digest, and hysteresis are already settled** (prompt #11 + [OQ6](#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking)'s post-alert state machine). OQ13 does not reopen alerting logic.
+- Couples to gap #6's **email-delivery confirmation** (the operator-side signal that a send actually left the box).
+- **Prompt #14 LANDED (2026-07-04) — the research gap is closed;** what remains is the owner's provider call, not more research. Findings reconciled above: the Postmark-primary recommendation, the DKIM-is-fine / track-record-is-the-real-factor nuance, and the free-tier-is-`@agentmail.to`-only cost caveat.
+- **Deliverability mechanics (shared by whichever provider wins):** a **high-quality shared IP pool** is correct at this volume (dedicated IPs need sustained volume to build reputation); direct SMTP from the Hetzner box is **out** (Hetzner blocks ports 25/465, and a datacenter IP lacks the reputation/PTR/auth history receivers demand). `l3digital.net` still needs **SPF + DKIM + DMARC** either way — start `p=none`, tighten to `p=quarantine`/`p=reject` once alignment is confirmed.
+- Research: [`designing-a-low-noise-alerting-layer…`](research/designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor.md), [`choosing-an-outbound-email-path…`](research/choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md).
+
+#### My Comments
+
+I am not going to pay for the email service at this time. Whatever gets implemented must be free for the time being. I will revisit this question if we find that email deliverability is a problem and we need to pay for a service to improve it. Research this problem further to resolve this.
+
+---
+
+### OQ14 — Scraping runtime escalation stack
+
+**From:** domain-research **prompt #8** (landed: [`pragmatic-architecture…scraping`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md)), against the spec's under-specified "Scrapy. Additional options to be considered" ([`hw-radar.md:69`](specs/hw-radar.md)). **Decision needed:** ratify the concrete escalation stack so the spec §Software Stack names it. **Candidate ADR-0014** (or a straight spec fold — lower priority than OQ11–OQ13).
+
+- Prompt #8's default is **HTTP-first, structured-data-first, browser-last:** Scrapy as orchestrator, a structured-data detector (JSON-LD → platform JSON → bootstrap JSON) in front of every parser, **Playwright via `scrapy-playwright`** for occasional rendering, **`curl_cffi`** for the narrow TLS-fingerprint gap, and **skip / outsource** for targets needing residential-proxy rotation or CAPTCHA solving.
+- **Open fork:** adopt the full stack in the spec now, or trim — e.g. defer `curl_cffi`/Playwright to **M5** breadth and ship **M1**'s five recert sources on plain HTTP + structured-data parsing (those are the "easy" tier), adding the browser/TLS tiers only when a hostile source demands it.
+
+#### Agent notes
+
+- **ADR-ready now — no new research.** Prompt #8 delivered the difficulty→technique decision tree, a managed-API cost table, and the default stack.
+- Dovetails with the spec's **Special Considerations guardrails** (`ROBOTSTXT_OBEY=True`, AUTOTHROTTLE, no anti-bot bypass) and the **acquisition tier ladder** (feed > structured-data > headless > skip) already in the spec — OQ14 only names the _tools_ per tier.
+- The **skip cutoff** ("not worth it — use the API or skip") is the same tier-ladder cutoff as [OQ9](#oq9--acquisition-cadence-throttle--skip-policy)'s skip policy — decide them consistently.
+- Because it is the lowest-stakes of the four (most of it is already implied by the spec's acquisition posture), a spec fold may be sufficient without a standalone ADR — owner's call.
+- Research: [`pragmatic-architecture…scraping`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md), [`programmatic-acquisition…`](research/programmatic-acquisition-research-for-enterprise-and-nas-drive-merchants.md).
+
+#### My Comments
+
+Would we actually use Playwright? Can that be used programmatically in a headless way to scrape the sites we need without an AI agent/LLM?
 
 ---
 

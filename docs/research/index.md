@@ -6,7 +6,7 @@ description: Generated index of qdev research reports. Do not edit by hand.
 doc_type: index
 status: active
 created: '2026-07-03'
-updated: '2026-07-03'
+updated: '2026-07-04'
 tags:
 - research
 - index
@@ -24,6 +24,7 @@ related: []
 | 2026-07-03-lightweight-observability-and-scraper-health-monitoring | Lightweight Self-Hosted Observability, Uptime Monitoring, and Scraper-Rot Detection at Single-VM Scale (2026) | 2026-07-03 | 2026-07-03 | active | high | monitoring observability self-hosted web-scraping testing uptime-kuma glitchtip sentry |  |
 | 2026-07-03-postgresql-backup-disaster-recovery-single-vm | PostgreSQL Backup and Disaster Recovery for a Single Small VM (2026) | 2026-07-03 | 2026-07-03 | active | high | postgresql timescaledb backup disaster-recovery proxmox pgbackrest |  |
 | automated-test-policy-for-a-low-volume-scrapy-price-monitor | Automated Test Policy for a Low-Volume Scrapy Price Monitor | 2026-07-03 | 2026-07-03 | active | high | testing web-scraping scrapy vcrpy syrupy pydantic ci-cd canary anti-bot |  |
+| choosing-an-outbound-email-path-for-a-low-volume-alerting-system | Choosing an Outbound Email Path for a Low-Volume Alerting System | 2026-07-04 | 2026-07-04 | active | high | email-deliverability transactional-email postmark amazon-ses agentmail dkim spf-dmarc alerting |  |
 | database-architecture | Database Architecture for Tracking SSD and HDD Market Data | 2026-07-03 | 2026-07-03 | active | high | database postgresql timescaledb time-series schema entity-resolution jsonb |  |
 | designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor | Designing a Low-Noise Alerting Layer for a Hard-Drive Deal Monitor | 2026-07-03 | 2026-07-03 | active | high | alerting notifications email-deliverability dkim dedup postmark pushover |  |
 | drive-deal-tracker-research-baselines-tools-shucking-and-timing | Drive Deal Tracker Research: Baselines, Tools, Shucking, and Timing | 2026-07-03 | 2026-07-03 | active | high | price-baselines usd-per-tb shucking diskprices keepa seasonality benchmarking |  |

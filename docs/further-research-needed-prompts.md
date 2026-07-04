@@ -1,6 +1,6 @@
 # Further Research — Deep Research Prompts & Completed Reports
 
-> **Status (2026-07-03): the original 12 prompts have all been run** — each maps to a completed report under [`docs/research/`](research/). **One follow-up prompt — [#13](#13-scraper-testing-finalization--per-tier-canaries--cassette-strategy) — is newly queued and not yet run** (owner-requested, from [`open-questions.md` OQ8](open-questions.md#oq8--scraper-testing-finalization)). For the 12, this document is a **completion tracker**: the original prompt text is kept verbatim (provenance + re-runnable), and a status banner above each links its report, states the headline finding, and flags any residual gap. Prompt #13 instead carries a **⏳ Queued** banner. Next steps: **reconcile the 12 findings back into [`hw-radar.md`](specs/hw-radar.md)** (resolve the `_TBD_` markers) **and run #13** when ready.
+> **Status (2026-07-04): the original 12 prompts have all been run, and follow-up [#14](#14-agentmail-deliverability--sending-domain-model) has now landed** — leaving **[#13](#13-scraper-testing-finalization--per-tier-canaries--cassette-strategy)** (scraper-testing finalization, from [`open-questions.md` OQ8](open-questions.md#oq8--scraper-testing-finalization)) as the one queued prompt not yet run. For the 12, this document is a **completion tracker**: the original prompt text is kept verbatim (provenance + re-runnable), and a status banner above each links its report, states the headline finding, and flags any residual gap. Prompt #13 carries a **⏳ Queued** banner; #14 now carries a **✅ Answered** banner (reconciled into [OQ13](open-questions.md#oq13--notification-transport--deliverability-agentmail-vs-transactional-provider)). Next steps: **reconcile the 12 findings back into [`hw-radar.md`](specs/hw-radar.md)** (resolve the `_TBD_` markers) **and run #13** when ready.
 
 These prompts were written for ChatGPT **Deep Research**. Each is self-contained (Deep Research can't see this repo), states the gap it fills, and dictates an output shape to fold back into the spec.
 
@@ -26,13 +26,14 @@ These prompts were written for ChatGPT **Deep Research**. Each is self-contained
   - [11. Notification \& alerting design, deliverability, and dedup](#11-notification--alerting-design-deliverability-and-dedup)
   - [12. Manufacturer \& specialty-reseller warranty/serial-verification data sources](#12-manufacturer--specialty-reseller-warrantyserial-verification-data-sources)
   - [13. Scraper-testing finalization — per-tier canaries \& cassette strategy](#13-scraper-testing-finalization--per-tier-canaries--cassette-strategy)
+  - [14. AgentMail deliverability \& sending-domain model](#14-agentmail-deliverability--sending-domain-model)
   - [Reconciliation order (research → spec)](#reconciliation-order-research--spec)
 
 ---
 
 ## Completion status
 
-The 12 original topics, the gap each filled, and the report that now answers it. **All 12 are complete (✅).** "Residual" flags the honestly-scoped open questions the reports surfaced. **Row 13 is a newly-queued follow-up prompt (⏳ not yet run)**, added 2026-07-03 to take [OQ8](open-questions.md#oq8--scraper-testing-finalization) (scraper-testing finalization) into ChatGPT Deep Research.
+The 12 original topics, the gap each filled, and the report that now answers it. **All 12 are complete (✅).** "Residual" flags the honestly-scoped open questions the reports surfaced. **Rows 13 and 14 are follow-up prompts:** #13 (added 2026-07-03, **⏳ not yet run**) takes [OQ8](open-questions.md#oq8--scraper-testing-finalization) (scraper-testing finalization) into ChatGPT Deep Research; #14 (added 2026-07-04, **✅ landed 2026-07-04**) took the AgentMail-deliverability slice of [OQ13](open-questions.md#oq13--notification-transport--deliverability-agentmail-vs-transactional-provider) there and has been reconciled back into OQ13.
 
 | # | Topic (gap it filled) | Status | Report | Residual |
 | --: | --- | :-: | --- | --- |
@@ -49,6 +50,7 @@ The 12 original topics, the gap each filled, and the report that now answers it.
 | 11 | Notification/alerting design | ✅ | [alerting](research/designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor.md) | none |
 | 12 | Warranty/serial verification sources | ✅ | [verify](research/programmatic-identity-and-warranty-verification-for-used-enterprise-hdd-listings.md) | no public warranty API exists (answered negative) |
 | 13 | Scraper-testing finalization ([OQ8](open-questions.md#oq8--scraper-testing-finalization)) | ⏳ Queued | _pending run_ | build-time params: risk-weighted per-tier canary frequencies + synthetic-vs-real cassette assignment |
+| 14 | AgentMail deliverability ([OQ13](open-questions.md#oq13--notification-transport--deliverability-agentmail-vs-transactional-provider)) | ✅ | [email-path](research/choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md) | **Postmark primary / SES fallback / AgentMail secondary**; AgentMail is _not_ disqualified on DKIM — the factor is its thinner transactional-deliverability track record; branded custom-domain sending needs its $20/mo tier (free tier is `@agentmail.to` only) |
 
 ---
 
@@ -272,6 +274,30 @@ Research and recommend, with citations and dates on anything version- or terms-s
 (5) CI WIRING. How do I wire all of this into GitHub Actions without flakiness: replay-only in CI (never live network calls), a snapshot-update workflow, and how a broken PRODUCTION canary should surface (fail the scheduled job / open an issue / send an alert) WITHOUT blocking unrelated code PRs?
 
 Deliver: a per-tier canary-frequency table with the risk rationale; a per-source "commit real cassette vs synthetic fixture" decision table for the source list above; a vcrpy scrubbing checklist plus a short config sketch; a failure-classification decision tree (parser-rot vs anti-bot vs transient); and a recommended CI wiring. Cite tool docs (vcrpy, syrupy, Scrapy, Pydantic v2) and the relevant API/site terms; date anything that is version- or terms-sensitive.
+```
+
+---
+
+## 14. AgentMail deliverability & sending-domain model
+
+> **✅ Answered (2026-07-04)** — [`choosing-an-outbound-email-path…`](research/choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md). **Recommendation: Postmark primary → Amazon SES fallback → AgentMail as a _secondary_ agent-inbox tool, not the primary alert channel.** AgentMail is **not** disqualified on authentication (it supports custom-domain SPF/DKIM/DMARC); the deciding factor is its **thinner public deliverability track record** for must-not-miss transactional mail vs Postmark's/SES's established transactional model. **Cost caveat:** AgentMail's free tier sends from `@agentmail.to` only — branded `chris@l3digital.net` sending needs its **$20/mo Developer plan**, so it is not the free option [OQ7](open-questions.md#oq7--running-cost-budget-model-build-time-pricing-pass) assumed. This closed the one narrow research gap that had been blocking the notification ADR (candidate ADR-0013); findings are **reconciled into [`open-questions.md` OQ13](open-questions.md#oq13--notification-transport--deliverability-agentmail-vs-transactional-provider)**, leaving the owner's provider call as the only open part. [Prompt #11](#11-notification--alerting-design-deliverability-and-dedup) had settled the alerting _design_ (dedup/debounce/digest/hysteresis, watch model) but treated the owner's AgentMail key as an aside; this prompt characterized it. From the 2026-07-04 gap analysis.
+
+**Gap it fills:** OQ13's decision is AgentMail-as-primary vs a switch to Postmark/SES. That call hinges on facts no report covers: whether AgentMail delivers reliably to an owner-controlled inbox at low volume, how it authenticates the sending domain (its own domain vs a required `l3digital.net` DKIM/SPF/DMARC setup), and whether its shared-IP sender reputation is adequate for transactional deal alerts a business must not miss.
+
+```text
+I'm choosing the outbound email path for a low-volume transactional alerting system: a self-hosted hard-drive deal monitor running on a private Debian server that must email deal alerts to a single business owner (from an address at my own domain, e.g. alerts@ or chris@mydomain.tld). Missed or spam-foldered alerts are a real failure — a genuinely good deal not seen is the whole cost. I already hold an API key for "AgentMail" (agentmail.to, an email API aimed at AI agents) and want to know whether to rely on it or switch to an established transactional provider (Postmark or Amazon SES). I have already researched the general alerting design and the Postmark/SES/Resend/Mailgun landscape; this prompt is ONLY about AgentMail specifically and email deliverability mechanics.
+
+Research and report, citing official docs and dating anything version- or pricing-sensitive:
+
+(1) AGENTMAIL DELIVERABILITY & MODEL. What is AgentMail (agentmail.to) — its product model, sending infrastructure, and intended use case? Does it send from its own domains/inboxes (e.g. @agentmail.to addresses), or can/should it send as MY custom domain? For transactional alerts TO my own inbox, what deliverability should I expect (shared vs dedicated IP, sender reputation, inbox-placement track record)? Note the free-tier limits (reportedly ~3,000 emails/month, 100/day) and what the paid tier adds for deliverability specifically.
+
+(2) DOMAIN AUTHENTICATION. To send as my own domain with good inbox placement, what DNS records must I configure — SPF, DKIM (selector/key), DMARC — and does AgentMail support custom-domain sending with DKIM signing at all, or only its own inboxes? Compare this to how Postmark and SES require and verify domain authentication. If AgentMail cannot DKIM-sign my domain, say so plainly — it likely disqualifies it for branded alerts.
+
+(3) WHY DATACENTER SMTP FAILS, AND WHETHER AN API AVOIDS IT. Explain concretely why sending directly via SMTP from a datacenter/hosting IP (Hetzner-class) commonly lands in spam or is blocked, and confirm that using a transactional API (AgentMail, Postmark, or SES) actually sidesteps this — i.e. the provider's IPs and authentication do the heavy lifting, not my server's IP.
+
+(4) FIT & RECOMMENDATION. Given: single recipient (my own inbox), <100 emails/day, a custom business domain I want alerts to appear from, and a strong requirement not to miss alerts — is AgentMail an appropriate primary, or is it better treated as a secondary/agent-inbox tool with Postmark or SES as the primary alert sender? Give a clear recommendation with the deciding factor named, and a fallback plan (e.g. AgentMail primary + SES fallback, or vice versa) with the DNS/setup checklist for the recommended path.
+
+Deliver: a short AgentMail capability profile (sending model, custom-domain/DKIM support, free-tier limits, deliverability posture), a domain-authentication (SPF/DKIM/DMARC) setup checklist for the recommended sender, and a one-line recommendation for AgentMail-vs-Postmark/SES as the primary transactional sender. Cite AgentMail's official docs, the relevant provider docs, and reputable deliverability references; date anything pricing- or version-sensitive.
 ```
 
 ---
