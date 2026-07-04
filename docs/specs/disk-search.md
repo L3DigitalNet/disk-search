@@ -6,6 +6,20 @@
 
 This tool is designed for my personal/business use to assist with monitoring and purchasing hard disk drives and solid-state drives for L3Digital assets. It will be featured such that it is convenient for me to use. The first version will not spend development time on making it user-friendly for others, cross-compability, and other considerations that a distributed tool might require; however, it will be designed in a way that it can be easily extended to support other users in the future if the tool proves useful.
 
+## General Design Principles
+
+- **Engineered to Needs:** The tool should be designed to meet the specific needs of the user (myself) and not be over-engineered with unnecessary features or complexity until it is proven necessary.
+- **Extensability & Expandability:** The tool should be designed in a way that allows for easy future expansion to support additional:
+  - users, user accounts, and user preferences
+  - marketplaces
+  - scoring criteria
+  - alerting mechanisms
+  - hardware types (e.g., RAM, GPUs, etc.)
+- **Maintainability:** The codebase should be clean, well-documented, and follow best practices to ensure that it can be easily maintained and updated over time.
+- **Reliability:** The tool should be robust and handle errors gracefully, ensuring that it continues to function even when encountering issues with marketplace APIs or network connectivity.
+- **Security:** The tool should handle sensitive information (e.g., API keys, credentials) securely and follow best practices for authentication and authorization. These should never be committed to the public repository, hard-coded, or otherwise exposed.
+- **Stewardship & Responsibility:** The tool should be designed to minimize the impact on the marketplaces it monitors, avoiding excessive requests or scraping that could be considered abusive or violate terms of service.
+
 ## Features
 
 - **Real-time (or near real-time) Monitoring:** Continuously or frequently scans multiple online marketplaces for hard disk drives and solid-state drives.
@@ -68,7 +82,7 @@ This tool is designed for my personal/business use to assist with monitoring and
   - _Web Server:_ NGINX for serving the web application and handling HTTPS.
   - _Database:_ **PostgreSQL (system-of-record) + TimescaleDB** for the price-history observation workload ([ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)); lives in the same LXC container as the web application for simplicity.
   - _Environment Management:_ uv ([ADR 0002](../adr/adr-0002-python-tooling-standard-local-deviations.md)).
-  - _Backup & Monitoring:_ Reuses the existing Hetzner CT infrastructure — file-level restic (local + offsite) + hourly DB dumps, and monitoring auto-discovers the container. Provisioning must add the CT to the backup allowlist, and an off-box heartbeat is still needed. Caveats (≤1 h RPO, no PITR, TimescaleDB dump handling): [ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md) and gap-analysis #5/#6.
+  - _Backup & Monitoring:_ Reuses the existing Hetzner CT infrastructure — file-level restic (local + offsite) + hourly DB dumps, and monitoring auto-discovers the container. Provisioning must add the CT to the backup allowlist, and an off-box heartbeat is still needed. Caveats (≤1 h RPO, no PITR, TimescaleDB dump handling): [ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md) and [open-questions.md](../open-questions.md) gap #5/#6.
 - **CI/CD Pipeline:** GitHub Actions for automated testing and deployment.
   - _Runner:_ GitHub-hosted `ubuntu-latest` runner — not self-hosted ([ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md)).
   - _Workflows:_ Separate workflows for testing, building, and deployment.
