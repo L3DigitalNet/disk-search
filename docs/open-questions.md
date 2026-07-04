@@ -49,7 +49,7 @@ Read **[Open questions](#open-questions)** for anything that still needs a call.
     - [OQ8 — Scraper testing finalization](#oq8--scraper-testing-finalization)
       - [Agent notes](#agent-notes-7)
       - [My Comments](#my-comments-7)
-    - [OQ9 — Acquisition cadence & stewardship posture](#oq9--acquisition-cadence--stewardship-posture)
+    - [OQ9 — Acquisition cadence \& stewardship posture](#oq9--acquisition-cadence--stewardship-posture)
       - [Agent notes](#agent-notes-8)
       - [My Comments](#my-comments-8)
     - [OQ10 — Reliability / resilient acquisition](#oq10--reliability--resilient-acquisition)
@@ -178,7 +178,7 @@ The app/project and it's associated database should be self-contained in the dis
 
 #### My Comments
 
-_(none yet)_
+We will use the existing GMK Uptime Kuma instance to monitor the disk-search CT. This is consistent with the existing infrastructure and will provide the necessary off-box heartbeat monitoring. This will also be monitored periodically by the `Hetzner EX130-R · Fleet Digest` (see the `homelab` repo) for details. This is not a blocker, it can be completed in parallel or after the project is deployed, but should be done before entering production.
 
 ---
 
