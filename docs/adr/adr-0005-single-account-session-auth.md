@@ -19,7 +19,7 @@ aliases: []
 related:
   - 'docs/adr/README.md'
   - 'docs/specs/disk-search.md'
-  - 'docs/gap-analysis.md'
+  - 'docs/open-questions.md'
   - 'docs/research/2026-07-03-auth-for-self-hosted-single-maintainer-python-app.md'
 supersedes: []
 superseded_by: null
@@ -72,7 +72,7 @@ Option 2 was rejected because the owner wants the app reachable off-tailnet. Opt
 
 ### Confirmation
 
-gap-analysis gap #1 is resolved to single-account session login, and Open-Question #2 (public URL vs Tailscale-only) is resolved to **public URL required**. Confirmed when the schema includes the `users` stub and login uses Argon2id with hardened cookie flags.
+open-questions.md gap #1 is resolved to single-account session login, and resolved question RQ2 (public URL vs Tailscale-only) is **public URL required**. Confirmed when the schema includes the `users` stub and login uses Argon2id with hardened cookie flags.
 
 ## More Information
 

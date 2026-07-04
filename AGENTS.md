@@ -11,7 +11,7 @@ The repo is scaffolded and the verification gate below is **live and green**. `s
 is a version-only skeleton — no features yet. Build features from here under the `src/` layout,
 adding real deps with `uv add`. Standard deviations are recorded in `docs/adr/` (ADR-0002).
 
-The planned stack (see `docs/specs/disk-search.md` and `docs/gap-analysis.md`): **Django** +
+The planned stack (see `docs/specs/disk-search.md` and `docs/open-questions.md`): **Django** +
 server-rendered templates + HTMX, PostgreSQL (+ TimescaleDB), Scrapy, deployed to a single VM.
 
 ## Operating model

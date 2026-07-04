@@ -20,7 +20,7 @@ aliases: []
 related:
   - 'docs/adr/README.md'
   - 'docs/specs/disk-search.md'
-  - 'docs/gap-analysis.md'
+  - 'docs/open-questions.md'
   - 'docs/research/2026-07-03-github-actions-cd-private-debian-vm.md'
 supersedes: []
 superseded_by: null
@@ -70,11 +70,11 @@ Option 1 was rejected outright: a public repo should not run a self-hosted runne
 
 ### Confirmation
 
-gap-analysis gap #4 records this decision (superseding the earlier self-hosted-runner proposal). Confirmed when the workflow deploys on merge with zero manual steps, holds no OpenBao credential (secrets are templated on the CT by the local Agent — gap #2), and a rollback to the previous SHA is demonstrated.
+open-questions.md gap #4 records this decision (superseding the earlier self-hosted-runner proposal). Confirmed when the workflow deploys on merge with zero manual steps, holds no OpenBao credential (secrets are templated on the CT by the local Agent — gap #2), and a rollback to the previous SHA is demonstrated.
 
 ## Open Question
 
-The **ephemeral-runner tailnet auth mechanism** — Tailscale **OAuth client** (preferred: scoped, auto-rotating) vs a pre-generated ephemeral auth key — is not yet fixed; it depends on what the existing tailnet ACL setup supports (gap-analysis Open-Question #5). This ADR's decision holds regardless of which is chosen.
+The **ephemeral-runner tailnet auth mechanism** — Tailscale **OAuth client** (preferred: scoped, auto-rotating) vs a pre-generated ephemeral auth key — is not yet fixed; it depends on what the existing tailnet ACL setup supports (open-questions.md OQ2). This ADR's decision holds regardless of which is chosen.
 
 ## More Information
 

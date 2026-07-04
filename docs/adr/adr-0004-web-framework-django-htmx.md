@@ -20,7 +20,7 @@ aliases: []
 related:
   - 'docs/adr/README.md'
   - 'docs/specs/disk-search.md'
-  - 'docs/gap-analysis.md'
+  - 'docs/open-questions.md'
   - 'docs/research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md'
 supersedes: []
 superseded_by: null
@@ -70,7 +70,7 @@ Option 3 was rejected because a separate SPA adds a build pipeline, a second lan
 
 ### Confirmation
 
-The spec's framework `_TBD_` is resolved to Django, and gap-analysis Open-Question #1 is marked **Resolved → Django**. Confirmed at scaffold when `manage.py`, `contrib.auth`, initial migrations, and the admin registration land.
+The spec's framework `_TBD_` is resolved to Django, and open-questions.md resolved question RQ1 records **framework → Django**. Confirmed at scaffold when `manage.py`, `contrib.auth`, initial migrations, and the admin registration land.
 
 ## More Information
 

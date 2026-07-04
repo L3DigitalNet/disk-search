@@ -46,7 +46,7 @@ Should `disk-search` — a **single-maintainer, design-phase** repo with no appl
 ## Decision Drivers
 
 - **Team size and value model.** The Frontmatter Standard's payoff is _machine-enforced consistency across many documents and many contributors_ (a fleet/CI concern). This repo has one maintainer and low doc churn, so that payoff is marginal.
-- **Adoption + carrying cost.** Retrofitting validated frontmatter onto the README, the spec, `gap-analysis.md`, `further-research-needed-prompts.md`, and the research index — plus a CI job that must stay green on every edit — is real friction during a phase whose whole point is fast design iteration.
+- **Adoption + carrying cost.** Retrofitting validated frontmatter onto the README, the spec, `open-questions.md`, `further-research-needed-prompts.md`, and the research index — plus a CI job that must stay green on every edit — is real friction during a phase whose whole point is fast design iteration.
 - **Keep the genuinely useful part.** ADRs benefit from _structured_ `status` / `supersedes` / `superseded_by` metadata (the supersession workflow depends on it). That value is local to the ADRs, not the whole doc tree.
 - **Fewer moving CI parts** are easier to reason about on a public repo.
 - **Reversibility.** Declining now does not burn the bridge — the standard can be adopted later if the repo grows.
@@ -69,7 +69,7 @@ Chosen option: **Option 2 — decline the Markdown Frontmatter Standard and adop
 
 ### Consequences
 
-- Good, because no CI frontmatter validator to maintain and no retrofitting of README/spec/gap-analysis/research docs — design iteration stays fast.
+- Good, because no CI frontmatter validator to maintain and no retrofitting of README/spec/open-questions/research docs — design iteration stays fast.
 - Good, because ADRs remain self-describing and **forward-compatible**: if the repo later adopts the Frontmatter Standard, the ADR blocks already match its schema and only the non-ADR docs would need retrofitting.
 - Good, because the boundary is crisp and greppable — YAML frontmatter under `docs/adr/` is an ADR; its absence elsewhere is intentional.
 - Bad, because ADR frontmatter correctness (id format, date quoting, supersession links) is **not machine-enforced** — it relies on author/template discipline.
