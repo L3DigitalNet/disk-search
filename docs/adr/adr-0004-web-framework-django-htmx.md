@@ -19,7 +19,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/hw-radar.md'
+  - 'docs/specs/hw-radar-master-spec.md'
   - 'docs/resolved-questions.md'
   - 'docs/research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md'
 supersedes: []

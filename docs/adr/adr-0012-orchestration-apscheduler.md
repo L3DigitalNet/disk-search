@@ -21,7 +21,7 @@ aliases: []
 related:
   - 'docs/adr/README.md'
   - 'docs/adr/adr-0006-cd-rsync-over-tailscale-ssh.md'
-  - 'docs/specs/hw-radar.md'
+  - 'docs/specs/hw-radar-master-spec.md'
   - 'docs/resolved-questions.md'
   - 'docs/research/orchestration-choice-for-a-single-vm-price-polling-service.md'
   - 'docs/research/orchestration-engine-reconfirmation-2026.md'

@@ -19,7 +19,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/hw-radar.md'
+  - 'docs/specs/hw-radar-master-spec.md'
   - 'docs/resolved-questions.md'
   - 'docs/research/principled-deal-score-for-hard-drive-listings.md'
   - 'docs/research/drive-deal-scoring-model-test-results.md'

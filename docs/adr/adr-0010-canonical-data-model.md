@@ -20,7 +20,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/hw-radar.md'
+  - 'docs/specs/hw-radar-master-spec.md'
   - 'docs/open-questions.md'
   - 'docs/resolved-questions.md'
   - 'docs/research/database-architecture.md'
@@ -47,7 +47,7 @@ MADR status: **accepted**.
 
 The hardest modeling problem in Hardware Radar is **identity**: recognizing that listings from ~20 merchants — with different titles, SKUs, and identifiers — refer to the same physical drive, while keeping genuinely different things distinct (16 TB vs 18 TB; **new vs recertified**; SATA vs SAS). The accumulating price history is the tool's compounding value, so whatever the canonical entity is, it is the single most **costly-to-reverse** table in the system — every offer, score, and observation references it, and history accrues under it. Getting the grain wrong means a later rewrite, not a migration.
 
-Two forces constrain the choice, and they pull in opposite directions ([General Design Principles](../specs/hw-radar.md#general-design-principles)):
+Two forces constrain the choice, and they pull in opposite directions ([General Design Principles](../specs/hw-radar-master-spec.md#1-purpose--background-light)):
 
 - **Extensibility & Expandability** — the catalog must accommodate more marketplaces, scoring criteria, users, and eventually **other hardware types** (RAM, GPUs) without a schema rewrite.
 - **Engineered to Needs** — do not over-engineer; v1 is drives only.

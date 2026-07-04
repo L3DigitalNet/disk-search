@@ -3,7 +3,7 @@
 # Repo is scaffolded and the verification gate is LIVE and green (uv · Ruff ·
 # BasedPyright strict · pytest + coverage · pip-audit; run `uv run python -m scripts.check`).
 # Feature implementation has not started — src/hw_radar is a version-only skeleton.
-# See AGENTS.md for the toolchain contract and docs/specs/hw-radar.md for the design.
+# See AGENTS.md for the toolchain contract and docs/specs/hw-radar-master-spec.md for the design.
 # Remaining standard deviation (.vscode/ and CLAUDE.md kept git-ignored) is recorded in
 # docs/adr/adr-0002-python-tooling-standard-local-deviations.md.
 

@@ -79,13 +79,13 @@ Full write-ups of the twelve original **gaps** and their decisions (provenance f
 
 ### Gap 1 — Web-app authentication (settled, ADR 0005)
 
-**Was:** the spec asserted "user authentication for secure access" and anticipated future multi-user, but defined no auth model, mechanism, or user schema. Evidence: [`hw-radar.md:7`](specs/hw-radar.md), [`:79`](specs/hw-radar.md).
+**Was:** the spec asserted "user authentication for secure access" and anticipated future multi-user, but defined no auth model, mechanism, or user schema. Evidence: [`hw-radar.md:7`](archived/hw-radar.md), [`:79`](archived/hw-radar.md).
 
 **Decision → [ADR 0005](adr/adr-0005-single-account-session-auth.md):** a single strong-password account with **Argon2id** session login (Django `contrib.auth`), internet-facing; the load-bearing constraint is that the app holds **no in-app secrets**. Stub a `users` table now; **Authelia forward-auth** reserved for the multi-user end state. Full context and the forward-auth security rules (localhost bind, header overwrite, CVE-pinned gateway) live in the ADR. Research: [`auth-for-self-hosted-single-maintainer-python-app.md`](research/2026-07-03-auth-for-self-hosted-single-maintainer-python-app.md).
 
 ### Gap 2 — `.env` secrets model → OpenBao (settled except `secret_id` delivery)
 
-**Was:** the spec repeatedly said secrets live in a committed-excluded `.env`, but the org standard is **OpenBao as the credential store**, and it never answered **how the deployed app obtains secrets at runtime** — a real contradiction, sharpened by the repo being public. Evidence: [`hw-radar.md:62`](specs/hw-radar.md), [`:82`](specs/hw-radar.md), [`:95`](specs/hw-radar.md), [`:107`](specs/hw-radar.md), [`:111`](specs/hw-radar.md).
+**Was:** the spec repeatedly said secrets live in a committed-excluded `.env`, but the org standard is **OpenBao as the credential store**, and it never answered **how the deployed app obtains secrets at runtime** — a real contradiction, sharpened by the repo being public. Evidence: [`hw-radar.md:62`](archived/hw-radar.md), [`:82`](archived/hw-radar.md), [`:95`](archived/hw-radar.md), [`:107`](archived/hw-radar.md), [`:111`](archived/hw-radar.md).
 
 **Decision:**
 
@@ -98,7 +98,7 @@ Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-
 
 ### Gap 3 — Currency / landed-cost normalization (settled, ADR 0008)
 
-**Was:** the score is `USD` per `TB`, but several ranked merchants (ETB Technologies, Bargain Hardware) are UK/EU resellers pricing in GBP/EUR, and the buyer is US-based — cross-border listings scored on a false basis. Evidence: [`hw-radar.md:13`](specs/hw-radar.md), merchants at [`:40`–`:41`](specs/hw-radar.md).
+**Was:** the score is `USD` per `TB`, but several ranked merchants (ETB Technologies, Bargain Hardware) are UK/EU resellers pricing in GBP/EUR, and the buyer is US-based — cross-border listings scored on a false basis. Evidence: [`hw-radar.md:13`](archived/hw-radar.md), merchants at [`:40`–`:41`](archived/hw-radar.md).
 
 **Decision (owner, 2026-07-03 — accepted with changes) → [ADR 0008](adr/adr-0008-currency-landed-cost-normalization.md):**
 
@@ -111,13 +111,13 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 ### Gap 4 — Deployment & service topology (settled, ADR 0006)
 
-**Was:** "GitHub Actions → automatic deployment to Hetzner on merge to main" stated the _what_, never the _how_: transport, how the app runs as a service, how CI reaches a non-public target. Evidence: [`hw-radar.md:72`–`:75`](specs/hw-radar.md).
+**Was:** "GitHub Actions → automatic deployment to Hetzner on merge to main" stated the _what_, never the _how_: transport, how the app runs as a service, how CI reaches a non-public target. Evidence: [`hw-radar.md:72`–`:75`](archived/hw-radar.md).
 
 **Decision → [ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md):** a **GitHub-hosted `ubuntu-latest`** runner builds/tests, joins the tailnet **ephemerally**, then `rsync`s to the CT and restarts over `tailscale ssh` (self-hosted runner rejected on a public repo). Systemd web + worker units under a dedicated non-root user; **timers** for scrapes; venv built on the CT (`uv sync --frozen`); expand/contract migrations before restart. Full trigger/secret discipline lives in the ADR. **Settled 2026-07-04 (verified live):** the ephemeral-runner tailnet auth → the **Tailscale OAuth client** (`secret/infra/tailscale-oauth`, minting a `tag:ci` ephemeral node) via `tailscale/github-action` v4 → **[OQ2](#oq2--ephemeral-runner-tailnet-auth)**. Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md); per-source scheduling refined in [`orchestration-choice…md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md) (and superseded by [OQ12](#oq12--orchestration-engine-apscheduler-vs-systemd-timers)/[ADR 0012](adr/adr-0012-orchestration-apscheduler.md) — systemd supervises one APScheduler poller, not per-scrape timers).
 
 ### Gap 5 — Backup / disaster recovery (settled CT path, ADR 0003)
 
-**Was:** the accumulated historical price data _is_ the tool's compounding value; a single box with no backup means one disk failure erases the moat. Evidence: [`hw-radar.md:19`](specs/hw-radar.md), [`:22`](specs/hw-radar.md); DB co-located per [`:69`](specs/hw-radar.md).
+**Was:** the accumulated historical price data _is_ the tool's compounding value; a single box with no backup means one disk failure erases the moat. Evidence: [`hw-radar.md:19`](archived/hw-radar.md), [`:22`](archived/hw-radar.md); DB co-located per [`:69`](archived/hw-radar.md).
 
 **Decision (CT path) — [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md):** add the hw-radar **CT** to the existing Hetzner restic + hourly-dump pipeline; keep the monthly restore-test discipline. **Settled 2026-07-03:** DB placement → **own Postgres inside the hw-radar CT** (self-contained; [OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct)). **Still open:** DB-RPO acceptance → **[OQ3](open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling)** (owner: document requirements in the `homelab` repo first).
 
@@ -133,7 +133,7 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 ### Gap 6 — Application self-observability (settled CT path except off-box heartbeat)
 
-**Was:** deal alerts tell the _user_ about drives; nothing tells the _operator_ that the app is down, out of disk, a scrape stopped, or alert emails aren't delivered. Evidence: [`hw-radar.md:11`](specs/hw-radar.md).
+**Was:** deal alerts tell the _user_ about drives; nothing tells the _operator_ that the app is down, out of disk, a scrape stopped, or alert emails aren't delivered. Evidence: [`hw-radar.md:11`](archived/hw-radar.md).
 
 **Decision (CT path):** split the concern — **infrastructure health** (up/disk/CPU/RAM) rides the existing Hetzner monitoring, which **auto-discovers the CT**; **application-level health** stays in-app via the **`scraper_runs` table** (shared with gap #9 / OQ8), a **dead-man's-switch heartbeat**, and **email-delivery confirmation**. **Settled 2026-07-03:** the off-box heartbeat → the **off-site GMK Uptime Kuma** watches the CT (also swept by the Hetzner Fleet Digest) → **[OQ5](#oq5--off-box-heartbeat)**.
 
@@ -147,13 +147,13 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 ### Gap 7 — UI/UX (settled: Django + HTMX + post-alert model; inventory open)
 
-**Was:** "Provides a user-friendly web-based interface" with no page inventory, flows, or post-alert action model. Evidence: [`hw-radar.md:20`](specs/hw-radar.md).
+**Was:** "Provides a user-friendly web-based interface" with no page inventory, flows, or post-alert action model. Evidence: [`hw-radar.md:20`](archived/hw-radar.md).
 
 **Decision (settled parts):** **rendering — [ADR 0004](adr/adr-0004-web-framework-django-htmx.md):** Django + server-rendered templates + HTMX, matching a single-maintainer, data-heavy CRUD+dashboard app without an SPA build chain; use the **Django admin as internal back-office**. **Post-alert model:** a per-watch, per-listing **state machine** (`none / pending / firing / cooling / digested`), first-class snooze at two granularities, one-click HMAC-signed action links, watch-as-unit-of-opt-out; dedup on listing + alert fingerprints. **Watch-rule UI:** hard filters separate from thresholds, no free-text title matching. **Still open:** the final page inventory, the dismiss→suppress feedback path, and purchase-tracking scope → **[OQ6](#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking)**. Research: [`opinionated-core-stack-recommendations…md`](research/opinionated-core-stack-recommendations-for-a-python-drive-price-monitor.md), [`designing-a-low-noise-alerting-layer…md`](research/designing-a-low-noise-alerting-layer-for-a-hard-drive-deal-monitor.md).
 
 ### Gap 8 — v1 scope / phasing / acceptance criteria (settled)
 
-**Was:** the spec said v1 "will not" optimize for other users, but never stated what v1 **does** include vs defers across 20 marketplaces + scoring + entity resolution + a web UI. Evidence: [`hw-radar.md:7`](specs/hw-radar.md).
+**Was:** the spec said v1 "will not" optimize for other users, but never stated what v1 **does** include vs defers across 20 marketplaces + scoring + entity resolution + a web UI. Evidence: [`hw-radar.md:7`](archived/hw-radar.md).
 
 **Decision — phased milestones accepted as planning input;** the authoritative phased spec will be authored with the **`spec-pipeline`** plugin (these milestones map onto its phases, and the acceptance criteria are the raw material for each phase's exit gate).
 
@@ -189,7 +189,7 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 ### Gap 9 — Scraper testing strategy (settled stack + amendments; build-time params open)
 
-**Was:** CI names "testing workflows" but the spec never said **how** to test scrapers against sites that change and fight bots. Evidence: [`hw-radar.md:73`](specs/hw-radar.md).
+**Was:** CI names "testing workflows" but the spec never said **how** to test scrapers against sites that change and fight bots. Evidence: [`hw-radar.md:73`](archived/hw-radar.md).
 
 **Decision (settled):**
 
@@ -202,13 +202,13 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 ### Gap 10 — Running-cost / budget model (settled approach; pricing pass open)
 
-**Was:** paid search APIs, AgentMail, object storage, and possible managed-scraping APIs had no aggregate budget or ceiling to design polling frequency against. Evidence: [`hw-radar.md:55`](specs/hw-radar.md), [`:109`–`:111`](specs/hw-radar.md).
+**Was:** paid search APIs, AgentMail, object storage, and possible managed-scraping APIs had no aggregate budget or ceiling to design polling frequency against. Evidence: [`hw-radar.md:55`](archived/hw-radar.md), [`:109`–`:111`](archived/hw-radar.md).
 
 **Decision (approach):** **prefer free official feeds** (eBay Browse/Feed, structured-data parsing) over paid search calls — search APIs are for _discovery_, not per-poll refresh. **Config-driven per-source poll budget** held under a stated **monthly ceiling**, reusing the orchestration research's **two-level token buckets** (per-source + per-domain). Track actuals via the `scraper_runs` table. Managed-scraping APIs avoided for this merchant set (free structured data covers it; reserve them for a hostile tail — or skip the source). **Still open:** the build-time pricing pass (current Serper/Brave/Tavily per-call pricing, AgentMail, backup object-storage costs; Brave storage-rights plan) → **[OQ7](#oq7--running-cost-budget-model-build-time-pricing-pass)**. Research: [`programmatic-acquisition…md`](research/programmatic-acquisition-research-for-enterprise-and-nas-drive-merchants.md), [`tavily-brave-serper.md`](research/tavily-brave-serper.md), [`pragmatic-architecture…md`](research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md), [`orchestration-choice…md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md).
 
 ### Gap 11 — Shipping (and tax) in the `$/TB` score (settled)
 
-**Was:** `$/TB` on item price alone misranks a cheap drive with high shipping — even domestically. Evidence: [`hw-radar.md:13`](specs/hw-radar.md).
+**Was:** `$/TB` on item price alone misranks a cheap drive with high shipping — even domestically. Evidence: [`hw-radar.md:13`](archived/hw-radar.md).
 
 **Decision (accepted):**
 
@@ -220,7 +220,7 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 ### Gap 12 — Cold-start scoring (settled)
 
-**Was:** the moving-baseline / percentile scoring needs accumulated history that doesn't exist at launch. Evidence: [`hw-radar.md:19`](specs/hw-radar.md), [`:22`](specs/hw-radar.md).
+**Was:** the moving-baseline / percentile scoring needs accumulated history that doesn't exist at launch. Evidence: [`hw-radar.md:19`](archived/hw-radar.md), [`:22`](archived/hw-radar.md).
 
 **Decision (resolved via research):**
 
@@ -362,7 +362,7 @@ If additional research is needed, we should use the `/qdev:research` command to 
 
 ### OQ9 — Acquisition cadence, throttle & skip policy
 
-**✅ Resolved (research 2026-07-04, [`per-source-polling-cadence-and-skip-policy.md`](research/per-source-polling-cadence-and-skip-policy.md)) — no ADR; this is the record.** "Aggressive but self-moderating" is encoded as **baseline + hard ceiling per tier + earned auto-ramp**, never one fixed number. (Folds General Design Principles findings #1 + #5; the spec's principle is now **"Moderate Aggressive Usage"** at [`hw-radar.md:21`](specs/hw-radar.md), and the "real-time" Features framing is confirmed consistent — no reword.)
+**✅ Resolved (research 2026-07-04, [`per-source-polling-cadence-and-skip-policy.md`](research/per-source-polling-cadence-and-skip-policy.md)) — no ADR; this is the record.** "Aggressive but self-moderating" is encoded as **baseline + hard ceiling per tier + earned auto-ramp**, never one fixed number. (Folds General Design Principles findings #1 + #5; the spec's principle is now **"Moderate Aggressive Usage"** at [`hw-radar.md:21`](archived/hw-radar.md), and the "real-time" Features framing is confirmed consistent — no reword.)
 
 - **Per-tier cadence (baseline → ceiling):** **T0** eBay API 10 min → 2 min · **T1** WD/Seagate direct 30 min → 5 min · **T2** specialist/VAR resellers (ServerPartDeals, goHardDrive, B&H, CDW, Insight) 1 h → 15 min · **T3** anti-bot-exposed (Newegg, Amazon-scrape, PCNation, Wiredzone) 2 h → 30 min · **T4** refurb/regional (TechMikeNY, ETB, Bargain Hardware, …) 4 h → 1 h.
 - **Auto-ramp:** after **N=4** consecutive clean polls (no error/soft-block, latency < 2× rolling median) halve the interval, floored at the tier ceiling; any throttle/soft-block resets to baseline and hands to the back-off ladder.
@@ -402,7 +402,7 @@ Only **wiring remains** (M5 implementation), not a decision. **Features resilien
 
 ### OQ11 — Composite scoring model (adopt research #4)
 
-**✅ Resolved (tested 2026-07-04, results: [`drive-deal-scoring-model-test-results.md`](research/drive-deal-scoring-model-test-results.md)) → [ADR 0011](adr/adr-0011-composite-deal-score.md).** Adopt the **weighted geometric mean** over four normalized subscores (price cheapness-percentile 0.50 · seller trust Bayesian+Wilson 0.25 · fitness-for-purpose 0.15 · availability 0.10) with **non-compensatory veto caps** (device-managed SMR → 35; used/no-return → 60; low-trust → 60) and a **glass-box stored per-subscore explanation**. The model was implemented verbatim and run against a seeded mock dataset (5 cohorts, 8 archetypes) **before** the ADR — it passes (all three caps bind; ranking intuitive; 6/8 archetypes hit their a-priori band). One load-bearing calibration adopted: **warm-up full-confidence target `n_eff 50 → 30`** (a 64-observation cohort only reached n_eff ≈ 49 under the 30-day half-life). The price subscore internals come from gap #11 (shipping/tax in `$/TB`) and gap #12 (cohort percentile + warm-up `λ`); ADR-0011 is the outer composite. Fills spec `## Scoring System`; maps onto milestone M2.
+**✅ Resolved (tested 2026-07-04, results: [`drive-deal-scoring-model-test-results.md`](research/drive-deal-scoring-model-test-results.md)) → [ADR 0011](adr/adr-0011-composite-deal-score.md).** Adopt the **weighted geometric mean** over four normalized subscores (price cheapness-percentile 0.50 · fitness-for-purpose 0.25 · seller trust Bayesian+Wilson 0.15 · availability 0.10) with **non-compensatory veto caps** (device-managed SMR → 35; used/no-return → 60; low-trust → 60) and a **glass-box stored per-subscore explanation**. The model was implemented verbatim and run against a seeded mock dataset (5 cohorts, 8 archetypes) **before** the ADR — it passes (all three caps bind; ranking intuitive; 6/8 archetypes hit their a-priori band). One load-bearing calibration adopted: **warm-up full-confidence target `n_eff 50 → 30`** (a 64-observation cohort only reached n_eff ≈ 49 under the 30-day half-life). The price subscore internals come from gap #11 (shipping/tax in `$/TB`) and gap #12 (cohort percentile + warm-up `λ`); ADR-0011 is the outer composite. Fills spec `## Scoring System`; maps onto milestone M2.
 
 **My Comments:** Before writing an ADR on the scoring model, I want to test it against mock data to see if it produces reasonable results. Does it actually rate items that are expected to be high or low correctly? Claude will create a small dataset of hard drive listings with various attributes and run the scoring algorithm to see if the output aligns with expectations. Conduct any additional research necessary: do this research using /qdev:research and update the open question and existing research doc(s) with the findings. Also create a comprehensive report/results document at `docs/research/drive-deal-scoring-model-test-results.md` that includes the dataset, the scoring results, and any analysis or conclusions drawn from the test.
 

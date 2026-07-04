@@ -1,0 +1,1234 @@
+---
+spec_id: SPEC-0000
+title: "Hardware Radar (hw-radar)"
+status: draft # draft | review | approved | superseded
+profile: standard # template default — unresolved; full skeleton retained regardless, by owner direction (see Revision History note)
+owner: "<person or team>"
+implementer: "<person, team, or coding agent>"
+created: "2026-07-04"
+last_reviewed: "2026-07-04"
+supersedes: "docs/archived/hw-radar.md" # original spec; it predates the template and has no spec_id
+superseded_by: null
+related:
+  adrs:
+    - ../adr/adr-0001-decline-markdown-frontmatter-standard.md
+    - ../adr/adr-0002-python-tooling-standard-local-deviations.md
+    - ../adr/adr-0003-deploy-as-lxc-container.md
+    - ../adr/adr-0004-web-framework-django-htmx.md
+    - ../adr/adr-0005-single-account-session-auth.md
+    - ../adr/adr-0006-cd-rsync-over-tailscale-ssh.md
+    - ../adr/adr-0007-datastore-postgresql-timescaledb.md
+    - ../adr/adr-0008-currency-landed-cost-normalization.md
+    - ../adr/adr-0009-secrets-runtime-openbao-agent.md
+    - ../adr/adr-0010-canonical-data-model.md
+    - ../adr/adr-0011-composite-deal-score.md
+    - ../adr/adr-0012-orchestration-apscheduler.md
+    - ../adr/adr-0013-notification-transport-m365-graph.md
+    - ../adr/adr-0014-scraping-runtime-escalation-stack.md
+  tickets: []
+  repositories:
+    - "https://github.com/L3DigitalNet/hw-radar"
+  prior_specs:
+    - "docs/archived/hw-radar.md"
+---
+
+# Hardware Radar (hw-radar) — Specification
+
+---
+
+## Revision History `[Light]`
+
+| Version | Date       | Author                              | Change                                                                                                                                     |
+| ------- | ---------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0.1     | 2026-07-04 | Claude (consolidation, owner-directed) | Initial consolidation of the original spec (`docs/archived/hw-radar.md`), ADRs 0001–0014, and the resolved/open question record into SPEC-0000. |
+
+**Spec lifecycle:** This document is **living until `approved`**, then **change-controlled**: post-approval edits require a new revision row and, for scope-affecting changes, re-approval by the owner. Implementation deviations are recorded in the [Deviations Log](#deviations-log-light), not silently patched into requirements. When replaced, set `status: superseded` and `superseded_by:` in the frontmatter.
+
+> **Consolidation notes (owner-directed, 2026-07-04):**
+>
+> 1. This spec **reflects existing repo state only** — it consolidates the original spec, the ADRs (the authoritative decision record), and the open/resolved-question record. It resolves nothing new.
+> 2. The **full template skeleton is retained** regardless of profile, by explicit owner direction (overriding the template's profile-pruning instruction) — this spec is expected to grow. Sections with no supporting repo content keep their template guidance wrapped in `<placeholder-guidance>` tags; that text is **not spec content**.
+> 3. Items settled in [`resolved-questions.md`](../resolved-questions.md) **without** an ADR are marked **_provisional_** throughout: they are the current working position, not locked decisions. ADRs are the authoritative record for decisions.
+
+---
+
+## 1. Purpose & Background `[Light]`
+
+Hardware Radar is a search-and-monitoring tool that watches ~20 online marketplaces — manufacturer recertified stores, storage-specialist resellers, major retailers/marketplaces (eBay, Amazon, Newegg), business VARs, and refurbished-server sellers — for hard disk drives (HDDs) and solid-state drives (SSDs). It scores each listing (0–100) on price, availability, seller reputation, and fitness-for-purpose to surface the best deals for a homelab/small-business buyer who favors **enterprise/NAS-grade** and **recertified** drives, and it alerts on availability and price drops.
+
+- **Who has the problem:** the single owner/maintainer, buying drives for L3Digital assets. The tool is built for personal/business use and optimized for the owner's convenience; the first version deliberately does not spend effort on multi-user friendliness or cross-compatibility.
+- **The outcome:** the owner can see, in one place, the current best drive deals across the monitored merchants, understand *why* each deal scored what it did, and get a low-noise email when a watch-worthy deal appears or a price drops.
+- **First-release scope:** drives (HDD/SSD) only; single account; the six-milestone MVP plan in §19. Extensibility to more users, marketplaces, scoring criteria, alert channels, and hardware types (RAM, GPUs) must remain possible without a rewrite (§2.4 of the General Design Principles, structurally satisfied by [ADR 0010](../adr/adr-0010-canonical-data-model.md)).
+- **Compounding value:** the **accumulating price-history database is the tool's moat** — repeated price observations over time enable the cohort-relative scoring ([ADR 0011](../adr/adr-0011-composite-deal-score.md)) and historical trend analysis, and are the primary reason backup coverage is load-bearing ([ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md)).
+
+**General Design Principles** (carried verbatim in intent from the original spec — they bound every decision below):
+
+- **Engineered to Needs** — meet the owner's specific needs; do not over-engineer until proven necessary.
+- **Extensibility & Expandability** — easy future expansion to additional users/accounts/preferences, marketplaces, scoring criteria, alerting mechanisms, and hardware types (RAM, GPUs, …).
+- **Maintainability** — clean, well-documented code following best practices.
+- **Reliability** — robust, graceful error handling; keeps functioning when marketplace APIs or networks misbehave.
+- **Security** — sensitive information (API keys, credentials) handled securely; never committed, hard-coded, or exposed.
+- **Moderate Aggressive Usage** — avoid excessive requests or scraping that could be considered abusive, violate terms of service, or result in rate limiting.
+
+---
+
+## 2. Scope `[Light]`
+
+### 2.1 In Scope
+
+- Continuous / near-real-time monitoring of ~20 online marketplaces for HDD and SSD listings (full marketplace list: Appendix C.1).
+- Tiered acquisition: official APIs → machine-readable structured data → HTTP scrape, escalating browser-last ([ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md)); search APIs for discovery only.
+- Canonical-entity normalization and cross-marketplace entity resolution ([ADR 0010](../adr/adr-0010-canonical-data-model.md)).
+- Currency/landed-cost normalization to USD ([ADR 0008](../adr/adr-0008-currency-landed-cost-normalization.md)).
+- Explainable 0–100 composite deal scoring ([ADR 0011](../adr/adr-0011-composite-deal-score.md)).
+- A database of current and past listings with price-history time series ([ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)), sortable/filterable by user preferences (brand, capacity, interface type, …).
+- Email alerts on availability and price drops, with dedup/debounce ([ADR 0013](../adr/adr-0013-notification-transport-m365-graph.md)).
+- A single-account, web-based UI (dashboard, listing detail, watches, price history) ([ADR 0004](../adr/adr-0004-web-framework-django-htmx.md), [ADR 0005](../adr/adr-0005-single-account-session-auth.md)).
+- Historical data analysis: price trends and availability patterns over time.
+
+### 2.2 Out of Scope (Non-Goals — never)
+
+| ID     | Non-Goal                                                                                       | Reason                                                                                                                                       |
+| ------ | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| NG-001 | Payment processing or facilitating transactions between buyers and sellers.                     | The tool only collects, stores, and presents information and alerts (original spec, Out of Scope).                                            |
+| NG-002 | Logging in to merchant sites, bypassing anti-bot protections, or solving CAPTCHAs to scrape.    | Legal/ToS posture: public logged-out pages only; this guardrail bounds the Moderate Aggressive Usage principle (original spec, Special Considerations). |
+| NG-003 | LLM-driven "browser agents" for scraping.                                                       | Playwright use is code-driven, deterministic, headless automation only ([ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md)).    |
+
+### 2.3 Won't Have in v1 (deferred — not never)
+
+| ID | Deferred Capability | Why Deferred | Revisit When |
+| --- | --- | --- | --- |
+| WH-001 | Multi-user auth (Authelia forward-auth, MFA) | Premature for a single user; adds an identity provider with no current need ([ADR 0005](../adr/adr-0005-single-account-session-auth.md)) | Additional users actually needed (the `users` table is stubbed now so this is additive) |
+| WH-002 | SMS / push notification channels | Email covers v1; SMS/push named as potential future channels (original spec) | Owner demand |
+| WH-003 | Additional hardware types (RAM, GPUs, …) | v1 is drives only; the identity spine is category-generic so this is a new satellite + rows, not a rewrite ([ADR 0010](../adr/adr-0010-canonical-data-model.md)) | Post-v1, if the tool proves useful |
+| WH-004 | Paid transactional email provider (Postmark primary / SES fallback) | Owner constraint: v1 email must be free ([ADR 0013](../adr/adr-0013-notification-transport-m365-graph.md)) | Deliverability proves a problem |
+| WH-005 | Purchase analytics (realized savings, spend history) | Comparable tools use "purchased" only to stop tracking; ship only a `purchased` flag + two nullable fields as scaffolding (_provisional_ — [resolved-questions.md OQ6](../resolved-questions.md#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking), no ADR) | Post-v1 |
+| WH-006 | Error tracking (GlitchTip / Sentry) | Not in the existing homelab stack; add only if wanted (resolved gap #6) | Operator demand |
+| WH-007 | Secondary analytics warehouse (ClickHouse) / search index (OpenSearch) | Scale-out path only; PostgreSQL+TimescaleDB is the source of truth ([ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)) | Analytics or search UX demands it |
+
+### 2.4 Boundaries
+
+| Boundary | Description |
+| --- | --- |
+| System owns | The listings/price-history database (canonical entities, listings, observations, scores, watches, alert state), the scoring math and its explanation payloads, the acquisition scheduler and per-source governance state, the web UI, and outbound alert emails. |
+| System depends on | The ~20 monitored marketplaces (pages + official APIs, esp. eBay Browse/Feed); search APIs (Serper/Brave/Tavily) for discovery; Frankfurter for FX; the OpenBao `bao-services` store + local `bao-agent` for runtime secrets; Microsoft Graph → M365 for email; NGINX + Let's Encrypt; the Hetzner Proxmox host and its restic/dump backup + fleet-digest monitoring pipelines; the off-site GMK Uptime Kuma heartbeat; Tailscale (admin/CD path); GitHub Actions (CI/CD). |
+| System does not own | Marketplace data policies/ToS; the homelab backup and monitoring scripts (private `homelab` repo — hw-radar must be *wired into* them at provisioning); the M365 tenant; the tailnet ACL; DNS/certificates beyond its own vhost. |
+
+---
+
+## 3. Context `[Standard]`
+
+### 3.1 Current State
+
+The repo is **scaffolded but feature-less**: the Python toolchain (uv · Ruff · BasedPyright strict · pytest + coverage · pip-audit) is live and green (`AGENTS.md`, [ADR 0002](../adr/adr-0002-python-tooling-standard-local-deviations.md)), CI runs the gate, and `src/hw_radar/` is a version-only skeleton. All design substance lives in this spec, the ADRs ([`docs/adr/`](../adr/)), the research corpus ([`docs/research/`](../research/)), and the question record ([`open-questions.md`](../open-questions.md) / [`resolved-questions.md`](../resolved-questions.md)). No server is provisioned yet; the target infrastructure (Hetzner CT fleet, backup/monitoring pipelines, `bao-services` secrets store) exists and was live-verified 2026-07-03/04. There is no existing implementation being replaced — the "current state" for the *problem* is manual deal-hunting across merchant sites.
+
+### 3.2 Target State
+
+A dedicated LXC container on the Hetzner Proxmox host runs the Django web app, the APScheduler poller, its own PostgreSQL+TimescaleDB, and a local OpenBao Agent; merge to `main` deploys automatically; the owner uses `https://hw-radar.l3digital.net` to browse scored deals and manage watches, and receives deduplicated alert emails via the M365 Graph path; the CT is wired into the existing backup and monitoring pipelines plus an off-box heartbeat.
+
+### 3.3 Assumptions
+
+| ID    | Assumption | Impact if False |
+| ----- | ---------- | ---------------- |
+| A-001 | The web app holds **no secrets or sensitive data** (secrets resolve at runtime via the local OpenBao Agent and never live in the app). | The single-account auth model ([ADR 0005](../adr/adr-0005-single-account-session-auth.md)) loses its load-bearing rationale and must be revisited — this constraint "must remain true for this decision to stay valid." |
+| A-002 | The M365 tenant (already paid for and operated) remains available for Graph `sendMail`. | Alerting fails over to the AgentMail free fallback; a total/durable loss reopens the transport decision ([ADR 0013](../adr/adr-0013-notification-transport-m365-graph.md)). |
+| A-003 | The Hetzner CT infrastructure behaves as characterized 2026-07-03 (file-level restic + hourly logical dumps, allowlist-based; fleet-digest auto-discovers CTs from `pct list`) — resolved-questions.md RQ4. | Backup/monitoring reuse assumptions break; the CT-vs-VM trade ([ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md)) would need re-evaluation. |
+| A-004 | The tailnet ACL currently allows the ephemeral `tag:ci` runner to reach the CT (grants are wildcard as of 2026-07-04). | When the wildcard→scoped ACL migration lands without an explicit `tag:ci → hw-radar CT:22` grant, **the deploy silently breaks** (resolved-questions.md OQ2 / [ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md)). |
+| A-005 | Most target sources keep exposing needed fields via structured data (JSON-LD, platform JSON, bootstrap JSON) on plain HTTP. | Sources escalate up the tier ladder (`curl_cffi` → Playwright → managed unblocker → skip) per [ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md) and the OQ9 skip policy. |
+| A-006 | 2026 drive prices reflect an abnormal, supply-constrained run-up (~46%); any seeded `$/TB` baseline is market-dated. | Seeded baselines mislead; they must be timestamped and aged out as real observations accrue (resolved gap #12). |
+
+### 3.4 Constraints
+
+| ID | Constraint | Source |
+| --- | --- | --- |
+| C-001 | The repository is **public**: no secrets, internal hostnames/IPs, or infrastructure addresses in files or commits; OpenBao *paths* are acceptable as references. Live infra specifics stay in the private `homelab` repo. | Repo convention; ADR 0003/0009 disclosure boundary |
+| C-002 | OpenBao is the org credential store; production resolves secrets at runtime; a local `.env` is for development only. | Org standard; [ADR 0009](../adr/adr-0009-secrets-runtime-openbao-agent.md) |
+| C-003 | Every service deploys in a dedicated LXC container (VM-direct requires a recorded exception). | Homelab standard; [ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md) |
+| C-004 | v1 email transport must be **free** (no paid email service for now). | Owner (resolved-questions.md OQ13) |
+| C-005 | The deploy host blocks outbound ports 25/465 — self-hosted SMTP is out. | Hetzner ([ADR 0013](../adr/adr-0013-notification-transport-m365-graph.md)) |
+| C-006 | The Python Tooling SSOT Standard governs all code: uv, Ruff, BasedPyright strict, pytest + coverage, pip-audit; the verification gate must pass. | `AGENTS.md`; [ADR 0002](../adr/adr-0002-python-tooling-standard-local-deviations.md) |
+| C-007 | Scraping guardrails: public logged-out pages only; never log in / bypass anti-bot / CAPTCHA; `ROBOTSTXT_OBEY=True`; AUTOTHROTTLE + honor `429`/`Retry-After`; honest User-Agent; prefer official APIs; store facts not expression; no PII; stop on a specific cease-and-desist. | Original spec, Special Considerations (legal posture, re-verified 2026-07-03) |
+| C-008 | Search-API spend: owner comfort band **$10–20/month total** for the three providers combined. | Owner (resolved-questions.md OQ7/gap #10) |
+| C-009 | The public-repo CI/CD workflow holds **no OpenBao credential** — it ships code and restarts services only. | [ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md) / [ADR 0009](../adr/adr-0009-secrets-runtime-openbao-agent.md) |
+| C-010 | Admin access to the deploy target is Tailscale-only; no public SSH port. | [ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md) |
+
+---
+
+## 4. Goals `[Standard]`
+
+| ID    | Goal | Success Signal | Achieved By |
+| ----- | ---- | -------------- | ----------- |
+| G-001 | Surface the best HDD/SSD deals across the monitored marketplaces with a quantitative, explainable score. | Owner can rank/filter deals by score and inspect *why* each listing scored what it did. | FR-001–FR-006, FR-009 |
+| G-002 | Alert the owner on availability and price drops with low noise. | A matching drop fires exactly one actionable email (gap #8 / M4 acceptance). | FR-007, FR-010 |
+| G-003 | Accumulate a durable price-history dataset (the compounding moat) enabling trend analysis and cohort-relative scoring. | Repeated runs produce time-series observations under stable canonical entities; history survives failures (backups restore-tested). | FR-003, FR-006, DR-002, DR-005, §18.6 |
+| G-004 | Operate with minimal marginal cost and ops burden by reusing existing homelab infrastructure. | Zero-cost email path; search spend inside the owner's band; CT auto-monitored; backups ride the existing pipeline. | C-004, C-008, D-003, D-013, §18 |
+
+---
+
+## 5. Stakeholders and Users `[Full]`
+
+Single-stakeholder project: the owner/maintainer is simultaneously the end user, operator, developer (with coding-agent implementers bound by Appendix B), and approver. The original spec's Audience section records that v1 is optimized for the owner's convenience only, while remaining extensible to other users later.
+
+| Role / Stakeholder | Concern | Involvement |
+| --- | --- | --- |
+| Owner (single maintainer) | Deal quality, alert signal/noise, cost ceilings, legal posture | Uses system; makes all ratification decisions; approves release |
+| Coding agent (implementer) | Unambiguous requirements, verification gate, deviation protocol | Builds the system under Appendix B |
+
+---
+
+## 6. Glossary `[Standard]`
+
+| Term | Definition | Notes / Not to be confused with |
+| --- | --- | --- |
+| `product_model` | The **physical**, condition-free canonical drive entity (identity anchor: manufacturer + normalized model number, surrogate id). | Not a retail page; not condition-specific ("recert 14 TB Exos" and "new 14 TB Exos" are one model). [ADR 0010](../adr/adr-0010-canonical-data-model.md) |
+| `product_variant` | The **sellable** identity: condition · packaging · recert-channel · warranty-channel. The unit of price comparison; price analytics roll up here. | Distinct from `product_model` (physical) and `listing` (one merchant's page). |
+| `listing` | One merchant's offer page for a variant; carries a derived `listing_fingerprint`. | A listing is a *representation* of a product, never the canonical product itself. |
+| `offer_snapshot` | A time-series observation of price/stock/FX/score for a listing — the TimescaleDB hypertable. | Repeated price checks are observations, not new listings. |
+| `drive_unit` | A physical individual drive (serial + SMART/FARM data); orthogonal grain below the model. | Recert-trust evidence, not catalog identity. |
+| `retention_class` | Per-record legal-persistability class governing storage/TTL (`merchant_fact`, `ebay_listing_observation`, `amazon_ephemeral`/`amazon_identifier`, `transient_discovery`, `tavily_extract`). | Encoded in the schema, not convention. |
+| Cohort | The peer group for price scoring: capacity · tier · interface/form-factor · condition (+ DWPD endurance class for SSDs). | Cohort-relative percentile, not absolute `$/TB` thresholds. |
+| `n_eff` | Effective sample size `(Σw)²/Σ(w²)` under the 90-day window with 30-day half-life decay; full scoring confidence at `n_eff ≥ 30`. | Below 30 the score shrinks toward neutral and is marked *provisional*. |
+| Veto cap | A non-compensatory ceiling on the composite score (SMR-for-NAS → 35; used/no-returns → 60; low seller trust → 60). | A cap, not a subtractive penalty. |
+| Recertified | Factory/vendor-recertified drive (a distinct condition channel and `product_variant`). | Not the same as "used" or "seller-refurbished." |
+| CMR / SMR | Conventional vs Shingled Magnetic Recording; device-managed SMR is a hard suitability reject for enterprise/NAS use. | Stored as a typed `drive_spec` column (`recording_tech`). |
+| Tier (acquisition, T0–T4) | Per-source polling class: T0 eBay API · T1 manufacturer-direct · T2 specialist/VAR · T3 anti-bot-exposed · T4 refurb/regional. | Distinct from marketplace *trust posture* (Appendix C.1) and from the *extraction* tier ladder (JSON-LD → … → HTML). |
+| Soft-block | An HTTP-200 response that is not the real page (challenge page, empty body, missing structured data) — counted as a failed fetch. | Detection rules in §12.1 / Appendix C.2. |
+| `paused_pending_fix` | Circuit-breaker state for a source with sustained `parser_rot` or an `anti_bot` verdict: excluded from scheduling until fixed; daily recovery probe. | Distinct from permanent SKIP (registry state, human re-review). |
+| CT | LXC container on the Proxmox host (the deployment unit — [ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md)). | Not a VM. |
+| Watch | A user-defined rule (hard filters + thresholds) that matches listings and drives alerting; the unit of alert opt-out. | Watch-rule UI has no free-text title matching. |
+| OQ / RQ / gap | Open question (undecided) / resolved question / original spec-audit finding — the repo's decision-tracking IDs ([`open-questions.md`](../open-questions.md)). | §21 uses template-style `OQ-` ids mapped to these. |
+
+---
+
+## 7. Requirements `[Light — FR only; Standard — all subsections]`
+
+> **Provenance note:** the original spec expressed requirements as a Features list plus milestone acceptance criteria (resolved gap #8); the sources do not assign formal requirement IDs or Must/Should priorities. The IDs below are assigned by this consolidation for traceability; priorities are derived from milestone placement (M0–M5 all gate v1) and are **subject to owner ratification** — see the Stage 2 consolidation report.
+
+### 7.1 Functional Requirements
+
+| ID | Requirement | Rationale | Acceptance Criteria | Priority |
+| --- | --- | --- | --- | --- |
+| FR-001 | The system shall continuously (or near-real-time) monitor the ranked marketplaces (Appendix C.1) for HDD and SSD listings, via the tiered acquisition ladder (official API → structured data → HTTP scrape, browser-last). | Core purpose; "real-time" framing owner-confirmed consistent with Moderate Aggressive Usage. | M1: all 5 primary recert sources yield ≥1 normalized listing on a scheduled run; M5: ≥15 sources live. | Must |
+| FR-002 | The system shall govern per-source polling by tier (T0–T4) with baseline→ceiling cadence, earned auto-ramp, adaptive back-off, soft-block detection, and a skip decision tree. _(provisional — [resolved-questions.md OQ9](../resolved-questions.md#oq9--acquisition-cadence-throttle--skip-policy), no ADR)_ | Encodes "aggressive but self-moderating" within guardrails C-007. | Cadence, jitter, and 429/503 cooldown observable in `scraper_runs`; a soft-blocked source backs off to the 24 h cap. | Must |
+| FR-003 | The system shall normalize every acquired listing to the canonical identity ladder (`category → product_family → product_model → product_variant → listing → offer_snapshot`), resolving cross-marketplace identity via aliases + parsed attributes. | The hard problem is sameness across merchants while keeping condition/variants distinct ([ADR 0010](../adr/adr-0010-canonical-data-model.md)). | A recert and a new listing of the same drive resolve to one `product_model`, two `product_variant`s; a re-run produces new `offer_snapshot` rows, not duplicate listings. | Must |
+| FR-004 | The system shall normalize all prices to USD via a daily Frankfurter rate, stamp `fx_rate`/`fx_pair`/`fx_rate_date`/`fx_source` on each observation, fold known domestic shipping (+ tax where known) into `$/TB`, and flag (not haircut) international listings. | Cross-border listings must not be scored on a false basis; historical scores must be reproducible ([ADR 0008](../adr/adr-0008-currency-landed-cost-normalization.md)). | M1: 100% of non-USD listings carry a stored FX rate + date and a normalized USD price; international listings flagged; missing shipping is a penalty/flag. | Must |
+| FR-005 | The system shall score each listing 0–100 as a weighted geometric mean of four normalized subscores (price 0.50 · fitness 0.25 · seller 0.15 · availability 0.10), gated by the three non-compensatory veto caps, with warm-up shrinkage `λ = min(1, n_eff/30)` and cohort-relaxation fallback. | Self-adjusting, explainable, hard-to-game ranking ([ADR 0011](../adr/adr-0011-composite-deal-score.md)). | M2: every listing has a reproducible 0–100 score; thin cohorts (`n_eff < 30`) visibly shrink toward neutral and are marked provisional; documented cohort relaxation fires on small cohorts. | Must |
+| FR-006 | The system shall persist every listing's per-subscore explanation payload (percentile + margin, seller evidence, fitness pieces, cap reason) — the glass-box "why it matched" view. | Scores must stay explainable and owner-inspectable. | M2/M3: listing detail renders the per-factor breakdown and pass-margin explanations. | Must |
+| FR-007 | The system shall send email alerts on watch matches and price drops with dedup/debounce: listing + alert fingerprints, cooldown/hysteresis, HMAC-signed one-click action links, and delivery confirmation, via the M365 Graph path with AgentMail free as fallback. | Alerts are the product's payload and must not spam or double-fire ([ADR 0013](../adr/adr-0013-notification-transport-m365-graph.md); gap #7). | M4: one qualifying drop fires exactly one email; a repost under a new URL is de-duplicated; signed snooze/stop links verify; delivery failure detectably surfaced. | Must |
+| FR-008 | The system shall provide a session-authenticated web UI: Dashboard, Listing detail (score breakdown + "why it matched"), Watches manager (hard filters vs thresholds, no free-text title matching), Price-history view, and listing-state controls, with the Django admin as internal back-office. _(page inventory provisional — [resolved-questions.md OQ6](../resolved-questions.md#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking), no ADR)_ | Owner's working surface (gap #7; [ADR 0004](../adr/adr-0004-web-framework-django-htmx.md)). | M3: owner can filter the dashboard by brand/capacity/tier/interface/condition and create/edit/delete a watch; state changes persist. | Must |
+| FR-009 | The system shall support sorting, filtering, and historical analysis of listings and price trends over time. | Informed purchasing decisions (original spec, Features). | Price-history view renders per-variant trend data from stored observations. | Must |
+| FR-010 | The system shall track post-alert state per watch × listing (`none / pending / firing / cooling / digested`), support snooze at watch and listing granularity, and treat dismiss as a permanent per-listing suppression (a terminal `watch_match_state` enum value). _(provisional — resolved-questions.md OQ6, no ADR)_ | Low-noise alerting; "done with this" is binary and permanent in every comparable tool. | Dismissed listings never re-alert; snoozes expire on schedule. | Must |
+| FR-011 | The system shall govern its own outbound search-API calls with the ordered `SearchBudgetGate`: kill switch → persisted spend-cap circuit-breaker (reserve-then-call) → failing-provider breaker → per-provider token bucket, with per-provider user settings. _(provisional — [resolved-questions.md OQ7](../resolved-questions.md#oq7--running-cost-budget-model-build-time-pricing-pass), no ADR)_ | Runaway-bug cost guard; provider dashboard caps are alert-only. | A provider whose daily cap is exhausted fails safe (`budget_exhausted`) before the call is made. | Must |
+| FR-012 | The system shall record a `purchased` status flag (+ optional nullable price/date fields) on listings, as scaffolding only. _(provisional — resolved-questions.md OQ6, no ADR)_ | Stop tracking purchased items; analytics deferred (WH-005). | Marking purchased stops tracking/alerting for that listing. | Could |
+
+### 7.2 Non-Functional Requirements
+
+| ID | Category | Requirement | Measurement / Acceptance Criteria | Priority |
+| --- | --- | --- | --- | --- |
+| NFR-001 | Reliability | Acquisition shall be per-source isolated with retry/back-off and automatic circuit-breaking of failing or anti-bot-protected sources (`paused_pending_fix`), plus operator health alerts — one marketplace failing degrades gracefully without stopping the others. _(provisional — [resolved-questions.md OQ10](../resolved-questions.md#oq10--reliability--resilient-acquisition), no ADR)_ | A deliberately failed source moves to `paused_pending_fix` while other sources keep polling (M5). | Must |
+| NFR-002 | Compliance/politeness | All scraped (non-API) acquisition shall operate within the C-007 guardrails (robots.txt, throttling, honest UA, no bypass, facts-not-expression, per-source retention class). | Guardrails encoded in the scraper configuration; retention classes non-null on every evidence table. | Must |
+| NFR-003 | Security | Secrets shall never be committed, hard-coded, or exposed; production resolves them from OpenBao at runtime via the local Agent (tmpfs render, no plaintext at rest); CI holds no OpenBao credential. | M0: service reads ≥1 secret sourced from OpenBao with no plaintext `.env` on the CT; the `bao-agent` unit survives restart. | Must |
+| NFR-004 | Observability | Every scheduled/background run shall write a `scraper_runs` record (status, counts, failure class); the app shall emit a dead-man's-switch heartbeat and email-delivery confirmation; silent degradation (count vs rolling average, tier downgrade, empty results) shall be detected and alerted. _(heartbeat target provisional — [resolved-questions.md OQ5](../resolved-questions.md#oq5--off-box-heartbeat), no ADR)_ | M5: a deliberately broken parser trips a scraper-rot alert within one scheduled cycle. | Must |
+| NFR-005 | Maintainability | All code shall pass the verification gate (`uv run python -m scripts.check`: format, lint, strict types, tests + coverage, audit) locally and in CI. | Gate exit 0 on every merge (`AGENTS.md`). | Must |
+| NFR-006 | Extensibility | Adding a marketplace, scoring criterion, user, or hardware type shall not require a schema-spine or architecture rewrite (rows/satellite/plugin only). | New-category test: a `*_spec` satellite + rows suffices ([ADR 0010](../adr/adr-0010-canonical-data-model.md)). | Must |
+| NFR-007 | Reproducibility | Historical scores shall be reproducible from stored inputs (FX stamps, explanation payloads, algorithm/config versions). | Re-deriving a past `$/TB`/score uses the rate and inputs actually applied (ADR 0008/0011). | Must |
+
+### 7.3 Interface Requirements
+
+| ID | Interface | Requirement | Contract / Format | Acceptance Criteria |
+| --- | --- | --- | --- | --- |
+| IR-001 | Web UI (HTTPS) | The system shall serve the UI at `https://hw-radar.l3digital.net` behind NGINX with Let's Encrypt TLS, session-authenticated. | Server-rendered Django templates + HTMX | Authenticated pages reachable over HTTPS only (M0/M3). |
+| IR-002 | eBay Browse/Feed API | The system shall acquire eBay listings via the official Browse/Feed APIs (not scraping), honoring ≤6 h freshness, delete-on-delist, and PII-delete obligations. | eBay Browse API (REST); not a Restricted API | eBay rows carry `retention_class = ebay_listing_observation` and expire per policy. |
+| IR-003 | Microsoft Graph | The system shall send alert email via Graph `sendMail` from the branded `@l3digital.net` sender; AgentMail (`@agentmail.to`) is the independent fallback. | MS Graph REST; creds at OpenBao `secret/apps/microsoft365` | M4 send path works; fallback exercisable on demand ([ADR 0013](../adr/adr-0013-notification-transport-m365-graph.md)). |
+| IR-004 | Frankfurter FX | The system shall fetch USD conversion rates once per day from Frankfurter (ECB-anchored, keyless, MIT, self-hostable). | HTTP JSON API | FX stamps present on every non-USD observation ([ADR 0008](../adr/adr-0008-currency-landed-cost-normalization.md)). |
+| IR-005 | Secrets file | App services shall consume secrets from the tmpfs env file rendered by the local OpenBao Agent (root-owned, `0640`, app-group-readable; gone on reboot), depending on the agent unit via `After=`. | ADR 0009 convention: `/run/bao-agent/hw-radar.env` (the original spec's `/run/hw-radar/secrets.env` is a superseded path — reconciliation follow-up recorded in ADR 0009) | M0: no plaintext `.env` at rest; services read the rendered file. |
+| IR-006 | Search APIs | The system shall use Serper / Brave / Tavily for **discovery only** (never authoritative state); Google/Serper/Brave results are `transient_discovery` (TTL 0 — persist only the discovered URL, then re-fetch from the merchant); Tavily-extracted facts are persistable. | Provider REST APIs; keys at OpenBao `secret/api-keys/search/` | No provider snippets/JSON persisted; discovery-weighting toward Serper (Brave free tier ended Feb 2026 — _provisional_, OQ7). |
+
+### 7.4 Data Requirements
+
+| ID | Data Entity | Requirement | Validation Rules | Ownership |
+| --- | --- | --- | --- | --- |
+| DR-001 | Evidence/observation records | Every evidence record shall carry a non-null `retention_class` + `expires_at`; persistence is governed per source (merchant facts indefinite; eBay ≤6 h freshness/delete-on-delist; Amazon = ASIN indefinite, all else ephemeral 24 h; search-provider results TTL 0). | Non-null constraint; TTL enforcement | hw-radar ([ADR 0010](../adr/adr-0010-canonical-data-model.md) rule 6) |
+| DR-002 | `offer_snapshot` | FX fields (`fx_rate`, `fx_pair`, `fx_rate_date`, `fx_source`) shall be stamped on each observation, not just the current listing. | Present on every non-USD observation | hw-radar ([ADR 0008](../adr/adr-0008-currency-landed-cost-normalization.md)) |
+| DR-003 | All tables | No image bytes shall be stored anywhere — image URLs/hashes only; provider result IDs are transient and never keys. | Schema review: no bytea/image columns | hw-radar (retention posture) |
+| DR-004 | `listing_score` / explanation payload | Every automated score shall persist its input facts, algorithm version, thresholds/margins, confidence (`n_eff`/`λ`), risk flags, and machine- and user-facing explanations. | Payload present per scored listing | hw-radar ([ADR 0011](../adr/adr-0011-composite-deal-score.md)) |
+| DR-005 | Price history | Repeated price checks shall append time-series observations to the `offer_snapshot` hypertable under stable canonical entities — never overwrite or duplicate listings. | Re-run ⇒ new observations, not new listings (M1) | hw-radar ([ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)/[0010](../adr/adr-0010-canonical-data-model.md)) |
+| DR-006 | PII | The system shall store no PII from scraped pages; cassettes/fixtures are PII-scrubbed before commit. | vcrpy filters; synthetic-only fixtures for named commercial sources _(provisional — OQ8)_ | hw-radar |
+| DR-007 | Backups | The database shall be included in the host dump pipeline at provisioning, with **TimescaleDB-aware** dump/restore (or in-CT physical backup) — a plain `pg_dump` allowlist entry restores incorrectly. RPO acceptance is **open** ([OQ3](../open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling)). | Restore test into a scratch instance (M5) | hw-radar + homelab pipeline ([ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md)/[0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)) |
+
+---
+
+## 8. Architecture and Design `[Standard]`
+
+### 8.1 Architecture Summary
+
+Hardware Radar is a **single-container, single-database, single-maintainer** system. One dedicated LXC container on the Hetzner Proxmox host (D-003) runs everything: a Django web application with server-rendered templates + HTMX (D-004), a long-running APScheduler poller process (D-012), a PostgreSQL + TimescaleDB instance (D-007) holding both the relational catalog and the price-history hypertable, and a local OpenBao Agent that renders runtime secrets to tmpfs (D-009). NGINX terminates HTTPS with Let's Encrypt.
+
+The data path is a staged pipeline — **`fetch → parse → normalize → entity-resolve → score → persist → alert`** — with stages independently testable and re-runnable. Acquisition is **tiered by source**: official APIs first (eBay Browse/Feed), then machine-readable structured data (JSON-LD → platform JSON → bootstrap JSON → HTML selectors), then HTTP-first scraping escalating browser-last (`curl_cffi` → Playwright via `scrapy-playwright` → managed unblocker or skip) (D-014); search APIs are discovery-only. The poller owns all shared acquisition state in-process: per-source cadence/jitter, two-level token buckets, back-off ladders, and the circuit-breaker registry — the reason scheduling is one supervised process rather than per-scrape systemd timers (D-012).
+
+Identity is the system's hardest problem and is fixed by the multi-grain ladder (D-010): the canonical entity is the condition-free physical `product_model`; sellable condition/packaging variants, per-merchant listings, and time-series observations hang below it; external identifiers are alias rows; drive attributes live in a typed `drive_spec` satellite so the spine stays category-generic. Prices are normalized to USD with per-observation FX stamps (D-008), and each listing gets an explainable 0–100 composite score with veto caps (D-011).
+
+Trust boundaries: the app is internet-facing behind a single-account session login (D-005) and is designed to hold **no in-app secrets** — the OpenBao Agent, not the app or CI, is the only credential holder (D-009); CD runs from a GitHub-hosted runner that joins the tailnet ephemerally and carries no OpenBao credential (D-006). Alert email leaves via the existing M365 Graph path (D-013).
+
+### 8.2 Architecture Views
+
+#### 8.2.1 Context View
+
+```mermaid
+flowchart LR
+    Owner[Owner] -->|HTTPS session| App[hw-radar CT]
+    App -->|official API| Ebay[eBay Browse/Feed]
+    App -->|structured-data / HTTP scrape| Merchants[~19 merchant sites]
+    App -->|discovery only| Search[Serper / Brave / Tavily]
+    App -->|daily FX| Frankfurter[Frankfurter FX]
+    App -->|Graph sendMail| M365[M365 / Graph]
+    App -->|fallback| AgentMail[AgentMail free]
+    BaoServices[OpenBao bao-services] -->|AppRole auto-auth| App
+    GH[GitHub Actions] -->|rsync over Tailscale SSH| App
+    Kuma[GMK Uptime Kuma + Fleet Digest] -->|heartbeat / probes| App
+```
+
+#### 8.2.2 Container / Deployment View
+
+```mermaid
+flowchart LR
+    NGINX[NGINX + Lets Encrypt] --> Web[Django web unit gunicorn]
+    Poller[APScheduler poller unit] --> Pipeline[fetch → … → alert stages]
+    Web --> DB[(PostgreSQL + TimescaleDB)]
+    Pipeline --> DB
+    BaoAgent[bao-agent unit] -->|tmpfs env render| Web
+    BaoAgent -->|tmpfs env render| Poller
+    subgraph CT [Dedicated LXC container — Debian 13]
+        NGINX
+        Web
+        Poller
+        Pipeline
+        DB
+        BaoAgent
+    end
+```
+
+#### 8.2.3 Component View
+
+| Component | Responsibility | Interfaces | Notes |
+| --- | --- | --- | --- |
+| Web app (Django + HTMX) | UI pages (§11), auth, watches CRUD, admin back-office | HTTP (NGINX-proxied), Django ORM | Single-account session auth; localhost-bind rule reserved for the future forward-auth path (ADR 0005) |
+| Poller (APScheduler 3.11.x, `AsyncIOScheduler`) | Per-source scheduling, jitter, token-bucket admission, circuit-breaker registry, pipeline execution | systemd service; PostgreSQL checkpoints; `scraper_runs` | `max_instances=1`, `coalesce=True`, per-source `misfire_grace_time`, fetch-stage timeouts (ADR 0012) |
+| Acquisition adapters (Scrapy + tier ladder) | Per-source fetch/parse via structured-data detector; escalation `curl_cffi`/Playwright (M5) | HTTP(S), official APIs | Guardrails C-007; failure classification §12.1 |
+| Entity resolver | Map parsed listings onto the identity ladder via aliases, normalized MPN, parsed attributes, `pg_trgm` | DB | Appendix C.3; GTIN/ePID largely unavailable — alias table sparse for recert merchants (accepted, ADR 0010) |
+| Scoring engine | Composite deal score + explanation payloads | DB | Appendix C.4; ADR 0011 |
+| Alerting layer | Watch matching, post-alert state machine, dedup/debounce, digests, signed action links, send via Graph | Graph API, DB | Transport-agnostic logic; ADR 0013 fixes only the send mechanism |
+| bao-agent | AppRole auto-auth against `bao-services`; render secrets to tmpfs | OpenBao API, tmpfs file | Persistent CIDR-bound SecretID; ADR 0009 |
+| SearchBudgetGate | Ordered admission for outbound search calls (kill switch → spend cap → breaker → bucket) | DB (persisted counters) | _Provisional_ (OQ7, no ADR) |
+
+### 8.3 Design Decisions
+
+The ADRs are the authoritative record; each row is a pointer, not a restatement.
+
+| ID | Decision | Rationale | Alternatives Considered | ADR |
+| --- | --- | --- | --- | --- |
+| D-001 | Decline the Markdown Frontmatter Standard; ADR-only frontmatter as an unvalidated local convention. | Solo, low-churn repo doesn't recoup fleet-CI enforcement cost; keeps the high-value supersession metadata. | Full adoption; no frontmatter anywhere | [ADR 0001](../adr/adr-0001-decline-markdown-frontmatter-standard.md) |
+| D-002 | Adopt the Python Tooling SSOT Standard with local deviations (`.vscode/`/`CLAUDE.md` stay git-ignored; the deferred-gate deviation was retired at scaffold). | Public-repo hygiene; toolchain fixed before code lands. | Conform fully; defer adoption | [ADR 0002](../adr/adr-0002-python-tooling-standard-local-deviations.md) |
+| D-003 | Deploy as a dedicated LXC container, not a VM; DB on container Postgres. | Reuses the CT-shaped backup/monitoring infra; honors the dedicated-LXC standard; trade-off: no vTPM. | Standalone VM | [ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md) |
+| D-004 | Django + server-rendered templates + HTMX; Django admin as internal back-office. | The app is an authenticated listings DB + dashboards + CRUD + alerts, not an API platform. | FastAPI + Jinja; FastAPI + SPA | [ADR 0004](../adr/adr-0004-web-framework-django-htmx.md) |
+| D-005 | Single-account session auth (Argon2id, hardened cookies), internet-facing; `users` table stubbed; Authelia reserved for multi-user. | Minimal surface, load-bearing on "no sensitive data in the app" (A-001). | Tailscale-only; full multi-user + MFA now | [ADR 0005](../adr/adr-0005-single-account-session-auth.md) |
+| D-006 | CD from a GitHub-hosted runner: ephemeral tailnet join (`tag:ci` OAuth client), rsync + remote restart over Tailscale SSH; venv built on-CT; expand/contract migrations. | Public repo must not run a self-hosted runner; no public SSH port; CI holds no OpenBao credential. | Self-hosted runner; registry/image deploy | [ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md) |
+| D-007 | PostgreSQL as system-of-record + TimescaleDB for the observation workload. | Mixed relational + document + time-series shape in one always-on service; plain-PostgreSQL is the explicit fallback. | Plain PostgreSQL; MySQL/MariaDB; ClickHouse-primary | [ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md) |
+| D-008 | Frankfurter FX → USD stamped per observation; fold known domestic shipping (+ tax) into `$/TB`; flag (don't estimate) cross-border cost. | Honest comparison basis; reproducible history; no stale tariff constants. | Fixed international haircut; exact landed cost; item price only | [ADR 0008](../adr/adr-0008-currency-landed-cost-normalization.md) |
+| D-009 | Runtime secrets via a local OpenBao Agent on the CT (`bao-services` consumer, AppRole auto-auth, tmpfs render, persistent CIDR-bound SecretID); CD holds nothing. | No plaintext at rest, no credential in public-repo CI; reuses the live LiteLLM pattern. | CD-injected wrapped secret_id; plaintext `.env`; systemd-creds/TPM2 | [ADR 0009](../adr/adr-0009-secrets-runtime-openbao-agent.md) |
+| D-010 | Canonical data model = generic multi-grain identity ladder + typed per-category satellite; identifiers as aliases; `retention_class` on every evidence record. | Identity is the costliest-to-reverse table; recert-vs-new must be first-class; extensible without a spine rewrite. | Two-level model/snapshot; generic EAV | [ADR 0010](../adr/adr-0010-canonical-data-model.md) |
+| D-011 | Composite deal score = weighted geometric mean of four subscores with non-compensatory veto caps; `n_eff ≥ 30` warm-up; stored explanations. Validated against mock data pre-ratification. | Self-adjusting, explainable, hard to game; arithmetic sums are too compensatory. | Weighted arithmetic sum; TOPSIS | [ADR 0011](../adr/adr-0011-composite-deal-score.md) |
+| D-012 | Orchestration = APScheduler 3.11.x in one systemd-supervised poller process owning shared admission/breaker state (amends ADR 0006's "timers for scrapes"). | Scrape jobs share fast-mutating state; 3.x can't share a job store across processes; brokers are over-engineering. | Per-scrape systemd timers; Celery/RQ/Dramatiq/Taskiq | [ADR 0012](../adr/adr-0012-orchestration-apscheduler.md) |
+| D-013 | Alert email via the existing M365 Graph send path (branded, zero marginal cost); AgentMail free as independent fallback; Postmark/SES retained only as the paid-upgrade path. | Free constraint (C-004); no dependence on volatile third-party free tiers; Hetzner blocks SMTP ports. | AgentMail-primary; paid transactional; other free tiers | [ADR 0013](../adr/adr-0013-notification-transport-m365-graph.md) |
+| D-014 | Scraping runtime = HTTP-first, structured-data-first, browser-last four-tier ladder (Scrapy → `curl_cffi` → `scrapy-playwright` → managed unblocker/skip); tiers 2–3 deferred to M5. | Most sources need no browser; the browser is a scalpel, not the default engine. | Full stack now; browser/managed-API by default | [ADR 0014](../adr/adr-0014-scraping-runtime-escalation-stack.md) |
+
+### 8.4 Solution Alternatives Considered `[Full]`
+
+<placeholder-guidance>
+Solution-level alternatives (buy vs. build, existing tool X, prior architecture Y) — distinct from the per-decision alternatives above. One row each prevents relitigating.
+
+| Alternative                           | Why Rejected                   |
+| ------------------------------------- | ------------------------------ |
+| `<existing tool / SaaS / do-nothing>` | `<gap, cost, risk, licensing>` |
+
+_No repo source records a formal buy-vs-build evaluation. Existing tools (Keepa, diskprices.com, CamelCamelCamel, PCPartPicker) appear in the research only as cold-start seed/reference sources, not as evaluated alternatives to building._
+</placeholder-guidance>
+
+### 8.5 Design Constraints
+
+Constraints the implementer must not violate:
+
+- The scraping guardrails (C-007) are encoded in the scraper, not left as convention: `ROBOTSTXT_OBEY=True`, AUTOTHROTTLE, honor `429`/`Retry-After`, honest User-Agent, public logged-out pages only, no anti-bot/CAPTCHA bypass, store facts not expression, no PII, stop on a specific cease-and-desist.
+- No image-byte storage anywhere (URLs/hashes only); provider result IDs are transient, never keys (DR-003).
+- The identity spine (`category → product_family → product_model → product_variant → listing → offer_snapshot`) is category-generic; only `drive_spec` is drive-shaped. Do not "simplify" back to the two-level model/snapshot shape ([ADR 0010](../adr/adr-0010-canonical-data-model.md) explicitly supersedes it).
+- Retention/PII/licensing are enforced **in the schema** (`retention_class`/`expires_at`), not by convention.
+- No plaintext secret at rest on the CT; no OpenBao credential in CI; deploy only on `push`/`workflow_dispatch` to `main` (never `pull_request`/`pull_request_target`); deploy job behind a GitHub Environment with a required reviewer ([ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md)/[0009](../adr/adr-0009-secrets-runtime-openbao-agent.md)).
+- Migrations are expand/contract (backward-compatible with still-running old code) and run before restart.
+- Search APIs are discovery-only — never authoritative state, never re-polling sources that have free official feeds.
+- Watch-rule UI: hard filters separate from thresholds; no free-text title matching (gap #7).
+- Do not build or act on a derived **eBay price model** (retention research §8 gray area — counsel-flagged); storing current-offer observations per the Browse API terms is the permitted posture.
+
+### 8.6 Dependency Policy `[Full]`
+
+| Dependency | Allowed? | Reason |
+| --- | --- | --- |
+| Django (+ `contrib.auth`, admin), HTMX | Yes | Framework decision (D-004) |
+| PostgreSQL + TimescaleDB extension | Yes | Datastore decision (D-007); plain PostgreSQL is the documented fallback |
+| Scrapy | Yes | Acquisition orchestrator (D-014) |
+| APScheduler **3.11.x** | Yes | Scheduler (D-012). **4.x is prohibited until it drops its production warning** — re-evaluate then |
+| `curl_cffi`, `scrapy-playwright`/Playwright | Conditional (M5) | Deferred tiers — add only when a specific source demands them (D-014) |
+| vcrpy, syrupy, Pydantic v2 | Yes | Scraper test/validation stack (gap #9; _build-time params provisional_, OQ8) |
+| uv (env/deps), Ruff, BasedPyright, pytest+coverage, pip-audit | Yes | Toolchain standard (D-002; `AGENTS.md`) |
+| Argon2 password hashing | Yes | Auth decision (D-005) |
+| Frankfurter | Yes | FX source (D-008) — keyless, MIT, self-hostable |
+| Redis (and Celery/RQ/Dramatiq/Taskiq/Repid) | No | Rejected as over-engineered distributed-broker solutions; Redis adds CVE surface (D-012) |
+| Managed scraping/unblocker APIs | Conditional | Reserved for a tiny high-value hostile tail — or skip the source (D-014, OQ9 skip policy) |
+| Error-tracking SaaS/self-hosted (Sentry/GlitchTip) | Conditional | Not in the existing stack; add only if wanted (WH-006) |
+
+> Agents: introducing a dependency not listed here requires an OQ- entry and owner approval — see Appendix B.
+
+---
+
+## 9. Data Model `[Standard]`
+
+The canonical data model is **fixed by [ADR 0010](../adr/adr-0010-canonical-data-model.md)** (the topology and grain rules); exhaustive column lists are deliberately delegated to the research ([`database-architecture.md`](../research/database-architecture.md) for the base schema, generated columns, and indexing; the [suitability taxonomy](../research/machine-usable-drive-suitability-taxonomy-for-24-7-nas-and-server-scoring.md) for the `drive_spec` field tables) so they can evolve without a new ADR. Concrete DDL/migrations land at M0/M1.
+
+**The identity ladder:**
+
+| Grain | Table | What it is | Key rule |
+| --- | --- | --- | --- |
+| Category | `category` | `drive` (v1); later `ram`, `gpu` | The extensibility axis |
+| Family | `product_family` | e.g. "Exos X18", "IronWolf Pro" | Watches and tier-lookup target this |
+| **Model** | `product_model` | the **physical** variant, **condition-free** | Canonical identity anchor (`manufacturer + normalized_model_number`, surrogate id) |
+| **Variant** | `product_variant` | the **sellable** identity: condition · packaging · recert-channel · warranty-channel | Price analytics roll up here |
+| Listing | `listing` | one merchant's offer page | Carries a derived `listing_fingerprint` |
+| Observation | `offer_snapshot` | time-series price/stock/FX/score | The TimescaleDB hypertable |
+| **Unit** (orthogonal) | `drive_unit` | a physical drive: serial + SMART/FARM | Grain below the model; recert-trust evidence |
+
+Supporting tables: `product_alias` (external identifiers — GTIN/UPC, ASIN, ePID, OEM/retail/region part numbers as many-to-one alias rows, never canonical columns), `drive_spec` (typed 1:1 satellite: scoring-critical typed columns such as `recording_tech`, `plp`, `market_tier`, `model_family`, `dwpd`, `workload_tb_year`; long tail in `spec_json`), `manufacturer`, `seller`, `source_site`, `raw_payload`, `search_observation`, `verification_event` (warranty-lookup cache).
+
+**Engine features in play** (ADR 0007): `jsonb` for raw provider payloads; **stored generated columns** for row-local economics (`dollars_per_tb`, `total_landed_price`, normalized capacity/warranty); `pg_trgm` for fuzzy matching during entity resolution; expression/partial/GIN/BRIN indexes for hot subsets; materialized views / continuous aggregates for cross-row rankings ("lowest price in 30 days").
+
+**Retention & provenance:** every evidence/observation record carries `retention_class` + `expires_at` (DR-001); FX stamps live per observation (DR-002); no image bytes anywhere (DR-003); score explanation payloads are persisted (DR-004).
+
+**Downstream table groups** (attach to this spine; specified in their own research, to get their own ADRs or milestone implementations — ADR 0010 "deferred detail"): scoring (`cohort_baseline`, `seller_rating_observation`, `listing_score`), alerting (`watch`, `watch_selector`, `watch_match_state`, `notification_event`), scraper-ops (`source`, `scraper_runs`), reference/seed (`model_family_ref`, `hdd/ssd_price_baseline`), plus the `users` stub (D-005) and per-provider search-governance settings rows (_provisional_, OQ7).
+
+**Retention & archival policy:** per-source `retention_class` TTLs (DR-001); backups per §18.6 (RPO acceptance open — OQ3).
+
+---
+
+## 10. Behavior and Workflows `[Standard]`
+
+### 10.1 Primary Workflow
+
+The recurring acquisition pipeline, per source, under the poller:
+
+```mermaid
+sequenceDiagram
+    participant Sched as Poller (APScheduler)
+    participant Src as Source adapter
+    participant Site as Marketplace
+    participant DB as PostgreSQL+TimescaleDB
+    participant Alert as Alerting layer
+
+    Sched->>Src: admission check (token buckets, breaker, cadence)
+    Src->>Site: fetch (API / structured data / HTTP)
+    Site-->>Src: page / API response
+    Src->>Src: parse → normalize (USD, FX stamp) → entity-resolve
+    Src->>DB: persist listing / offer_snapshot / raw_payload (+ scraper_runs record)
+    DB->>DB: score (composite + explanation payload)
+    DB->>Alert: watch matching
+    Alert-->>Alert: dedup / debounce / state machine
+    Alert->>Site: — (none)
+    Alert->>DB: notification_event
+    Alert->>Alert: send email (Graph; fallback AgentMail)
+```
+
+Steps:
+
+1. The poller admits the source (cadence due, token buckets available, breaker closed).
+2. Fetch via the source's acquisition tier (official API → structured data → HTTP; browser tiers M5+).
+3. Parse via the structured-data detector; validate records (Pydantic v2).
+4. Normalize: canonical entities, USD price with FX stamp, shipping fold-in, international flag.
+5. Entity-resolve onto the identity ladder (Appendix C.3).
+6. Persist listing/observation rows + a `scraper_runs` record.
+7. Score (Appendix C.4) with stored explanation payload.
+8. Match watches; drive the post-alert state machine; send deduplicated email.
+
+Expected result:
+
+> New/changed listings land as normalized, scored rows with time-series observations; qualifying watch matches produce exactly one actionable email each.
+
+### 10.2 Alternate Workflows
+
+| ID     | Trigger | Behavior | Expected Result |
+| ------ | ------- | -------- | --------------- |
+| AW-001 | Timeout on fetch | One in-run retry with full jitter ≤10 s _(provisional — OQ9)_ | Transient failures self-heal without back-off escalation |
+| AW-002 | `429` with `Retry-After` | Honor the header verbatim (clamped 1 s..baseline) | Provider-directed pacing respected |
+| AW-003 | `429`/`503` without header, or soft-block detected | Back-off `random(0,1) × min(24 h, 10 min × 2^failures)`; cadence resets to baseline | Escalating cooldown capped at 24 h |
+| AW-004 | N=4 consecutive clean polls (no error/soft-block, latency < 2× rolling median) | Auto-ramp: halve the interval, floored at the tier ceiling _(provisional — OQ9)_ | Earned faster polling on healthy sources |
+| AW-005 | Latency spike (>3× median across 3 polls) | Halve cadence (slow down, don't stop) | Load-shedding without losing the source |
+| AW-006 | Sustained `parser_rot` or `anti_bot` classification | Circuit-break to `paused_pending_fix`; daily recovery probe; operator alert _(provisional — OQ10)_ | One source's failure never halts the others |
+| AW-007 | Cooldown repeatedly maxes at 24 h on soft-block after exhausting the ladder (short of CAPTCHA/stealth rungs) | Permanent SKIP (registry state, human re-review); legal/ToS triggers force SKIP regardless | Hostile sources exit the rotation deliberately |
+| AW-008 | Search-provider budget exhausted / kill switch on | `SearchBudgetGate` fails safe before the call (`budget_exhausted`) _(provisional — OQ7)_ | No runaway spend |
+| AW-009 | Graph send failure | Surface delivery failure detectably; AgentMail fallback exercisable on demand | Alerts don't silently vanish |
+
+### 10.3 Edge Cases
+
+| ID     | Edge Case | Expected Behavior |
+| ------ | --------- | ----------------- |
+| EC-001 | VAT-inclusive UK/EU shelf price | Must **not** be treated as the export price (VAT should be zero-rated on export) — ingestion handles this ([ADR 0008](../adr/adr-0008-currency-landed-cost-normalization.md)) |
+| EC-002 | Shipping unknown | Penalty or flag — never silently scored as if free |
+| EC-003 | Cross-border listing | USD-normalized, flagged ("international — extra shipping/duty likely; verify before buying"); no fixed haircut, no computed duty |
+| EC-004 | Listing reposted under a new URL | De-duplicated via listing fingerprint (M4 acceptance) |
+| EC-005 | Thin cohort (`n_eff < 30`) | Score shrinks toward neutral 0.5, marked *provisional*; documented cohort relaxation (condition → adjacent capacity → parent tier) |
+| EC-006 | Seller with no ratings | Conservative policy prior (0.60 major marketplace / 0.50 otherwise) as an explicit missing-data state |
+| EC-007 | HTTP 200 but wrong page (challenge/empty/stale) | Soft-block detection (structured-data absence · body-size outlier <20% of median · challenge markers · repeated identical hash despite confirmed movement) reclassifies the fetch as failed |
+| EC-008 | SSD compared on capacity alone | Never — cohort key includes endurance class (DWPD) for SSDs |
+| EC-009 | Source returns 0/malformed records N runs in a row | Count-vs-rolling-average assertion triggers an alert (runtime validation, gap #9) |
+
+### 10.4 State Transitions
+
+**Post-alert state machine (per watch × listing)** — _provisional_ (gap #7 / OQ6, no ADR):
+
+```mermaid
+stateDiagram-v2
+    [*] --> none
+    none --> pending : watch matches
+    pending --> firing : thresholds crossed / debounce elapsed
+    firing --> cooling : alert sent (cooldown/hysteresis)
+    cooling --> firing : material change after cooldown
+    firing --> digested : rolled into digest
+    none --> suppressed : dismiss (permanent, per-listing)
+    pending --> suppressed : dismiss
+    firing --> suppressed : dismiss
+    suppressed --> [*]
+```
+
+| State | Meaning | Entry Condition | Exit Condition |
+| --------- | ----------- | --------------- | -------------- |
+| `none` | No active match | Default | Watch matches |
+| `pending` | Matched, not yet alert-worthy | Watch match | Thresholds crossed or match lapses |
+| `firing` | Alert sent/active | Threshold + debounce | Cooldown starts / digest |
+| `cooling` | Post-alert hysteresis | Alert sent | Material change or expiry |
+| `digested` | Included in a digest | Digest assembly | — |
+| `suppressed` (dismiss) | Permanent per-listing opt-out — a **terminal** value on the existing `watch_match_state.current_state` enum (no TTL, no new table) | User dismisses | Terminal |
+
+Stateful-automation contract (gap #7): dedup on **listing + alert fingerprints**; snooze at two granularities (watch `snoozed_until`; listing 24 h / 7 d); one-click actions as HMAC-signed single-purpose links; the **watch is the unit of opt-out**; delivery status tracked (`notification_event`).
+
+**Source lifecycle** (OQ9/OQ10, _provisional_): `active ↔ backing-off → paused_pending_fix → active` (after fix + recovery probe) and `→ SKIP` (permanent, registry state, human re-review).
+
+---
+
+## 11. UI Pages / API Endpoints `[Standard — if the system has a UI or API surface]`
+
+Page inventory confirmed as-is 2026-07-04 — _provisional_ ([resolved-questions.md OQ6](../resolved-questions.md#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking), no ADR; validated against CamelCamelCamel, Keepa, changedetection.io, Slickdeals). Rendering: Django server-rendered templates + HTMX (D-004).
+
+| Page or Endpoint | Purpose | Key Actions | Authorization |
+| --- | --- | --- | --- |
+| Dashboard | Deal overview and filtering | Filter by brand/capacity/tier/interface/condition; sort by score | Session (single account) |
+| Listing detail | Inspect one listing: score breakdown + "why it matched" (per-threshold pass-margin lines) | View facts, price history, explanation payload; state actions (dismiss/snooze/purchased) | Session |
+| Watches manager | Create/edit watch rules | Hard filters vs thresholds (no free-text title matching); create, edit, delete, snooze | Session |
+| Price-history view | Trend analysis per variant | Inspect time-series observations | Session |
+| Listing-state controls | Post-alert actions | Dismiss (permanent suppress), snooze (24 h / 7 d), mark purchased | Session; HMAC-signed one-click links from email |
+| Django admin | Internal back-office: offer inspection, entity-match correction, ingestion triage | Standard admin CRUD | Session (superuser) |
+
+**Accessibility & i18n:**
+
+<placeholder-guidance>
+State the target (e.g., WCAG 2.1 AA; single-locale v1 with strings externalized) or explicitly declare it out of scope with a reason. _No repo source states an accessibility or i18n target._
+</placeholder-guidance>
+
+---
+
+## 12. Error Handling and Recovery `[Standard]`
+
+### 12.1 Expected Failures
+
+The failure-classification tree (evaluated in order) — _provisional_ ([resolved-questions.md OQ8](../resolved-questions.md#oq8--scraper-testing-finalization), no ADR): `transient` → `anti_bot` → `parser_rot` → `degradation` → `UNKNOWN` (escalate).
+
+| ID | Failure Mode | User/System Behavior | Logging / Observability | Recovery |
+| --- | --- | --- | --- | --- |
+| ERR-001 | `transient` (timeout / 5xx / DNS / TLS / 408) | Retry per AW-001; back-off ladder on repetition | `scraper_runs` failure class | Self-heals; never circuit-breaks on a transient |
+| ERR-002 | `anti_bot` (401/403/429/503, `cf-mitigated=challenge`, JSON endpoint returns `text/html`, Cloudflare/DataDome markers) | Back-off ladder; circuit-break to `paused_pending_fix` on the verdict | `scraper_runs` + operator alert | Escalate tier ladder (M5) or SKIP per policy |
+| ERR-003 | `parser_rot` (HTTP 200 authentic page, extractor/Pydantic fails) | Source → `paused_pending_fix` | Scraper-rot alert within one scheduled cycle (M5 acceptance) | Code fix + daily recovery probe |
+| ERR-004 | `degradation` (validates but extraction tier worsened, or field completeness drops) | First-class signal distinct from hard failure: alert when `actual_tier_rank > expected_tier_rank` ≥2 consecutive runs or ≥3 of last 5; quality alert when `required_fields_present_pct < max(0.90, rolling_30d_median − 0.20)` | Canary emits `selected_tier`/`expected_best_tier`/`required_fields_present_pct`/`record_count`/`content_type`/`body_bytes` | Investigate; parser update |
+| ERR-005 | Email send failure | Detectably surfaced (delivery confirmation) | `notification_event` + operator signal | AgentMail fallback on demand |
+| ERR-006 | Search budget exhausted / provider failing | Fail safe before the call; provider breaker (5 failures/10 min → open; 5-min cooldown doubling to 60-min cap; single half-open trial; accelerated trip on 429/auth-quota) _(provisional — OQ7)_ | Persisted spend counters; settings-visible state | Half-open probe; manual kill-switch reset |
+| ERR-007 | Poller crash | systemd `Restart=on-failure`; in-memory state checkpointed to PostgreSQL | journal + `scraper_runs` | Supervised restart recovers from checkpoints |
+
+### 12.2 Retry and Idempotency
+
+- **Retried:** transient fetch failures (classification `transient`); provider-directed retries (`Retry-After`).
+- **Not retried (alert instead):** `anti_bot` and sustained `parser_rot` (circuit-break); configuration/legal stops (SKIP).
+- **Idempotency / dedup:** re-running acquisition produces new `offer_snapshot` observations, never duplicate `listing` rows (M1 acceptance); alerting dedups on listing + alert fingerprints (M4); scheduler blast radius bounded by `max_instances=1`, `coalesce=True`, per-source `misfire_grace_time` (D-012).
+
+Scheduled/high-volume external work uses the scheduler/circuit-breaker module — see Appendix C.2.
+
+### 12.3 Rollback / Recovery
+
+Deploy rollback: redeploy the previous SHA via the same rsync path — demonstrated as an M0 acceptance criterion; migrations are expand/contract so old code keeps running against a newer schema during the window. Data recovery: restore from the host dump/restic pipeline (§18.6) — restore must be **TimescaleDB-aware** (`timescaledb_pre_restore()`/`post_restore()`; compression state not preserved) or from physical backup; a restore test into a scratch instance is an M5 acceptance criterion, and the monthly restore-test discipline applies regardless. Partial-failure state (a crashed run mid-pipeline) is visible in `scraper_runs` and recovered by re-running the source's stages (stages are independently re-runnable, §8.1).
+
+---
+
+## 13. Security and Privacy `[Standard]`
+
+### 13.1 Authentication
+
+Single strong-password account with Django `contrib.auth` session login, **Argon2id** hashing (OWASP 2026 default), `Secure` + `HttpOnly` + `SameSite=Lax` cookies; internet-facing ([ADR 0005](../adr/adr-0005-single-account-session-auth.md)). Optional TOTP addable later without schema change; a `users` table is stubbed so multi-user is additive. Future multi-user end state: Authelia forward-auth at NGINX — with its recorded security rules (bind app to localhost only; NGINX **overwrites** the trusted-identity header; pin a patched gateway release — live header-trust/`auth_request` bypasses: `CVE-2025-54576`, `CVE-2026-34457`).
+
+### 13.2 Authorization
+
+| Actor / Role | Allowed Actions | Denied Actions |
+| ------------ | --------------- | -------------- |
+| Owner (the single account) | All UI actions; Django admin (back-office) | — |
+| Unauthenticated visitor | Login page; HMAC-verified one-click action links (single-purpose: snooze/stop) | Everything else |
+| CI (GitHub Actions) | rsync code to the CT + `systemctl restart` over Tailscale SSH | Any OpenBao access (holds no credential) |
+
+### 13.3 Secrets
+
+Store credential **references** here (env var names, secret-manager paths) — never values.
+
+| Secret | Storage Location | Access Pattern | Rotation / Notes |
+| --- | --- | --- | --- |
+| App runtime secrets (rendered set) | OpenBao `bao-services` store → tmpfs `/run/bao-agent/hw-radar.env` (root-owned, `0640`, app-group-readable) | `bao-agent` AppRole auto-auth; services depend via `After=` | ADR 0009 convention. _The original spec's `/run/hw-radar/secrets.env` + GMK-direct store are superseded; reconciliation follow-up recorded in ADR 0009._ |
+| AppRole `secret_id` | `/etc/bao-agent/secret-id` (mode 0600, root, **persistent**) | Delivered operator→CT via `bao-issue-secret-id.sh` (response-wrap + `pct push`) | **CIDR-bound** is the active control (not TTL); rotation = re-run the issuer. `remove_secret_id_file_after_reading=true` is superseded (breaks restart safety). |
+| AgentMail API token | OpenBao `secret/api-keys/ai/agentmail` (`AGENTMAIL_API_BEARER_TOKEN`) | Fallback email sends | Path also holds the agent inbox address |
+| eBay API credentials | OpenBao `secret/api-keys/commerce/ebay` | Browse/Feed API calls | — |
+| Search API keys (Serper/Brave/Tavily) | OpenBao `secret/api-keys/search/` | Discovery calls via `SearchBudgetGate` | New keys to be created for this project |
+| M365 Graph credentials | OpenBao `secret/apps/microsoft365` | Graph `sendMail` | Referenced, never committed |
+| Tailscale OAuth client | OpenBao `secret/infra/tailscale-oauth` | CI mints an ephemeral `tag:ci` node (`tailscale/github-action` v4) | Stored as GitHub **Environment secrets** with required reviewer |
+| Local development | `.env` (git-ignored) | Development only | Never committed |
+
+### 13.4 Sensitive Data
+
+| Data | Classification | Storage | Transmission | Retention |
+| --- | --- | --- | --- | --- |
+| Scraped listing facts | public (facts, not expression) | PostgreSQL, per `retention_class` | HTTPS | Per-source TTLs (DR-001) |
+| PII from scraped pages | — (not stored) | None; scrubbed from cassettes/fixtures | — | eBay PII-delete obligations honored |
+| Owner credentials (password hash) | confidential | Argon2id hash in DB | HTTPS | Account lifetime |
+| Runtime secrets | restricted | OpenBao; tmpfs render only | Bao agent (Hetzner-local) | No plaintext at rest |
+
+### 13.5 Threats and Mitigations
+
+| Threat | Impact | Mitigation |
+| ---------- | ---------- | -------------- |
+| Brute-force / credential-stuffing on the public login | Account takeover (bounded: no sensitive data in-app, A-001) | Argon2id + strong password + hardened cookies; later optional TOTP / rate-limiting (ADR 0005) |
+| Fork-PR code reaching deploy infrastructure | Infra compromise via CI | GitHub-hosted runner only; deploy never on `pull_request*`; Environment secrets + required reviewer; ACL-scoped ephemeral node (ADR 0006) |
+| OpenBao credential exposure via public-repo CI | Secrets-store compromise | CI holds **no** OpenBao credential by design (ADR 0009) |
+| Compromise of the CT's network identity | SecretID misuse | CIDR-bound SecretID + `0600` root file permissions are the load-bearing controls (ADR 0009, accepted) |
+| Identity-header trust bypass (future forward-auth path) | Auth bypass | Recorded rules: localhost bind, header overwrite, CVE-pinned gateway (ADR 0005) |
+| Marketplace legal escalation (C&D) | Legal exposure | Guardrails C-007; stop on a specific cease-and-desist; facts-not-expression storage; counsel-flagged items tracked in the retention research |
+
+### 13.6 Hardening Checklist
+
+Confirm each item is addressed above or mark N/A with a reason:
+
+- [x] Cookie/session settings — `Secure`, `HttpOnly`, `SameSite=Lax` (ADR 0005)
+- [ ] CSRF/CORS policy and allowed origins — not explicitly recorded in sources (Django defaults implied by D-004; confirm at M0)
+- [x] Webhook/API signature validation — one-click action links are HMAC-signed, single-purpose (gap #7)
+- [x] Sensitive-data redaction in logs/fixtures — PII scrub of cassettes (OQ8, _provisional_); secrets never printed in CI (ADR 0006)
+- [x] CI/CD secret handling — Environment secrets, required reviewer, no OpenBao credential (ADR 0006/0009)
+- [x] Network exposure — NGINX reverse proxy + Let's Encrypt; no public SSH; admin over Tailscale only (C-010)
+- [x] Identity-header trust rules if behind an auth proxy — recorded for the future Authelia path (ADR 0005)
+- [x] Run as non-root; least privilege — dedicated non-root user, `ProtectSystem=strict`, `NoNewPrivileges` on service units (ADR 0006)
+
+---
+
+## 14. Capacity and Scale Assumptions `[Full]`
+
+| Dimension | v1 Expectation | Growth Assumption | Design Consequence |
+| --- | --- | --- | --- |
+| Sources | ~20 marketplaces (5 at M1, ≥15 at M5) | More via `source_site` rows | Per-source registry + tier config; no per-source code beyond the adapter |
+| Poll volume | Per-tier cadences (baseline→ceiling): T0 10 min→2 min · T1 30 min→5 min · T2 1 h→15 min · T3 2 h→30 min · T4 4 h→1 h _(provisional — OQ9)_ | Auto-ramp within tier ceilings | Single poller process suffices (D-012); token buckets bound domain load |
+| Alert email | Well under 100/day, effectively one recipient | — | M365 limits (10K recipients/day) and AgentMail free caps (100/day · 3,000/mo) dwarf the workload (ADR 0013) |
+| Search-API spend | ≈ $8–15/mo Serper-weighted (inside the $10–20 owner band) _(provisional — OQ7; Brave free tier ended Feb 2026)_ | Bounded by spend caps | `SearchBudgetGate` hard caps (FR-011) |
+| Data volume | Not quantified in sources; observation history accrues continuously; raw payloads grow (disk-space alert flagged in gap #6) | Continuous accrual (the moat) | TimescaleDB hypertable + compression/retention (D-007); confirm disk-space threshold alert applies |
+| Concurrency | Single user; `max_instances=1` per job | — | No locking/queueing design needed beyond the scheduler bounds |
+
+---
+
+## 15. Risks `[Full]`
+
+| ID | Risk | Likelihood | Impact | Mitigation | Owner |
+| --- | --- | --- | --- | --- | --- |
+| R-001 | Backup wiring is allowlist-based and **never automatic** — a never-added CT is silently unprotected; a plain `pg_dump` entry restores a TimescaleDB DB incorrectly. | Med | High (the moat) | Mandatory provisioning step (ADR 0003); TimescaleDB-aware dumps or physical backup (OQ3, **open**) | Owner |
+| R-002 | Wildcard→scoped tailnet ACL migration lands without a `tag:ci → CT:22` grant → deploys silently break. | Med | Med | Recorded forward dependency (OQ2/ADR 0006); add the grant with the migration | Owner |
+| R-003 | A source hardens its anti-bot posture → escalation up the tier ladder or SKIP. | Med | Low–Med per source | OQ9 back-off/skip detects it as a measured event (ADR 0014) | Implementer |
+| R-004 | Third-party free-tier / pricing volatility (Brave killed its free tier 2026-02; Tavily acquired by Nebius 2026-02-10; AgentMail caps). | Med | Low–Med | M365-primary email (no free-tier dependence); Serper-weighted discovery; re-verify pricing before build (OQ7, dated facts) | Owner |
+| R-005 | M365 tenant availability/policy couples alerting to an external tenant. | Low | Med | AgentMail independent fallback; paid path pre-researched (ADR 0013) | Owner |
+| R-006 | APScheduler 3.x single-process model: scheduling, admission, and execution share one failure domain. | Low | Med | `max_instances=1`/`coalesce`/`misfire_grace_time`/fetch timeouts; re-evaluate at APScheduler 4.0 stability (ADR 0012, accepted) | Implementer |
+| R-007 | 2026 market abnormality (~46% supply-constrained run-up) makes seeded baselines misleading. | High (now) | Low–Med | Cohort-relative scoring; seeds timestamped and aged out (gap #12) | Implementer |
+| R-008 | Scoring calibration constants are v1-approximate (mildly generous middle band; flattened expensive tail). | High | Low | Accepted per test results; constants cheap to re-fit once real observations accrue (ADR 0011) | Owner |
+| R-009 | Legal/ToS drift on scraping/retention (de-minimis suspension, tariff flux, provider terms — all dated 2026-07-03). | Med | Med | Dated-facts rule: re-verify before relying; counsel-flagged items listed in the retention research; SKIP on legal triggers | Owner |
+| R-010 | PostgreSQL/tooling CVEs in the backup path (`pg_dump`/`pg_basebackup`/`pg_rewind`). | Med | Med | Patch discipline noted in OQ3/gap #5 | Owner |
+
+---
+
+## 16. Compliance, Licensing, and Data Rights `[Full — if applicable]`
+
+- [x] Third-party API terms of service reviewed — per-source acquisition/retention verdicts (re-verified 2026-07-03) are encoded as `retention_class` (DR-001): eBay Browse ≤6 h/delete-on-delist/PII-delete (not a Restricted API — the pricing-tool consent bar does not apply, but no derived eBay price *model*, §8 gray area); Google Programmable Search prohibits non-transitory storage (discontinues 2027-01-01); Serper URL-only persistence; Brave storage rights require the sales-led plan (now Enterprise-only — get a live quote); Amazon = display/discovery only, ASIN-persistable, 24 h cache, no image bytes, SP-API seller-only. See [`us-scraping-and-data-retention-landscape…`](../research/us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md).
+- [x] Scraped/ingested data rights posture — merchant public pages scraped as **facts, not expression**; guardrails C-007; items tagged for counsel review are noted in the research report.
+- [ ] OSS license compatibility of dependencies — not systematically recorded (Frankfurter noted MIT); to be covered by the standard toolchain's audit practices.
+- [x] PII/regulatory regimes — no PII stored (DR-006); eBay PII-delete obligations honored; no GDPR/HIPAA regime identified in sources.
+- [x] Export/retention obligations — recorded in §7.4 (DR-001, DR-007).
+
+---
+
+## 17. Testing and Acceptance `[Light — DoD only; Standard — all]`
+
+### 17.1 Definition of Done
+
+- [ ] All **Must** requirements implemented; acceptance criteria pass.
+- [ ] Automated tests cover required behavior, error cases, and edge cases.
+- [ ] Traceability matrix (§17.3) complete — every Must/Should requirement maps to a passing verification.
+- [ ] Documentation deliverables (§18.7) produced.
+- [ ] Security-sensitive behavior reviewed; hardening checklist (§13.6) resolved.
+- [ ] Deviations Log reviewed and accepted by owner.
+- [ ] No known blocking defects.
+- [ ] The verification gate (`uv run python -m scripts.check`) passes locally and in CI (`AGENTS.md`).
+
+### 17.2 Test Strategy
+
+The scraper-testing strategy is settled (gap #9) with build-time parameters _provisional_ ([resolved-questions.md OQ8](../resolved-questions.md#oq8--scraper-testing-finalization), no ADR).
+
+| Layer | Scope | Required Coverage | Required? |
+| --- | --- | --- | --- |
+| Unit / domain | Scoring math, normalization, entity-resolution rules, state machines | Critical branches, thresholds, edge cases (EC rows) | Yes |
+| Integration / adapter (recorded) | Per-source parsers via **vcrpy cassettes** (record once, replay offline) | Deterministic, offline parse tests; `record_mode="none"` in CI | Yes |
+| Snapshot / contract | **syrupy** golden-file assertions on parsed output | Diffs reviewed intentionally | Yes |
+| Runtime validation | **Pydantic v2** per-record validation; `last_success_at` / consecutive-failure counters; count-vs-rolling-average assertion | Alert on 0/malformed N runs in a row | Yes |
+| Production canary | Scheduled live structured-data contract check per source + known-value canary page, **per extraction tier** | Per-tier cadence: JSON-LD 24 h · platform-JSON 12 h · bootstrap-JSON 8 h · HTML 4 h (or `interval_hours = max(4, min(24, 24 / tier_risk_weight / source_business_weight))`) _(provisional — OQ8)_ | Yes (non-CI-required) |
+| Database | Migrations apply cleanly from empty (M0); constraints | Empty DB and upgrade path | Yes |
+| End-to-end | Milestone acceptance criteria (§19) | Happy path + failure paths per milestone | Yes |
+| Security | Auth, HMAC link verification, secret-handling | Critical misuse cases | Yes |
+| Operations | Deploy/rollback (M0), backup restore (M5), alerting | Production-readiness checks | Yes |
+
+**Cassette/fixture policy** _(provisional — OQ8)_: **synthetic-only cassettes for every named commercial source** (WD, Seagate, ServerPartDeals, goHardDrive, eBay, Amazon, Newegg, Google/Serper) — the public-repo commit rule fails for all (redistribution/anti-automation/PII); real cassettes stay private; PII scrubbing via vcrpy filters + `before_record_*` hooks; never commit product images. **CI = three workflows:** offline VCR-replay (PR-required) · snapshot-refresh (`workflow_dispatch`, live, non-required) · production-canary (`schedule`, live, non-required; opens/updates a GitHub issue on failure).
+
+### 17.3 Requirement-to-Test Traceability
+
+The implementer fills this in as the completion evidence (Appendix B.3). No implementation exists yet; the matrix is empty by construction.
+
+| Requirement ID | Test / Verification Method | Status |
+| --- | --- | --- |
+| — | — | Not Started |
+
+---
+
+## 18. Deployment and Operations `[Standard]`
+
+### 18.1 Runtime Environment
+
+| Item | Value |
+| ----------------- | ---------------------------------------------- |
+| Runtime | Python (repo pins 3.14 via `.python-version`); uv-managed env (`uv sync --frozen` on the CT) |
+| OS / Platform | Debian 13 in a dedicated Proxmox **LXC container** on the Hetzner dedicated server ([ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md)) |
+| Datastore | PostgreSQL + TimescaleDB, in the same CT ([ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md); own-CT placement per OQ4) |
+| External services | See §2.4 Boundaries (marketplaces, search APIs, Frankfurter, OpenBao, M365 Graph, Tailscale, GitHub Actions) |
+| Scheduling | APScheduler 3.11.x in one systemd-supervised poller ([ADR 0012](../adr/adr-0012-orchestration-apscheduler.md)); systemd timers only for genuinely independent stateless jobs (nightly VACUUM, backup verification) |
+| Hosting | Hetzner dedicated server (Proxmox); public URL `https://hw-radar.l3digital.net` |
+
+Runtime services:
+
+| Service | Purpose | Start Mode | Health Signal |
+| --- | --- | --- | --- |
+| Web unit (gunicorn; `ExecReload=kill -HUP $MAINPID`; not `Type=notify`) | Serve UI | systemd, dedicated non-root user, `ProtectSystem=strict`/`NoNewPrivileges` | Fleet-digest probes; Uptime Kuma |
+| Poller unit (APScheduler) | Acquisition pipeline + governance state | systemd, `Restart=on-failure`, resource limits | `scraper_runs` records; dead-man's-switch heartbeat |
+| bao-agent unit | Render runtime secrets to tmpfs | systemd (hardened); app units `After=` it | Unit `Active`; render file present; survives restart without re-issuing SecretID |
+| NGINX | HTTPS termination (Let's Encrypt) | systemd | — |
+| PostgreSQL (+TimescaleDB) | Datastore | systemd | Hourly dumps (once wired) |
+
+### 18.2 Configuration
+
+Concrete setting names are not yet fixed in the sources; the settled configuration *surfaces* are:
+
+| Setting | Required? | Default | Description |
+| --------------- | --------- | ----------- | --------------- |
+| Per-source registry (tier, cadence baseline/ceiling, enabled, state) | Yes | Per-tier defaults (OQ9, _provisional_) | Drives the poller's admission/cadence |
+| Per-provider search settings (`enabled`, `rate_per_min`, `burst`, `daily_call_cap`, `daily_spend_cap_usd`, `monthly_spend_cap_usd`, `alert_threshold_pct=80`, `kill_switch`, breaker params; optional `aggressiveness` enum) | Yes | Starting numbers per OQ7 (_provisional_) | One settings row per provider |
+| Secrets (all runtime credentials) | Yes | — | Via the rendered tmpfs env file (§13.3), never in config files |
+
+**Environment matrix:**
+
+| Aspect | Dev | Staging | Prod |
+| ----------------------------------------- | --------- | --------- | --------- |
+| Secrets source | local `.env` (git-ignored, dev only) | — (no staging environment in sources) | OpenBao via local `bao-agent` → tmpfs |
+| Deploy | local | — | rsync over Tailscale SSH on merge to `main` |
+
+### 18.3 Deployment Flow
+
+Per [ADR 0006](../adr/adr-0006-cd-rsync-over-tailscale-ssh.md):
+
+1. Trigger: `push` / `workflow_dispatch` to `main` only (never `pull_request*`); deploy job behind a GitHub Environment with a required reviewer.
+2. CI checks: the verification gate (fmt/lint/type/test/cov/audit) on a GitHub-hosted `ubuntu-latest` runner.
+3. Runner joins the tailnet ephemerally (`tag:ci` via the Tailscale OAuth client, `tailscale/github-action` v4).
+4. `rsync` the checked-out source to the CT; venv built **on the CT** (`uv sync --frozen`) to avoid arch/path skew.
+5. Migrations run **before** restart, expand/contract (backward-compatible with still-running old code).
+6. `systemctl restart` over `tailscale ssh`; the already-running bao-agent has secrets templated (CI holds no OpenBao credential).
+7. Smoke test/health confirmation (M0 acceptance: zero manual steps).
+8. Rollback: redeploy the previous SHA (demonstrated at M0).
+
+### 18.4 Rollout Controls `[Full]`
+
+- Kill switches: per-provider search `kill_switch` (_provisional_, OQ7); per-source `enabled`/SKIP registry state (OQ9).
+- Canary / staged rollout: production scraper canaries per source/tier (§17.2) — deployment itself is single-instance, no cohort rollout in sources.
+- Data migration reversibility: expand/contract discipline (§18.3).
+
+### 18.5 Observability
+
+Split concern (resolved gap #6): **infrastructure health** (up/disk/CPU/RAM) rides the existing Hetzner fleet-digest monitoring, which auto-discovers the CT from `pct list` (confirm a **disk-space threshold** alert applies — raw payloads grow); **application health** stays in-app.
+
+- `scraper_runs` records for every scheduled run: start/finish/status/counts/failure class (shared substrate for OQ5/OQ8/OQ10).
+- **Dead-man's-switch heartbeat** — alert on *absence* of success, not just presence of failure.
+- **Email-delivery confirmation** — an operator-side signal that a send actually left the box (kept regardless of provider, ADR 0013).
+- **Off-box watchdog:** the off-site **GMK Uptime Kuma** watches the CT, additionally swept by the Hetzner Fleet Digest (_provisional_ — [resolved-questions.md OQ5](../resolved-questions.md#oq5--off-box-heartbeat), no ADR; healthchecks.io rejected). Land before entering production.
+
+| Alert | Trigger | Severity | Owner / Action |
+| --- | --- | --- | --- |
+| Scraper-rot | Broken parser detected within one scheduled cycle (M5) | Warning | Owner; fix parser (`paused_pending_fix`) |
+| Silent degradation | Tier downgrade / field-completeness / count-vs-average rules (ERR-004) | Warning | Owner; investigate |
+| Source circuit-break | `anti_bot` verdict or sustained `parser_rot` | Warning | Owner; fix or SKIP |
+| Search budget | `alert_threshold_pct` (80%) of a spend cap; `budget_exhausted` | Warning/Critical | Owner; adjust caps or investigate runaway |
+| Dead-man's switch | No successful run heartbeat in window | Critical | Owner; investigate poller |
+| CT down | Off-box Uptime Kuma probe fails | Critical | Owner |
+| Email delivery failure | Send failure surfaced (ERR-005) | Warning | Owner; check Graph/fallback |
+
+### 18.6 Backup and Disaster Recovery `[Standard — if the system owns durable data]`
+
+**RPO (max acceptable data loss):** inherited **≤1 h, no PITR** (hourly logical dumps) — **accepted for v1 pending owner sign-off** ([OQ3](../open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling), **open**; revisit if OQ9 sets sub-hourly polling). · **RTO:** not stated in sources.
+
+| Asset | Backup Method | Frequency | Retention | Restore Test Cadence |
+| --- | --- | --- | --- | --- |
+| PostgreSQL+TimescaleDB | Hourly logical dumps (`pg_dump --format=custom` + `pg_dumpall --globals-only`) via the host pipeline — **must be made TimescaleDB-aware** (`timescaledb_pre_restore()`/`post_restore()`) or replaced by in-CT physical backup (OQ3) | Hourly | Host pipeline: 48 hourly / 14 daily / 8 weekly / 6 monthly | Monthly restore-test discipline; restore into a scratch instance ≥once by M5 |
+| CT app data (files) | Host file-level restic (ZFS-subvolume paths): local repo + hourly offsite (Hetzner Storage Box) + weekly tier-1 subset (Backblaze B2) | Hourly offsite | As above | Monthly discipline |
+
+**Mandatory provisioning step (not automatic):** add the CT's data paths to `backup-restic.sh` and its DB to `backup-dumps.sh` — coverage is a hardcoded allowlist; a never-added service is silently unprotected (ADR 0003).
+
+**Fallback design if tighter RPO/PITR is required** (recorded in OQ3, not adopted): pgBackRest physical backup + continuous WAL archiving on-CT (`repo1`) + second repo on S3-compatible storage (B2 or Storage Box), AES-256, weekly `pg_dumpall` supplement. Physical backups need no TimescaleDB special handling. Scenarios **not covered** in v1: PITR; VM-image-level backup (none exists in the pipeline).
+
+The full requirements analysis lives in the private `homelab` repo (`docs/plans/2026-07-04-hw-radar-backup-requirements.md`), pending owner confirmation of its §7 decisions (OQ3).
+
+### 18.7 Documentation Deliverables
+
+Checklist tied to the DoD:
+
+- [ ] README / user-facing docs updated
+- [ ] Runbooks: deploy, rollback, incident response, backup restore, secret rotation (SecretID re-issue)
+- [ ] Configuration reference (§18.2) matches shipped defaults
+- [ ] Handoff/state docs updated per repo convention (`docs/handoff.md`, `TODO.md` — local-only)
+- [ ] Post-change: relevant `homelab` repo docs updated when infra wiring lands (backup allowlists, ACL grant)
+
+---
+
+## 19. Implementation Plan `[Standard]`
+
+The six-milestone MVP plan was accepted as planning input (resolved gap #8); the **authoritative phased spec is to be authored with the `spec-pipeline` plugin** — these milestones map onto its phases and the acceptance criteria are the raw material for each phase's exit gate.
+
+### Waves `[Full — for breadth that ships incrementally]`
+
+<placeholder-guidance>
+| Wave | Scope | Exit Criteria |
+| --- | --- | --- |
+| Wave 0 | `<smallest end-to-end path, manually seeded data>` | `<proof the skeleton works>` |
+| Wave 1 | `<MVP-critical breadth>` | `<minimum production-use criteria>` |
+| Later | `<expansion>` | `<criteria for revisiting design>` |
+
+_The sources phase the work as milestones M0–M5 (below), not waves; the spec-pipeline authoring pass may introduce waves._
+</placeholder-guidance>
+
+### M0 — Foundation
+
+_Tasks:_ scaffold the Django project (uv-managed, BasedPyright-strict); define the canonical schema per ADR 0010 as initial migrations; stub the `users` table + single-account session login (Argon2id); stand up CD (GitHub-hosted runner → rsync over Tailscale SSH); install systemd web + poller units and the local OpenBao Agent unit.
+
+_Acceptance:_ merge to `main` deploys automatically with **zero manual steps**; the running web service serves an authenticated "hello" page and **reads at least one secret sourced from OpenBao** (no plaintext `.env` on the CT); `uv sync --frozen` reproduces the locked env; migrations apply cleanly from empty; a **rollback to the previous SHA** is demonstrated.
+
+### M1 — Core workflow
+
+**Repo milestone: "M1 — Ingestion (top 5)"** (resolved gap #8).
+
+_Tasks:_ acquisition for the 5 primary recert sources (WD Recertified, Seagate Recertified, ServerPartDeals, goHardDrive, eBay Browse/Feed) on the structured-data-first tier (plain HTTP — browser/TLS tiers deferred, ADR 0014); normalize into listing rows; wire Frankfurter FX → USD with per-observation stamps; set the international flag.
+
+_Acceptance:_ all **5/5 sources** yield ≥1 normalized listing on a scheduled run; **100%** of non-USD listings carry a stored FX rate + date and a normalized USD price; international listings flagged; a re-run produces new observation rows, not duplicate listings.
+
+### M2 — Domain logic
+
+**Repo milestone: "M2 — Scoring"** (resolved gap #8).
+
+_Tasks:_ implement the composite scoring engine per ADR 0011 (cohort percentile, 90-day window, 30-day half-life, `λ = min(1, n_eff/30)` warm-up, veto caps); persist per-subscore explanation payloads.
+
+_Acceptance:_ **every** listing has a 0–100 score **reproducible** from stored inputs with a **per-factor breakdown**; thin-cohort listings (`n_eff < 30`) visibly shrink toward neutral and are marked **provisional**; the documented cohort-relaxation fallback fires when a cohort is too small. _(Gap #8's original acceptance text says `n_eff < 50`; ADR 0011 ratified 30 — the ADR governs.)_
+
+### M3 — User and admin experience
+
+**Repo milestone: "M3 — Web UI"** (resolved gap #8).
+
+_Tasks:_ build Dashboard, Listing detail (score breakdown + "why it matched"), Watches manager (hard filters vs thresholds, no free-text), Price-history view, listing-state controls; expose the Django admin as back-office.
+
+_Acceptance:_ owner can filter the dashboard by brand/capacity/tier/interface/condition and **create, edit, and delete a watch**; a listing detail renders the **pass-margin** explanation for each crossed threshold; state changes persist and re-render.
+
+### M4 — Automation / notifications / external actions `[if applicable]`
+
+**Repo milestone: "M4 — Alerts"** (resolved gap #8). Applicable — alerting is core to the product.
+
+_Tasks:_ email alerts with the dedup/debounce design — listing + alert fingerprints, cooldown/hysteresis, signed one-click action links, email-delivery confirmation — via the M365 Graph path (ADR 0013; gap #8's original text predates ADR 0013 and says "via AgentMail" — the ADR governs).
+
+_Acceptance:_ a single qualifying price drop fires **exactly one** email (verified against the alert-fingerprint ledger); one-click snooze/stop links work and are HMAC-verified; a simulated repost under a new URL is **de-duplicated**; a delivery failure is **detectably surfaced**.
+
+### M5 — Hardening and production readiness
+
+**Repo milestone: "M5 — Hardening & breadth"** (resolved gap #8).
+
+_Tasks:_ add the remaining marketplaces (escalation tiers `curl_cffi`/Playwright where demanded), entity resolution breadth, backups wiring, application self-observability, and the scraper test suite (vcrpy + syrupy + per-tier contract canary).
+
+_Acceptance:_ **≥15 sources** live; a backup is **restore-tested into a scratch instance** at least once; a deliberately broken parser trips a **scraper-rot alert within one scheduled cycle**; CI runs the cassette/snapshot suite green.
+
+### Milestone Summary
+
+| Milestone | Deliverable | Exit Criteria |
+| --- | --- | --- |
+| MS-0 Foundation | Django stack, schema, auth, CD, systemd + OpenBao Agent | Zero-manual-step deploy; secret read from OpenBao; rollback demonstrated |
+| MS-1 Ingestion | Top-5 recert sources → normalized, USD-stamped listings | 5/5 sources land; FX stamps 100%; re-runs append observations |
+| MS-2 Scoring | Composite score engine + explanations | Reproducible scores with per-factor breakdown; warm-up + relaxation behave |
+| MS-3 Web UI | Dashboard, detail, watches, history | Owner completes filter/watch tasks; pass-margin explanations render |
+| MS-4 Alerts | Deduplicated email alerting via Graph | Exactly-one email; HMAC links verified; delivery failure surfaced |
+| MS-5 Hardening & breadth | ≥15 sources, tests, backups, observability | Restore-tested; scraper-rot alerts fire; CI suite green |
+
+---
+
+## 20. Success Evaluation `[Full]`
+
+| Area | Target | Measurement |
+| --- | --- | --- |
+| Functional correctness | All milestone acceptance criteria hold in production | §19 acceptance checks; §17.3 traceability |
+| Reliability | One failing marketplace never halts the others; no silent degradation | `scraper_runs`, degradation alerts, dead-man's switch (NFR-001/004) |
+| Alert quality | Exactly one actionable email per qualifying event; dismissed listings never re-alert | Alert-fingerprint ledger; M4 checks |
+| Cost control | Search-API spend within the $10–20/mo owner band (≈$8–15 projected); email at zero marginal cost | Persisted spend counters + `alert_threshold_pct` alerts (_provisional_, OQ7) |
+| Operational usability | Failures visible and actionable off-box | Uptime Kuma + Fleet Digest + email-delivery confirmation |
+| Data durability | Backups restore-tested; RPO per the OQ3 decision | Monthly restore-test discipline; §18.6 |
+
+_No latency/throughput performance targets are stated in the sources._
+
+---
+
+## 21. Open Questions and Decisions `[Light]`
+
+Repo convention: open decisions live in [`open-questions.md`](../open-questions.md); settled ones in [`resolved-questions.md`](../resolved-questions.md); ADRs are the authoritative decision record. This table mirrors that state — the six "Answered (provisional)" rows are settled working positions **not yet ADR-ratified** (their full substance lives in `resolved-questions.md`, which is their record).
+
+| ID | Question | Current Assumption | Blocking? | Owner | Needed By | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| OQ-003 (repo [OQ3](../open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling)) | Is the inherited ≤1 h RPO / no-PITR acceptable for the price-history moat, and how is the TimescaleDB dump handled (aware logical vs physical)? | Inherited ≤1 h RPO/no-PITR **accepted for v1**; real work is TimescaleDB-correct dumps + wiring, per the homelab backup-requirements doc — pending owner sign-off of its §7 (RPO / join-B2-tier-1 / logical-vs-physical) | No — but must precede the first backup taken | Owner | CT provisioning | **Open** |
+| OQ-005 (repo OQ5) | Off-box heartbeat target | Off-site GMK Uptime Kuma + Fleet Digest sweep; land before production | No | Owner | Pre-production | Answered (provisional — no ADR) |
+| OQ-006 (repo OQ6) | UI page inventory, dismiss→suppress, purchase tracking | Inventory as-is; dismiss = permanent per-listing enum value; purchase analytics deferred | No | Owner | M3 | Answered (provisional — no ADR) |
+| OQ-007 (repo OQ7) | Running-cost / search self-governance | `SearchBudgetGate` + per-provider settings + spend caps; Serper-weighted (Brave free tier ended); re-verify pricing before build | No | Owner | Build time | Answered (provisional — no ADR) |
+| OQ-008 (repo OQ8) | Scraper-testing build-time parameters | Per-tier canary cadence (24/12/8/4 h); synthetic-only cassettes; failure-classification tree; 3-workflow CI | No | Owner | M5 | Answered (provisional — no ADR) |
+| OQ-009 (repo OQ9) | Acquisition cadence, throttle & skip policy | Per-tier baseline→ceiling + earned auto-ramp; back-off ladder w/ 24 h cap; soft-block detection; skip decision tree | No | Owner | M1+ | Answered (provisional — no ADR) |
+| OQ-010 (repo OQ10) | Reliability / resilient acquisition | Per-source isolation + circuit-break (`paused_pending_fix`) + health alerts; only M5 wiring remains | No | Owner | M5 | Answered (provisional — no ADR) |
+
+---
+
+## Deviations Log `[Light]`
+
+Maintained by the **implementer** during the build (Appendix B). Any divergence from this spec is recorded here — never silently patched into requirements text. No implementation exists yet; the log is empty.
+
+| ID | Spec Reference | Deviation | Reason | Approved? |
+| --- | --- | --- | --- | --- |
+| — | — | — | — | — |
+
+---
+
+## References `[Standard]`
+
+### Standards
+
+- ISO/IEC/IEEE 29148:2018 — Requirements engineering.
+- IEEE 1016-2009 — Software Design Description.
+- ISO/IEC/IEEE 42010:2022 — Architecture description.
+- OpenAPI Specification — HTTP API contracts.
+- (IEEE 830-1998 — historical only; superseded by 29148.)
+
+### Project References
+
+- **ADRs:** [`docs/adr/`](../adr/README.md) — ADR 0001–0014 (frontmatter `related.adrs`); the authoritative decision record.
+- **Question record:** [`docs/open-questions.md`](../open-questions.md) (open — OQ3) · [`docs/resolved-questions.md`](../resolved-questions.md) (settled RQ1–RQ6, gaps 1–12, resolved OQ1–OQ14 minus OQ3).
+- **Research corpus:** [`docs/research/index.md`](../research/index.md) (generated index — do not hand-edit) — in-depth context behind decisions; **not** imported wholesale here. Time-sensitive facts in reports are dated — re-verify before relying.
+- **Toolchain contract:** `AGENTS.md` (Python Tooling SSOT Standard; verification gate).
+- **Prior spec:** `docs/archived/hw-radar.md` (superseded by this document).
+- **Repository:** <https://github.com/L3DigitalNet/hw-radar> (public).
+- **Private counterpart:** the `homelab` repo (live infra specifics, backup-requirements doc) — deliberately outside this public repo.
+
+---
+
+## Appendix A: ID Conventions
+
+Stable IDs allow requirements to be referenced from commits, tests, issues, ADRs, and review comments — and let an implementer's completion claims be mechanically checked.
+
+| Prefix | Meaning                     | Defined In     |
+| ------ | --------------------------- | -------------- |
+| `G-`   | Goal                        | §4             |
+| `NG-`  | Non-goal (never)            | §2.2           |
+| `WH-`  | Won't have in v1 (deferred) | §2.3           |
+| `A-`   | Assumption                  | §3.3           |
+| `C-`   | Constraint                  | §3.4           |
+| `FR-`  | Functional requirement      | §7.1           |
+| `NFR-` | Non-functional requirement  | §7.2           |
+| `IR-`  | Interface requirement       | §7.3           |
+| `DR-`  | Data requirement            | §7.4           |
+| `D-`   | Design decision             | §8.3           |
+| `AW-`  | Alternate workflow          | §10.2          |
+| `EC-`  | Edge case                   | §10.3          |
+| `ERR-` | Error-handling requirement  | §12.1          |
+| `R-`   | Risk                        | §15            |
+| `MS-`  | Milestone                   | §19            |
+| `OQ-`  | Open question               | §21            |
+| `DEV-` | Deviation                   | Deviations Log |
+
+Priority values (`Must/Should/Could`) are column values, not ID prefixes — IDs never change when priorities do.
+
+**Repo mapping:** `D-00N` corresponds to `ADR 000N`; `OQ-00N` in §21 corresponds to repo `OQN` in [`open-questions.md`](../open-questions.md)/[`resolved-questions.md`](../resolved-questions.md).
+
+---
+
+## Appendix B: Agent Implementation Contract
+
+Binding when this spec is implemented by a coding agent. (Applies equally well to human contractors.)
+
+### B.1 Implementation Rules
+
+The implementer shall:
+
+- Read this entire specification before making changes; per session thereafter, re-read at minimum §7 (Requirements), §21 (Open Questions), and the Deviations Log — Background and References may be read once.
+- Preserve all explicit non-goals, won't-haves, constraints, and design constraints.
+- Treat **Must** requirements as mandatory and **blocking** open questions as hard stops for the affected work.
+- On encountering underspecified behavior: file an `OQ-` row **with a proposed default assumption** and proceed on it only if non-blocking — never guess silently.
+- On any divergence from the spec: record a `DEV-` row (spec reference, what, why) rather than adapting silently.
+- Add or update tests for every implemented requirement; keep §17.3 (traceability) current.
+- Follow the milestone order in §19; do not build later milestones on unproven earlier ones.
+- Prefer small, reviewable changes; avoid broad refactors unless the spec requires them.
+- Document any discovered mismatch between the spec and existing code as a `DEV-` or `OQ-` row.
+
+### B.2 Prohibited Behaviors
+
+The implementer shall not:
+
+- Invent requirements not present in this spec.
+- Remove existing behavior unless explicitly required.
+- Introduce external services or dependencies outside §8.6 without an approved `OQ-`.
+- Store secrets in source control or print them in CI logs.
+- Ignore failing tests unrelated to the change without documenting them.
+- Treat examples (including Appendix C) as exhaustive or normative unless explicitly stated.
+- Mark a requirement complete without a verification entry in §17.3.
+
+### B.3 Required Completion Report (verification gate)
+
+At completion, provide:
+
+- Summary of changes and files changed.
+- **Requirements implemented, each mapped to the test or command that proves it** — i.e., the completed §17.3 matrix. Claims without verification entries are not accepted.
+- Tests added or changed.
+- Deviations (`DEV-` rows) and their approval status.
+- Known limitations and remaining open questions.
+- Documentation deliverables completed (§18.7).
+
+### B.4 Session Handoff
+
+For multi-session implementations: record current milestone, in-progress requirement IDs, and unresolved `OQ-`/`DEV-` items in the repository's session-state/handoff documents at the end of each session, per the repo's documentation convention. The spec records _what and why_; handoff docs record _where work stands_.
+
+---
+
+## Appendix C: Optional Modules
+
+All four functional modules apply to this system (external ingestion, scheduled/rate-limited work, entity resolution, scoring). C.5 remains a depth reference.
+
+### C.1 External Data Integration
+
+**The ranked marketplace list** (carried verbatim from the original spec — the ratified source tiering):
+
+| Rank | Site | Best use | Source type | Conditions to consider | Trust posture | Ranking rule for tool |
+| --: | --- | --- | --- | --- | --- | --- |
+| 1 | [Western Digital Store / WD Recertified](https://www.westerndigital.com/) | WD NAS/enterprise HDDs | Manufacturer-direct | New, recertified | Very high | Prefer for WD Red, Gold, Ultrastar, and WD factory recertified drives. |
+| 2 | [Seagate Store / Seagate Recertified](https://www.seagate.com/) | Seagate NAS/enterprise HDDs | Manufacturer-direct | New, recertified | Very high | Prefer for IronWolf, Exos, and Seagate factory recertified drives. |
+| 3 | [ServerPartDeals](https://serverpartdeals.com/) | Recertified enterprise HDDs | Storage-specialist reseller | Recertified, used, new | High | Best non-manufacturer source for recertified enterprise HDD value. |
+| 4 | [B&H Photo Video](https://www.bhphotovideo.com/) | New drives from known brands | Major authorized retailer | New, open-box, used | High | Prefer for new drives when price is competitive and seller is B&H. |
+| 5 | [CDW](https://www.cdw.com/) | Business/enterprise purchasing | Business VAR | New | High | Prefer when compatibility, procurement reliability, or business sourcing matters more than lowest price. |
+| 6 | [Insight](https://www.insight.com/) | Business/enterprise purchasing | Business VAR | New | High | Similar to CDW; use for business-grade sourcing and supported part numbers. |
+| 7 | [Newegg](https://www.newegg.com/) | New drives, deals | Marketplace/retailer | New, open-box, marketplace | Medium-high with filters | Rank high only when sold by Newegg, manufacturer, or trusted specialist seller. |
+| 8 | [Amazon](https://www.amazon.com/) | New drives, fast availability | Marketplace/retailer | New, renewed, marketplace | Medium-high with filters | Rank high only when sold by Amazon, manufacturer, or trusted specialist seller; penalize unknown sellers. |
+| 9 | [PCNation](https://www.pcnation.com/) | New drives, exact SKU sourcing | VAR / reseller | New | Medium-high | Good for part-number shopping; rank below larger VARs unless price/availability wins. |
+| 10 | [Wiredzone](https://www.wiredzone.com/) | Server/storage ecosystem parts | Server-specialist reseller | New, server-compatible parts | Medium-high | Prefer when Supermicro/server compatibility is important. |
+| 11 | [goHardDrive](https://www.goharddrive.com/) | Budget recertified HDDs | Storage reseller | Recertified, used | Medium | Good deal source; require clear seller warranty and condition labeling. |
+| 12 | [TechMikeNY](https://www.techmikeny.com/) | Refurbished servers and parts | Refurbished server specialist | Used, refurbished | Medium | Better for complete servers or server parts than standalone critical storage. |
+| 13 | [ETB Technologies](https://www.etb-tech.com/) | Refurbished enterprise parts | Refurbished enterprise reseller | Used, refurbished | Medium | Stronger option for UK/EU buyers; region-dependent ranking. |
+| 14 | [Bargain Hardware](https://www.bargainhardware.co.uk/) | Refurbished enterprise hardware | Refurbished enterprise reseller | Used, refurbished | Medium | Useful UK/EU refurb source; rank higher only for regional availability. |
+| 15 | [HardDrivesDirect](https://www.harddrivesdirect.com/) | Exact enterprise/OEM part numbers | Specialty parts reseller | New, refurbished, legacy parts | Medium-low | Use when exact OEM part matching matters; not first choice for bulk NAS builds. |
+| 16 | [ServerMonkey](https://www.servermonkey.com/) | Refurbished server parts | Refurbished server reseller | Used, refurbished | Medium-low | Useful for refurb server builds; penalize for standalone drive purchases unless warranty is acceptable. |
+| 17 | [SaveMyServer](https://savemyserver.com/) | Refurbished servers/storage | Refurbished server reseller | Used, refurbished | Medium-low | Use as fallback for refurb hardware; rank depends heavily on warranty and geography. |
+| 18 | [The Server Store](https://www.theserverstore.com/) | Refurbished servers/storage | Refurbished server reseller | Used, refurbished | Medium-low | Better for systems than drives; fallback source. |
+| 19 | [Memory4Less](https://www.memory4less.com/) | Legacy/OEM storage parts | Specialty parts reseller | New old stock, refurbished, hard-to-find parts | Low-medium | Use mainly for hard-to-find parts; not preferred for large storage purchases. |
+| 20 | [eBay](https://www.ebay.com/) | Used/recertified deal hunting | Marketplace | Used, recertified, seller-dependent | Variable | Only rank individual listings highly when seller reputation, warranty, condition, and return policy are strong. |
+
+**Acquisition & retention tiering** (original spec, Special Considerations — acquisition is tiered by *legal persistability*, not just data quality; each source carries a `retention_class`):
+
+- **Persistable (the price-history moat):** merchant public pages scraped as facts, not expression; **eBay** via the Browse API (≤6 h freshness, delete-on-delist, PII-delete; not a Restricted API — but no derived eBay price *model*); **Tavily**-extracted facts.
+- **Discovery-only, never persisted (`transient_discovery`, TTL 0):** Google Programmable Search (prohibits non-transitory storage; discontinues 2027-01-01), Serper (persist only the discovered URL, then re-fetch from the merchant), Brave on the standard plan.
+- **Amazon = display/discovery only, no price persistence:** Creators/PA-API affiliate-only + 24 h cache + no image bytes; SP-API seller-only (confirmed out of scope — Amazon stays a T3 scrape target). Persist ASIN indefinitely, nothing else.
+
+Adapter contract shape (the per-source integration boundary):
+
+```text
+interface IntegrationAdapter:
+    name, version, capabilities
+    fetch(context) -> RawBatch
+    validate(raw) -> ValidationResult
+    normalize(raw) -> list[NormalizedRecord]
+    persist(records) -> PersistResult
+    report_health(result) -> RunRecord
+```
+
+Per adapter: authentication/secret names (§13.3); request budget + retry policy (C.2); raw-payload retention (`retention_class`); Pydantic v2 schema validation; identity handling (C.3); failure isolation from other integrations (NFR-001).
+
+### C.2 Scheduled Work, Throttling, and Circuit Breaker
+
+The settled substrate (D-012 + _provisional_ OQ7/OQ9/OQ10): the poller owns per-source cadence + jitter, **two-level token buckets** (per-source + per-domain), the adaptive back-off ladder, and the circuit-breaker registry, in-process, checkpointed to PostgreSQL.
+
+Per-source scheduling parameters (values _provisional_ — OQ9):
+
+```yaml
+<source_name>:
+  enabled: true
+  tier: T0..T4                 # T0 eBay API · T1 manufacturer-direct · T2 specialist/VAR ·
+                               # T3 anti-bot-exposed · T4 refurb/regional
+  cadence_baseline:            # T0 10m · T1 30m · T2 1h · T3 2h · T4 4h
+  cadence_ceiling:             # T0 2m  · T1 5m  · T2 15m · T3 30m · T4 1h
+  auto_ramp: {clean_polls: 4, action: halve-interval, floor: ceiling}
+  backoff:
+    timeout: 1 in-run retry, full jitter <=10s
+    retry_after: honor verbatim (clamp 1s..baseline)
+    429_503_or_softblock: random(0,1) * min(24h, 10min * 2^failures)
+    latency_spike: halve cadence (>3x median, 3 polls)
+  circuit_breaker:
+    trip_on: anti_bot verdict | sustained parser_rot
+    state: paused_pending_fix (daily recovery probe)
+  skip: permanent registry state (human re-review); forced by legal/ToS triggers
+```
+
+Search-provider governance (values _provisional_ — OQ7): ordered `SearchBudgetGate` = kill switch → persisted spend cap (reserve-then-call, fail-safe `budget_exhausted`) → failing-provider breaker (5 failures/10 min → open; 5-min cooldown doubling to 60-min cap; single half-open trial; accelerated trip on 429/`Retry-After`/auth-quota) → per-provider token bucket. Starting buckets: Serper 1/2 min, burst 5, 200/day · Brave 1/5 min, burst 3, 50/day · Tavily 1/5 min, burst 3, 30/day.
+
+Transient vs permanent classification, pause conditions, recovery probes, and notification targets: §12.1 / §18.5.
+
+### C.3 Identity / Entity Resolution
+
+The progressive ladder as instantiated by ADR 0010 + the entity-resolution research:
+
+1. Normalize aliases, casing, units, formats, identifiers (normalized MPN; parsed capacity/interface/condition attributes).
+2. Match exact known identifiers — via `product_alias` rows (GTIN/UPC, ASIN, ePID, OEM/retail/region part numbers); identifiers are many-to-one aliases, never canonical columns.
+3. Deterministic rules for high-confidence cases (manufacturer + normalized model number).
+4. Fuzzy/probabilistic matching (`pg_trgm`) **only** with confidence scores and a review path.
+5. Route ambiguous records to manual correction — the Django admin's entity-match correction back-office (§11).
+6. Store match confidence and provenance, not only the final ID.
+
+Population reality (accepted, ADR 0010): no target merchant reliably exposes GTIN and eBay `epid` is Partner-gated, so resolution leans on normalized MPN + parsed attributes; the alias table will be sparse for the high-value recert merchants — a resolver-accuracy cost, not a schema flaw. Never let critical automation depend on untrusted free text unless reviewed; filter/score/alert on normalized fields.
+
+### C.4 Scoring / Ranking / Decision Logic
+
+Fixed by [ADR 0011](../adr/adr-0011-composite-deal-score.md) (validated against mock data pre-ratification).
+
+| Input | Source | Required? | Validation / Fallback |
+| --------- | ------ | --------- | --------------------- |
+| `$/TB` (price + known shipping, + tax where known; USD via FX stamp) | `offer_snapshot` generated columns | Yes | Missing shipping → penalty/flag; international → flag (D-008) |
+| Cohort observations (90-day window, 30-day half-life) | `offer_snapshot` history / `cohort_baseline` | Yes | Warm-up shrinkage + cohort relaxation (condition → adjacent capacity → parent tier) |
+| Seller ratings (cross-marketplace positive-equivalent) | `seller_rating_observation` | No | No ratings → policy prior 0.60 (major marketplace) / 0.50 (other) |
+| Suitability / warranty / condition | `drive_spec`, variant, `verification_event` | Yes | Rubric handles unverified warranty tiers |
+| Stock state | `offer_snapshot` | Yes | Bounded rubric (in-stock 1.0 → out-of-stock 0.0) |
+
+| Component | Weight | Notes |
+| --- | --: | --- |
+| Price | 50% | Weighted cheapness percentile on `ln($/TB)` within cohort; `s_price = λ·(1−q) + (1−λ)·0.5`, `λ = min(1, n_eff/30)` |
+| Fitness-for-purpose | 25% | `s_fit = 0.5·suitability + 0.3·verified-warranty + 0.2·condition` |
+| Seller trust | 15% | Beta-Binomial shrinkage (μ₀ 0.95, κ 20) + Wilson lower bound (z 1.2816): `s_seller = 0.6·p_post + 0.4·LB` |
+| Availability | 10% | Bounded rubric |
+
+```text
+base       = Π_k max(s_k, 0.02)^{w_k}
+cap        = min over triggered vetoes:
+             device-managed SMR for enterprise/NAS → 35
+             used/seller-refurb with no returns   → 60
+             seller trust < 0.50                  → 60
+deal_score = round(100 · min(base, cap))
+```
+
+**Every automated decision stores:** input facts used; algorithm version; thresholds and margins; confidence (`n_eff`/`λ`, provisional marker); risk flags; machine-readable explanation payload; user-facing explanation text (DR-004). Known calibration notes (accepted for v1, ADR 0011): middle band mildly generous; the 0.02 floor flattens the expensive tail; the seller-trust prior is sticky-high by design.
+
+### C.5 Relational Schema Examples (depth reference only)
+
+<placeholder-guidance>
+Illustrates the expected level of schema detail — constraints, partial indexes, defaults, access-pattern indexes. Concrete hw-radar DDL lands at M0/M1 per §9; until then this remains the template's generic depth reference:
+
+```sql
+CREATE TABLE domain_entity (
+    id bigserial PRIMARY KEY,
+    external_key text,
+    name text NOT NULL,
+    status text NOT NULL DEFAULT 'active',
+    attributes jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT domain_entity_status_check
+        CHECK (status IN ('active', 'archived'))
+);
+
+CREATE UNIQUE INDEX domain_entity_external_key_uidx
+    ON domain_entity (external_key) WHERE external_key IS NOT NULL;
+
+-- Event/observation pattern: provenance + time-ordered access
+CREATE TABLE domain_event (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    domain_entity_id bigint NOT NULL REFERENCES domain_entity(id) ON DELETE CASCADE,
+    occurred_at timestamptz NOT NULL,
+    record_type text NOT NULL,
+    source_payload_hash text,
+    source_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+    algorithm_version text,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX domain_event_entity_time_idx
+    ON domain_event (domain_entity_id, occurred_at DESC);
+
+-- Operations pattern: every job run is a queryable record
+CREATE TABLE job_run (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_name text NOT NULL,
+    started_at timestamptz NOT NULL DEFAULT now(),
+    finished_at timestamptz,
+    status text NOT NULL,
+    attempt integer NOT NULL DEFAULT 1,
+    result_count integer NOT NULL DEFAULT 0,
+    failure_class text,
+    error text,
+    cost_units numeric(12,4) NOT NULL DEFAULT 0,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX job_run_job_time_idx ON job_run (job_name, started_at DESC);
+```
+</placeholder-guidance>
+
+---
+
+## Appendix D: Tailoring Guide
+
+Pick the smallest profile that fits; upgrade if the project grows. A section tagged at a higher tier than your profile is deleted, not left empty. _(Consolidation note: for this spec, profile-based pruning is **overridden by owner direction** — the full skeleton is retained; see the Revision History note.)_
+
+| Profile | Use For | Required Sections |
+| --- | --- | --- |
+| **Light** | Scripts, small tools, single-session agent tasks | Frontmatter + Revision History, §1 Purpose, §2 Scope, §7.1 Functional Requirements, §17.1 DoD, §21 Open Questions, Deviations Log, Appendix B |
+| **Standard** | Typical features and services | Light + §3 Context, §4 Goals, §6 Glossary, §7.2–7.4, §8 Architecture, §9 Data Model, §10 Behavior, §11 UI/API (if any), §12 Errors, §13 Security, §17 Testing (all), §18 Deployment, §19 Implementation Plan, References |
+| **Full** | Multi-service systems, data platforms, anything with durable data, external integrations, or multiple stakeholders | Standard + §5 Stakeholders, §8.4 Alternatives, §8.6 Dependency Policy, §14 Capacity, §15 Risks, §16 Compliance, §18.4 Rollout Controls, §20 Success Evaluation, Waves, relevant Appendix C modules |
+
+Rules of thumb:
+
+- Owns durable data → §18.6 Backup/DR is required regardless of profile.
+- Talks to external paid/rate-limited APIs → C.1 + C.2 + cost rows in §20.
+- Makes automated decisions users must trust → C.4's provenance list is required.
+- Implemented by a coding agent → Appendix B is required regardless of profile (it is the cheapest section and the highest-leverage one).

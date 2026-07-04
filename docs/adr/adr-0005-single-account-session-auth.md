@@ -18,7 +18,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/hw-radar.md'
+  - 'docs/specs/hw-radar-master-spec.md'
   - 'docs/resolved-questions.md'
   - 'docs/research/2026-07-03-auth-for-self-hosted-single-maintainer-python-app.md'
 supersedes: []

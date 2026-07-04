@@ -19,7 +19,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/hw-radar.md'
+  - 'docs/specs/hw-radar-master-spec.md'
   - 'docs/resolved-questions.md'
   - 'docs/research/free-outbound-email-path-for-low-volume-alerts.md'
   - 'docs/research/choosing-an-outbound-email-path-for-a-low-volume-alerting-system.md'

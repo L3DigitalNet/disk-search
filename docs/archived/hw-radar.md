@@ -1,3 +1,10 @@
+---
+title: 'Hardware Radar (original spec)'
+status: superseded
+superseded_by: 'docs/specs/hw-radar-master-spec.md'
+archived: '2026-07-04'
+---
+
 # Hardware Radar
 
 **What it is:** A search tool that monitors websites like eBay, ServerPartDeals, Amazon, Newegg, and other online marketplaces for hard disk drives (HDDs) and solid-state drives (SSDs). It alerts users when specific models or brands become available or drop in price. It should locate deals and provide a quantitative score based on price, availability, and seller reputation.

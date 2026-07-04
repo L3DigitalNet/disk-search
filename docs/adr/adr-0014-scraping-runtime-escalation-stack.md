@@ -20,7 +20,7 @@ tags:
 aliases: []
 related:
   - 'docs/adr/README.md'
-  - 'docs/specs/hw-radar.md'
+  - 'docs/specs/hw-radar-master-spec.md'
   - 'docs/resolved-questions.md'
   - 'docs/research/pragmatic-architecture-for-low-volume-python-e-commerce-scraping.md'
   - 'docs/research/per-source-polling-cadence-and-skip-policy.md'
