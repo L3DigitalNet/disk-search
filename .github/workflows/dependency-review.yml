@@ -1,0 +1,43 @@
+name: Dependency Review
+
+# OSS license-compliance gate (OQ20, owner-ratified 2026-07-04): GitHub's
+# dependency graph resolves uv.lock natively (incl. license metadata), so this
+# action enforces the allowlist below on every PR with zero added Python deps.
+# PR-triggered ONLY — a dependency added by a direct-to-branch commit bypasses
+# it; run a manual `licensecheck` pass for those (spec §16). The action
+# tolerates undetectable/UNKNOWN licenses rather than hard-failing (a large
+# fraction of PyPI packages lack machine-readable license metadata — PEP 639).
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/dependency-review-action@v4
+        with:
+          # SPDX ids; covers the decided stack: Django/Scrapy (BSD-3),
+          # APScheduler (MIT), psycopg (LGPL-3.0 — no obligations for a
+          # non-distributed self-hosted app), Playwright (Apache-2.0).
+          allow-licenses: >-
+            MIT,
+            BSD-2-Clause,
+            BSD-3-Clause,
+            Apache-2.0,
+            ISC,
+            Python-2.0,
+            PSF-2.0,
+            0BSD,
+            Unlicense,
+            MPL-2.0,
+            LGPL-2.1-only,
+            LGPL-2.1-or-later,
+            LGPL-3.0-only,
+            LGPL-3.0-or-later
