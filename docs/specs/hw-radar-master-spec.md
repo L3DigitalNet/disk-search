@@ -257,7 +257,7 @@ Single-stakeholder project: the owner/maintainer is simultaneously the end user,
 | DR-005 | Price history | Repeated price checks shall append time-series observations to the `offer_snapshot` hypertable under stable canonical entities — never overwrite or duplicate listings. | Re-run ⇒ new observations, not new listings (M1) | hw-radar ([ADR 0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)/[0010](../adr/adr-0010-canonical-data-model.md)) |
 | DR-006 | `availability_heartbeat_observation` | Fast-lane sources may be polled via a cheap no-render heartbeat that fires the full pipeline only on a detected transition (OOS↔in-stock, material price drop, new variant/listing ID, or post-in-stock ambiguity); the heartbeat fingerprint shall include price + stock + shipping state and be keyed at the variant/SKU grain. _(provisional — candidate ADR; [polling-cadence reconciliation](../research/2026-07-04-polling-cadence-reconciliation.md))_ | Grain **above** `offer_snapshot`; variant-keyed; transition-gated | hw-radar (extends [ADR 0010](../adr/adr-0010-canonical-data-model.md)) |
 | DR-006 | PII | The system shall store no PII from scraped pages; cassettes/fixtures are PII-scrubbed before commit. | vcrpy filters; synthetic-only fixtures for named commercial sources _(provisional — OQ8)_ | hw-radar |
-| DR-007 | Backups | The database shall be included in the host dump pipeline at provisioning, with **TimescaleDB-aware** dump/restore (or in-CT physical backup) — a plain `pg_dump` allowlist entry restores incorrectly. RPO acceptance is **open** ([OQ3](../open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling)). | Restore test into a scratch instance (M5) | hw-radar + homelab pipeline ([ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md)/[0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)) |
+| DR-007 | Backups | The database shall be included in the host dump pipeline at provisioning, with **TimescaleDB-aware** dump/restore (or in-CT physical backup) — a plain `pg_dump` allowlist entry restores incorrectly. RPO acceptance is **resolved** — ≤1 h accepted for v1 with TimescaleDB-aware logical dumps ([OQ3](../resolved-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling), owner-ratified 2026-07-04). | Restore test into a scratch instance (M5) | hw-radar + homelab pipeline ([ADR 0003](../adr/adr-0003-deploy-as-lxc-container.md)/[0007](../adr/adr-0007-datastore-postgresql-timescaledb.md)) |
 
 ---
 
@@ -415,7 +415,7 @@ Supporting tables: `product_alias` (external identifiers — GTIN/UPC, ASIN, ePI
 
 **Downstream table groups** (attach to this spine; specified in their own research, to get their own ADRs or milestone implementations — ADR 0010 "deferred detail"): scoring (`cohort_baseline`, `seller_rating_observation`, `listing_score`), alerting (`watch`, `watch_selector`, `watch_match_state`, `notification_event`), scraper-ops (`source`, `scraper_runs`), reference/seed (`model_family_ref`, `hdd/ssd_price_baseline`), plus the `users` stub (D-005) and per-provider search-governance settings rows (_provisional_, OQ7).
 
-**Retention & archival policy:** per-source `retention_class` TTLs (DR-001); backups per §18.6 (RPO acceptance open — OQ3).
+**Retention & archival policy:** per-source `retention_class` TTLs (DR-001); backups per §18.6 (RPO ≤1 h accepted for v1 — OQ3, resolved).
 
 ---
 
@@ -654,7 +654,7 @@ Confirm each item is addressed above or mark N/A with a reason:
 
 | ID | Risk | Likelihood | Impact | Mitigation | Owner |
 | --- | --- | --- | --- | --- | --- |
-| R-001 | Backup wiring is allowlist-based and **never automatic** — a never-added CT is silently unprotected; a plain `pg_dump` entry restores a TimescaleDB DB incorrectly. | Med | High (the moat) | Mandatory provisioning step (ADR 0003); TimescaleDB-aware dumps or physical backup (OQ3, **open**) | Owner |
+| R-001 | Backup wiring is allowlist-based and **never automatic** — a never-added CT is silently unprotected; a plain `pg_dump` entry restores a TimescaleDB DB incorrectly. | Med | High (the moat) | Mandatory provisioning step (ADR 0003); TimescaleDB-aware dumps or physical backup (OQ3, **resolved** — v1: TimescaleDB-aware logical dumps) | Owner |
 | R-002 | Wildcard→scoped tailnet ACL migration lands without a `tag:ci → CT:22` grant → deploys silently break. | Med | Med | Recorded forward dependency (OQ2/ADR 0006); add the grant with the migration | Owner |
 | R-003 | A source hardens its anti-bot posture → escalation up the tier ladder or SKIP. | Med | Low–Med per source | OQ9 back-off/skip detects it as a measured event (ADR 0014) | Implementer |
 | R-004 | Third-party free-tier / pricing volatility (Brave killed its free tier 2026-02; Tavily acquired by Nebius 2026-02-10; AgentMail caps). | Med | Low–Med | M365-primary email (no free-tier dependence); Serper-weighted discovery; re-verify pricing before build (OQ7, dated facts) | Owner |
@@ -798,7 +798,7 @@ Split concern (resolved gap #6): **infrastructure health** (up/disk/CPU/RAM) rid
 
 ### 18.6 Backup and Disaster Recovery `[Standard — if the system owns durable data]`
 
-**RPO (max acceptable data loss):** inherited **≤1 h, no PITR** (hourly logical dumps) — **accepted for v1 pending owner sign-off** ([OQ3](../open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling), **open**; revisit if OQ9 sets sub-hourly polling). · **RTO:** not stated in sources.
+**RPO (max acceptable data loss):** inherited **≤1 h, no PITR** (hourly logical dumps) — **accepted for v1** ([OQ3](../resolved-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling), owner-ratified 2026-07-04; revisit if OQ9 sets sub-hourly polling). · **RTO:** not stated in sources.
 
 | Asset | Backup Method | Frequency | Retention | Restore Test Cadence |
 | --- | --- | --- | --- | --- |
@@ -807,9 +807,9 @@ Split concern (resolved gap #6): **infrastructure health** (up/disk/CPU/RAM) rid
 
 **Mandatory provisioning step (not automatic):** add the CT's data paths to `backup-restic.sh` and its DB to `backup-dumps.sh` — coverage is a hardcoded allowlist; a never-added service is silently unprotected (ADR 0003).
 
-**Fallback design if tighter RPO/PITR is required** (recorded in OQ3, not adopted): pgBackRest physical backup + continuous WAL archiving on-CT (`repo1`) + second repo on S3-compatible storage (B2 or Storage Box), AES-256, weekly `pg_dumpall` supplement. Physical backups need no TimescaleDB special handling. Scenarios **not covered** in v1: PITR; VM-image-level backup (none exists in the pipeline).
+**Fallback design if tighter RPO/PITR is required** (recorded in OQ3; **deferred to a Future trigger — not adopted for v1**): pgBackRest physical backup + continuous WAL archiving on-CT (`repo1`) + second repo on S3-compatible storage (B2 or Storage Box), AES-256, weekly `pg_dumpall` supplement. Physical backups need no TimescaleDB special handling. Scenarios **not covered** in v1: PITR; VM-image-level backup (none exists in the pipeline).
 
-The full requirements analysis lives in the private `homelab` repo (`docs/plans/2026-07-04-hw-radar-backup-requirements.md`), pending owner confirmation of its §7 decisions (OQ3).
+The full requirements analysis lives in the private `homelab` repo (`docs/plans/2026-07-04-hw-radar-backup-requirements.md`); its §7 decisions were **owner-ratified 2026-07-04** — ≤1 h RPO accepted, **TimescaleDB-aware logical dumps**, extended monthly retention, **B2 tier-1 declined for v1** (OQ3, resolved).
 
 ### 18.7 Documentation Deliverables
 
@@ -918,7 +918,7 @@ Repo convention: open decisions live in [`open-questions.md`](../open-questions.
 
 | ID | Question | Current Assumption | Blocking? | Owner | Needed By | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| OQ-003 (repo [OQ3](../open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling)) | Is the inherited ≤1 h RPO / no-PITR acceptable for the price-history moat, and how is the TimescaleDB dump handled (aware logical vs physical)? | Inherited ≤1 h RPO/no-PITR **accepted for v1**; real work is TimescaleDB-correct dumps + wiring, per the homelab backup-requirements doc — pending owner sign-off of its §7 (RPO / join-B2-tier-1 / logical-vs-physical) | No — but must precede the first backup taken | Owner | CT provisioning | **Open** |
+| OQ-003 (repo [OQ3](../resolved-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling)) | Is the inherited ≤1 h RPO / no-PITR acceptable for the price-history moat, and how is the TimescaleDB dump handled (aware logical vs physical)? | **Owner-ratified 2026-07-04:** ≤1 h RPO accepted for v1; **TimescaleDB-aware logical dumps**; extended monthly retention; **B2 tier-1 declined for v1** (physical/pgBackRest + second offsite = Future triggers). Provisioning-wiring residual tracked in `TODO.md`. | No — but must precede the first backup taken | Owner | CT provisioning | **Resolved** |
 | OQ-005 (repo OQ5) | Off-box heartbeat target | Off-site GMK Uptime Kuma + Fleet Digest sweep; land before production | No | Owner | Pre-production | Answered (provisional — no ADR) |
 | OQ-006 (repo OQ6) | UI page inventory, dismiss→suppress, purchase tracking | Inventory as-is; dismiss = permanent per-listing enum value; purchase analytics deferred | No | Owner | M3 | Answered (provisional — no ADR) |
 | OQ-007 (repo OQ7) | Running-cost / search self-governance | `SearchBudgetGate` + per-provider settings + spend caps; Serper-weighted (Brave free tier ended); re-verify pricing before build | No | Owner | Build time | Answered (provisional — no ADR) |

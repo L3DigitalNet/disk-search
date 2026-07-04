@@ -13,34 +13,12 @@
   - [Important Notes](#important-notes)
   - [Table of Contents](#table-of-contents)
   - [Open questions](#open-questions)
-    - [OQ3 — DB RPO acceptance (+ TimescaleDB dump handling)](#oq3--db-rpo-acceptance--timescaledb-dump-handling)
+    - [OQ15 — Amazon acquisition path after PA-API deprecation](#oq15--amazon-acquisition-path-after-pa-api-deprecation)
       - [Agent notes](#agent-notes)
       - [My Comments](#my-comments)
-    - [OQ15 — Amazon acquisition path after PA-API deprecation](#oq15--amazon-acquisition-path-after-pa-api-deprecation)
-      - [Agent notes](#agent-notes-1)
-      - [My Comments](#my-comments-1)
   - [How to maintain this document](#how-to-maintain-this-document)
 
 ## Open questions
-
-### OQ3 — DB RPO acceptance (+ TimescaleDB dump handling)
-
-**From:** gap #5 (resolved CT path, [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)). **Decision needed:** is the inherited **≤1 h RPO / no PITR** (hourly logical dumps) acceptable for the accumulating price-history moat, or must **pgBackRest + WAL archiving** be layered **inside the CT**?
-
-A second driver is coupled to this: TimescaleDB ([ADR 0007](adr/adr-0007-datastore-postgresql-timescaledb.md)) means the inherited logical `pg_dump` needs **TimescaleDB-aware** dump/restore (`timescaledb_pre_restore()` / `post_restore()`, compression state not preserved), so **physical** backup may be preferable for _correctness_, not only for RPO. Decide both together.
-
-#### Agent notes
-
-- **Owner direction (2026-07-03):** don't pick an RPO in the abstract — **first author a backup-requirements doc** (RPO, PITR, and the TimescaleDB dump/restore constraints) for hw-radar in the private **`homelab` repo**, coordinated with the existing Hetzner backup strategy; then evaluate the inherited **≤1 h RPO / no-PITR** against those documented requirements and expand only if they demand it. **Non-blocking** — can land in parallel with or after deploy, **but must precede the first backup being taken.**
-- **Requirements doc written (2026-07-04):** `homelab/docs/plans/2026-07-04-hw-radar-backup-requirements.md` (verified live against `backup-dumps.sh`/`backup-restic.sh`). **Headline finding:** hw-radar is the fleet's **first TimescaleDB consumer**, but every existing dump is plain `pg_dump --format=custom` with no hypertable awareness → a naïve allowlist entry **restores incorrectly**. So the real work is **TimescaleDB-correct dumps + wiring coverage, not tighter RPO** — the inherited **≤1 h RPO / no-PITR is accepted for v1** (revisit if OQ9 sets sub-hourly polling). Own-CT Postgres (OQ4) matches the CT 109/112/114 pattern. _(OQ3 stays open pending the owner's confirmation of the doc's §7 decisions — RPO, join-B2-tier-1, logical-vs-physical — and the provisioning-time wiring.)_
-- **Fallback design if tighter RPO/PITR is wanted:** pgBackRest physical backup + continuous WAL archiving on-CT (`repo1`) with a second repo (`repo2`) on S3-compatible storage (Backblaze B2 or Hetzner Storage Box), pgBackRest AES-256 encryption → PITR + offsite 3-2-1. Supplement with a weekly `pg_dumpall`.
-- TimescaleDB: **physical** backups (pgBackRest / `pg_basebackup`) need no special handling; only logical (`pg_dump`) backups carry hypertable caveats — prefer physical.
-- Keep the **monthly restore-test** discipline regardless — an untested backup is a hope. **Patch PostgreSQL/tooling** (recent `pg_dump`/`pg_basebackup`/`pg_rewind` CVEs live in the tools).
-- Independent of the CT decision. Research: [`postgresql-backup-disaster-recovery-single-vm.md`](research/2026-07-03-postgresql-backup-disaster-recovery-single-vm.md).
-
-#### My Comments
-
-Create a document of all backup requirements and constraints, including RPO, PITR, and TimescaleDB considerations. Evaluate the current backup strategy against these requirements and determine if the current ≤1 h RPO is acceptable or if a more robust solution is needed. Go into the `homelab` repo and create appropriate documentation for hw-radar and document it's backup needs there. The backup strategy will have to be coordinated with the existing Hetzner backup strategy and any other relevant infrastructure. We can expand/improve as necessary, but the first step is to document the requirements and constraints. This is not a blocker, it can be completed in parallel or after the project is deployed, but it should be done before the first backup is taken.
 
 ### OQ15 — Amazon acquisition path after PA-API deprecation
 
@@ -54,7 +32,7 @@ Create a document of all backup requirements and constraints, including RPO, PIT
 
 #### My Comments
 
-_(owner — pending)_
+**Task for Claude:** /qdev:research the Creators API and SP-API to determine which is the best replacement for PA-API 5 `GetItems` for our use case. Provide a recommendation with pros and cons for each option, including any limitations or restrictions that may affect our ability to acquire and retain Amazon data. Once a decision is made, update the relevant documentation accordingly.
 
 ## How to maintain this document
 

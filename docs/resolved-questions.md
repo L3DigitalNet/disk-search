@@ -1,6 +1,6 @@
 # Resolved Questions — `hw-radar.md`
 
-**Companion to [`open-questions.md`](open-questions.md)** — that file holds the one still-open question (**OQ3**) and the shared [maintenance rules](open-questions.md#how-to-maintain-this-document); this file is the **settled record**, split out 2026-07-04 to keep the open-questions doc short.
+**Companion to [`open-questions.md`](open-questions.md)** — that file holds the still-open questions (**OQ15**) and the shared [maintenance rules](open-questions.md#how-to-maintain-this-document); this file is the **settled record**, split out 2026-07-04 to keep the open-questions doc short.
 
 **Terminology:** an **open question** (`OQ#`) is a decision still to be made (it lives in [`open-questions.md`](open-questions.md)); a **resolved question** (`RQ#`) is one already settled; a **gap** (`gap #`) is one of the twelve original spec-audit findings that seeded these questions. Everything here is settled — retained for provenance and to keep ADR/spec cross-references resolvable; you do not need to read it to know what's still open.
 
@@ -27,6 +27,7 @@
   - [Resolved OQs](#resolved-oqs)
     - [OQ1 — `secret_id` out-of-band delivery to the CT](#oq1--secret_id-out-of-band-delivery-to-the-ct)
     - [OQ2 — Ephemeral-runner tailnet auth](#oq2--ephemeral-runner-tailnet-auth)
+    - [OQ3 — DB RPO acceptance (+ TimescaleDB dump handling)](#oq3--db-rpo-acceptance--timescaledb-dump-handling)
     - [OQ4 — DB placement: own CT vs shared datastores CT](#oq4--db-placement-own-ct-vs-shared-datastores-ct)
     - [OQ5 — Off-box heartbeat](#oq5--off-box-heartbeat)
     - [OQ6 — Final UI page inventory + dismiss→suppress feedback + purchase tracking](#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking)
@@ -50,9 +51,9 @@ Cross-cutting questions the research surfaced, now closed. Referenced by ADRs/sp
 | **RQ1** | Framework: Django or FastAPI? | **Django** + server-rendered templates + HTMX — the app's center of gravity is an authenticated listings DB + dashboards + CRUD + alerts, not an API platform. **[ADR 0004](adr/adr-0004-web-framework-django-htmx.md).** Locks in `manage.py migrate`, `contrib.auth`, and the Django admin as back-office. |
 | **RQ2** | Public URL required, or Tailscale-only acceptable? | **Public URL required**, with a single strong-password account; Tailscale-only rejected. Drives the auth model (resolved gap #1, [ADR 0005](adr/adr-0005-single-account-session-auth.md)). |
 | **RQ3** | Does the Proxmox host give a per-service vTPM? | The host has `swtpm` installed, so a full **VM** could get a vTPM — but hw-radar deploys as a **CT** (RQ5), which has **no per-container TPM** (shared host kernel). So `systemd-creds --with-key=tpm2` is **not** available → secrets go via the local OpenBao Agent (resolved gap #2, [OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct)). |
-| **RQ4** | Existing Hetzner backup & monitoring coverage? | **Characterized on 2026-07-03** (specifics in the private `homelab` repo). **Backup:** file-level restic + hourly logical dumps to two offsite repos, but **opt-in per service via a hardcoded allowlist**, **no PITR** (≤1 h RPO), **no VM-image backup**. **Monitoring:** rich but **on-box only**, **no off-site watchdog**; a CT is auto-discovered by the health check, a VM is not. Net: a CT maximizes infra reuse; an off-box heartbeat ([OQ5](#oq5--off-box-heartbeat)) and a DB-RPO decision ([OQ3](open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling)) are the two things to add. |
+| **RQ4** | Existing Hetzner backup & monitoring coverage? | **Characterized on 2026-07-03** (specifics in the private `homelab` repo). **Backup:** file-level restic + hourly logical dumps to two offsite repos, but **opt-in per service via a hardcoded allowlist**, **no PITR** (≤1 h RPO), **no VM-image backup**. **Monitoring:** rich but **on-box only**, **no off-site watchdog**; a CT is auto-discovered by the health check, a VM is not. Net: a CT maximizes infra reuse; an off-box heartbeat ([OQ5](#oq5--off-box-heartbeat)) and a DB-RPO decision ([OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling)) are the two things to add. |
 | **RQ5** | Deployment model — CT vs VM? | **Dedicated LXC container**, superseding the spec's "VM". Aligns with the "every service in a dedicated LXC" standard and maximizes infra reuse (fleet-digest auto-discovers the CT; its data is reachable by the host's file-level restic). **[ADR 0003](adr/adr-0003-deploy-as-lxc-container.md).** Consequences: vTPM off the table (RQ3) → local OpenBao Agent; backup is **not** automatic (wire the CT into `backup-restic.sh`/`backup-dumps.sh`); DB on a container Postgres ([OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct)). |
-| **RQ6** | Datastore: PostgreSQL or MySQL? | **PostgreSQL (system-of-record) + TimescaleDB** for the price-history/observation side. **[ADR 0007](adr/adr-0007-datastore-postgresql-timescaledb.md).** Adds the TimescaleDB-aware-dump driver to [OQ3](open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling). |
+| **RQ6** | Datastore: PostgreSQL or MySQL? | **PostgreSQL (system-of-record) + TimescaleDB** for the price-history/observation side. **[ADR 0007](adr/adr-0007-datastore-postgresql-timescaledb.md).** Adds the TimescaleDB-aware-dump driver to [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling). |
 
 ## Origins — the 12-gap summary
 
@@ -64,7 +65,7 @@ Where each of the twelve original spec-audit **gaps** (the provenance the open q
 | 2 | `.env` secrets contradict OpenBao standard | 🔴 | **Settled** ([ADR 0009](adr/adr-0009-secrets-runtime-openbao-agent.md)) — local bao-agent on the CT consuming the Hetzner **`bao-services` (CT 115)** store; SecretID delivery settled ([OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct) ✅, verified live 2026-07-04). |
 | 3 | No currency / landed-cost normalization | 🔴 | **Settled** ([ADR 0008](adr/adr-0008-currency-landed-cost-normalization.md)) — Frankfurter FX → USD; flag international listings (no fixed haircut). |
 | 4 | Deployment & service topology a black box | 🔴 | **Settled** — `rsync` over Tailscale + systemd ([ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)); runner tailnet auth settled → **Tailscale OAuth client** ([OQ2](#oq2--ephemeral-runner-tailnet-auth) ✅, verified live 2026-07-04). |
-| 5 | No backup / disaster recovery | 🟡 | **Settled** (CT path) — inherit restic + hourly dumps ([ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)); DB placement settled → **own-CT Postgres** ([OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct) ✅). Open part → [OQ3](open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling) (DB-RPO). |
+| 5 | No backup / disaster recovery | 🟡 | **Settled** (CT path) — inherit restic + hourly dumps ([ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)); DB placement settled → **own-CT Postgres** ([OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct) ✅). Open part → [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling) (DB-RPO). |
 | 6 | No application self-observability | 🟡 | **Settled** (CT path) — infra health auto-covers the CT; in-app `scraper_runs`/dead-man's-switch; off-box heartbeat settled → **GMK Uptime Kuma** ([OQ5](#oq5--off-box-heartbeat) ✅). |
 | 7 | UI/UX specified as one line | 🟡 | **Settled** — Django + HTMX rendering + post-alert state machine. Open part → [OQ6](#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking). |
 | 8 | No v1 scope / phasing / acceptance criteria | 🟡 | **Settled** — six-milestone MVP plan (M0–M5) accepted; authoritative phasing to be authored via `spec-pipeline`. |
@@ -119,7 +120,7 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 **Was:** the accumulated historical price data _is_ the tool's compounding value; a single box with no backup means one disk failure erases the moat. Evidence: [`hw-radar.md:19`](archived/hw-radar.md), [`:22`](archived/hw-radar.md); DB co-located per [`:69`](archived/hw-radar.md).
 
-**Decision (CT path) — [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md):** add the hw-radar **CT** to the existing Hetzner restic + hourly-dump pipeline; keep the monthly restore-test discipline. **Settled 2026-07-03:** DB placement → **own Postgres inside the hw-radar CT** (self-contained; [OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct)). **Still open:** DB-RPO acceptance → **[OQ3](open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling)** (owner: document requirements in the `homelab` repo first).
+**Decision (CT path) — [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md):** add the hw-radar **CT** to the existing Hetzner restic + hourly-dump pipeline; keep the monthly restore-test discipline. **Settled 2026-07-03:** DB placement → **own Postgres inside the hw-radar CT** (self-contained; [OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct)). **Still open:** DB-RPO acceptance → **[OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling)** (owner: document requirements in the `homelab` repo first).
 
 **Live-state findings (2026-07-03 — verified on the server; specifics in the private `homelab` repo):**
 
@@ -252,7 +253,7 @@ Everything above is the **operational / product-engineering** layer a research-f
 
 ## Resolved OQs
 
-OQ1–OQ14 (except the still-open [OQ3](open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling)), relocated here on 2026-07-04. Their `#oq#` anchors are preserved so ADR/TODO/spec/research back-links keep resolving. **ADR-backed OQs are condensed to a one-line resolution + ADR link** (the ADR is canonical); **OQs with no ADR retain their full decided substance** (this document is their record).
+OQ1–OQ14 (except the still-open [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling)), relocated here on 2026-07-04. Their `#oq#` anchors are preserved so ADR/TODO/spec/research back-links keep resolving. **ADR-backed OQs are condensed to a one-line resolution + ADR link** (the ADR is canonical); **OQs with no ADR retain their full decided substance** (this document is their record).
 
 | # | Question | Resolution |
 | --- | --- | --- |
@@ -282,9 +283,24 @@ OQ1–OQ14 (except the still-open [OQ3](open-questions.md#oq3--db-rpo-acceptance
 
 **My Comments:** Use the Tailscale API key from OpenBao to access the tailnet and check the ACLs. If the ACLs allow for OAuth client auth, then use that. Otherwise, provide additional options/alternatives.
 
+### OQ3 — DB RPO acceptance (+ TimescaleDB dump handling)
+
+**✅ Resolved (owner-ratified 2026-07-04) — no ADR; this is the record.** From gap #5 (resolved CT path, [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)); TimescaleDB driver from [ADR 0007](adr/adr-0007-datastore-postgresql-timescaledb.md). The owner's direction was to **document requirements before picking an RPO**; the requirements analysis was authored and verified live in the private `homelab` repo (`docs/plans/2026-07-04-hw-radar-backup-requirements.md`, verified against `backup-dumps.sh`/`backup-restic.sh`), and its §7 decisions were then ratified.
+
+- **Headline finding:** hw-radar is the fleet's **first TimescaleDB consumer**, but every existing dump is plain `pg_dump --format=custom` with no hypertable awareness → a naïve allowlist entry **restores incorrectly**. So the load-bearing work is **TimescaleDB-correct dumps + wiring coverage, not tighter RPO**.
+- **Owner-ratified decisions (2026-07-04, doc §7):**
+  1. **RPO ≤ 1 h accepted for v1** — append-heavy time-series makes an hour's loss bounded; revisit only if [OQ9](#oq9--acquisition-cadence-throttle--skip-policy) sets sub-hourly polling.
+  2. **B2 tier-1 declined for v1** — rely on local ZFS + the Hetzner Storage Box hourly copy (one offsite). Deviates from the doc's "join B2" recommendation; the second independent offsite is a Future trigger (revisit as the moat grows).
+  3. **Dump method: TimescaleDB-aware logical** (`timescaledb_pre_restore()`/`post_restore()`; compression state not preserved) at the inherited hourly cadence — stays inside the existing pipeline. Physical (pgBackRest + WAL/PITR) is deferred to a Future trigger (OQ9 sub-hourly polling, or PITR becoming required).
+  4. **Extended monthly retention** — keep monthly snapshots beyond the pipeline default of 6 months to guard the compounding price-history moat; horizon set at provisioning.
+- **Residual (implementation, not a decision) — must precede the first backup being taken:** at CT provisioning, (a) confirm the CT `subvol` is in `backup-restic.sh` file-level coverage; (b) add a **TimescaleDB-aware** dump block for the hw-radar DB to `backup-dumps.sh` + document the `pre_restore`/`post_restore` restore path; (c) extend monthly-snapshot retention; (d) confirm the disk-space threshold alert fires (raw scrape payloads grow unbounded); (e) keep the **monthly restore-test** discipline and **patch** `pg_dump`/`pg_basebackup`/`pg_rewind` (CVEs live in the tools). Tracked as a provisioning task in `TODO.md`.
+- Research: [`postgresql-backup-disaster-recovery-single-vm.md`](research/2026-07-03-postgresql-backup-disaster-recovery-single-vm.md). Full requirements analysis: `homelab/docs/plans/2026-07-04-hw-radar-backup-requirements.md`. See also [Resolved gap #5](#gap-5--backup--disaster-recovery-settled-ct-path-adr-0003).
+
+**My Comments:** Create a document of all backup requirements and constraints, including RPO, PITR, and TimescaleDB considerations. Evaluate the current backup strategy against these requirements and determine if the current ≤1 h RPO is acceptable or if a more robust solution is needed. Go into the `homelab` repo and create appropriate documentation for hw-radar and document it's backup needs there. The backup strategy will have to be coordinated with the existing Hetzner backup strategy and any other relevant infrastructure. We can expand/improve as necessary, but the first step is to document the requirements and constraints. This is not a blocker, it can be completed in parallel or after the project is deployed, but it should be done before the first backup is taken.
+
 ### OQ4 — DB placement: own CT vs shared datastores CT
 
-**✅ Resolved (owner, 2026-07-03) → [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md).** Own Postgres **inside the hw-radar CT** — the app and its database are self-contained in one CT (consistent with the spec's "same container" intent; simpler to deploy and manage). The shared-datastores-CT option is rejected. **Residual (implementation, not a decision):** at provisioning, add the CT's DB to `backup-dumps.sh` with the **TimescaleDB-aware** dump caveat from [OQ3](open-questions.md#oq3--db-rpo-acceptance--timescaledb-dump-handling). See [Resolved gap #5](#gap-5--backup--disaster-recovery-settled-ct-path-adr-0003).
+**✅ Resolved (owner, 2026-07-03) → [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md).** Own Postgres **inside the hw-radar CT** — the app and its database are self-contained in one CT (consistent with the spec's "same container" intent; simpler to deploy and manage). The shared-datastores-CT option is rejected. **Residual (implementation, not a decision):** at provisioning, add the CT's DB to `backup-dumps.sh` with the **TimescaleDB-aware** dump caveat from [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling). See [Resolved gap #5](#gap-5--backup--disaster-recovery-settled-ct-path-adr-0003).
 
 **My Comments:** The app/project and its associated database should be self-contained in the hw-radar CT. This is consistent with the spec's intent and simplifies deployment and management.
 
