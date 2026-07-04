@@ -34,6 +34,8 @@ uv run python -m scripts.check  # full verification gate (fmt · lint · types �
 uv run ruff format . && uv run ruff check . --fix   # fix pass
 ```
 
+**Branching:** `main` is protected — no direct pushes. Work on `dev` (the integration branch) or a short-lived `feature/*` branch off `dev`, then open a pull request into `main`. Merges require the CI checks to pass and a signed-commit history; PRs squash-merge and the head branch auto-deletes.
+
 ## Decided stack
 
 Python · Scrapy (HTTP-first / structured-data-first / browser-last) · PostgreSQL +
