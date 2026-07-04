@@ -77,17 +77,17 @@ Read **[Open questions](#open-questions)** for anything that still needs a call.
 
 ## Open questions
 
-Ten decisions remain. **OQ1–OQ8** are the still-open parts of the original gaps (linked; the settled part of each is in [Resolved](#resolved)). **OQ9–OQ10** surfaced from the spec's General Design Principles consistency audit.
+**Six decisions remain open** — **OQ3** and **OQ6–OQ10** (OQ9–OQ10 surfaced from the spec's General Design Principles consistency audit; the rest are the still-open parts of the original gaps). **OQ1, OQ2, OQ4, and OQ5 are settled** (OQ1/OQ2 on 2026-07-04 by live verification against the Hetzner infra + tailnet during the owner-directed investigation; OQ4/OQ5 on 2026-07-03 by owner decision); they are marked ✅ below and kept in place — rather than physically relocated to Resolved — to preserve their `#oq1`/`#oq2`/`#oq4`/`#oq5` anchors (referenced by ADR 0003/0006, TODO, the research README, and OQ10). Their resolutions are also recorded in [Resolved](#resolved).
 
 ### At a glance
 
 | # | Open question | From | The fork |
 | --- | --- | :-: | --- |
-| **OQ1** | `secret_id` out-of-band delivery to the CT | gap #2 | pick the provisioning/renewal path now that public-repo CI can't be the courier |
-| **OQ2** | Ephemeral-runner tailnet auth | gap #4 | Tailscale OAuth client vs pre-generated ephemeral key |
+| **OQ1** ✅ | `secret_id` delivery — **settled** | gap #2 | ✅ 2026-07-04 (verified live): onboard as the next **`bao-services` (CT 115)** consumer via a local **bao-agent**; SecretID via `bao-issue-secret-id.sh` (wrap + `pct push`) → `/etc/bao-agent/secret-id`, persistent + CIDR-bound. See [OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct). |
+| **OQ2** ✅ | Ephemeral-runner tailnet auth — **settled** | gap #4 | ✅ 2026-07-04 (verified live): **Tailscale OAuth client** (`secret/infra/tailscale-oauth`, `tag:ci`) via `tailscale/github-action` v4. ⚠️ add a `tag:ci→CT` grant when the wildcard ACL is scoped. See [OQ2](#oq2--ephemeral-runner-tailnet-auth). |
 | **OQ3** | DB RPO (+ TimescaleDB dumps) | gap #5 | accept ≤1 h / no-PITR vs layer pgBackRest + WAL inside the CT |
-| **OQ4** | DB placement | gap #5 | own Postgres in the disk-search CT vs the shared datastores CT |
-| **OQ5** | Off-box heartbeat | gap #6 | add to off-site GMK Uptime Kuma vs a free healthchecks.io monitor |
+| **OQ4** ✅ | DB placement — **settled** | gap #5 | ✅ 2026-07-03: own Postgres **inside the disk-search CT** (self-contained; shared-datastores-CT rejected). See [OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct). |
+| **OQ5** ✅ | Off-box heartbeat — **settled** | gap #6 | ✅ 2026-07-03: **off-site GMK Uptime Kuma** watches the CT (also swept by the Hetzner Fleet Digest; healthchecks.io rejected). See [OQ5](#oq5--off-box-heartbeat). |
 | **OQ6** | Final UI inventory + dismiss→suppress | gap #7 | confirm pages; decide if a user _dismiss_ silences re-alerts; purchase-tracking scope |
 | **OQ7** | Running-cost budget model | gap #10 | pricing pass ✅ (2026-07-03 → ~$8–15/mo search-API envelope; AgentMail free); residual = encode per-source poll budgets at build |
 | **OQ8** | Scraper testing finalization | gap #9 | per-tier canary frequencies; synthetic vs real cassettes per source |
@@ -98,13 +98,18 @@ Ten decisions remain. **OQ1–OQ8** are the still-open parts of the original gap
 
 ### OQ1 — `secret_id` out-of-band delivery to the CT
 
-**From:** gap #2 (resolved). **Decision needed:** how the OpenBao AppRole `secret_id` is provisioned and renewed on the disk-search CT, now that public-repo CI (GitHub-hosted) **cannot** be the courier and must hold **no** OpenBao credential.
+> **✅ SETTLED (owner hunch confirmed + verified live on Hetzner, 2026-07-04):** disk-search onboards as the **next `bao-services` consumer** — the exact pattern already live for **LiteLLM on CT 110**. A local **bao-agent** sidecar on the disk-search CT AppRole-auto-auths against the Hetzner-local **`bao-services` store (CT 115)** and renders secrets to tmpfs. The `secret_id` is delivered **operator→CT** by `bao-issue-secret-id.sh` (300 s response-wrap token + `pct push`) and stored at `/etc/bao-agent/secret-id` (mode 0600, **persistent** — `remove_secret_id_file_after_reading=false`), re-read on every agent restart; the consumer AppRole is **long-lived** (`num_uses=0, ttl=0`) with **CIDR binding** as the active security control (not TTL). No renewal treadmill — re-run the issuer only to rotate. The owner's "bao-agent will resolve this" is confirmed. Kept in place to preserve the `#oq1` anchor; also recorded in [Resolved gap #2](#gap-2--env-secrets-model--openbao-settled-except-secret_id-delivery).
 
-The secrets _path_ is settled (local OpenBao Agent, AppRole auto-auth, templates to tmpfs `/run/disk-search/secrets.env` — see resolved gap #2). The `role_id` ships in the CT image / config-management. Only the `secret_id` delivery is open.
+**From:** gap #2 (resolved). **Decided:** how the OpenBao AppRole `secret_id` reaches the disk-search CT (public-repo CI holds **no** OpenBao credential) → **reuse the live `bao-services`/`bao-agent` consumer pattern** — the `secret_id` is delivered locally on the box, never through CI.
+
+The secrets _path_ is settled (local bao-agent, AppRole auto-auth, renders to tmpfs). The `role_id` ships in the CT config-management. The `secret_id` delivery/renewal is now settled per the banner.
 
 #### Agent notes
 
-- Candidate paths: an **Ansible run against the CT over Tailscale**, an existing infra automation, or a **local renewal process** on the CT. Pick the provisioning **and** renewal mechanism together.
+- **Verified live (2026-07-04):** CT 115 `bao-services` (OpenBao 2.5.2, auto-unsealed via GMK Transit, Tailscale-only) and CT 110 (the LiteLLM consumer) are both **running**. The consumer fleet is documented in `homelab/infrastructure/servers/hetzner-dedicated/bao-agent/` — `configs/hetzner-litellm/` is the reference (`agent.hcl` + `openbao-agent.service` + a `*-bao-gate.conf` systemd drop-in), onboarding via `bao-agent/runbooks/onboard-consumer.md`; SecretID issued by `bao-services/tools/bao-issue-secret-id.sh`.
+- **SecretID model (pilot-amended — supersedes OQ1's original response-wrap-and-delete assumption):** the spec's `remove_secret_id_file_after_reading=true` **breaks restart safety** (wrap token is single-use → any restart fails), so the live pattern uses a **persistent, long-lived, CIDR-bound** SecretID at `/etc/bao-agent/secret-id` instead. Adopt the live pattern, not the withdrawn one.
+- **Spec-reconciliation follow-ups (disk-search side, for the next spec pass):** (1) secrets are consumed from the **Hetzner-local `bao-services` CT 115**, not GMK CT 111 directly; (2) the render-path convention is **`/run/bao-agent/disk-search.env`**, not `/run/disk-search/secrets.env`; (3) the consumer AppRole's **CIDR bind must include the disk-search CT's private IP** (`10.0.100.x`).
+- **Onboarding is wave-2** (LiteLLM was wave-1, manual): either follow the manual pattern or populate the intentionally-empty `robertdebock.openbao_agent` ansible scaffold. Implementation choice, not a design decision.
 - The vTPM / `systemd-creds --with-key=tpm2` shortcut is **out** — a CT has no per-container TPM (it shares the host kernel), so that path would reduce to host-key-only encryption (see [RQ3](#resolved-questions), [RQ5](#resolved-questions)). The local OpenBao Agent is therefore the only secrets path.
 - Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md) §3.
 
@@ -116,14 +121,17 @@ SSH into Hetzner and look at the existing infra automation, particularly the CT 
 
 ### OQ2 — Ephemeral-runner tailnet auth
 
-**From:** gap #4 (resolved, [ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)). **Decision needed:** which mechanism authenticates the ephemeral GitHub-hosted runner onto the tailnet for the `rsync`/SSH deploy — a **Tailscale OAuth client** (scoped, auto-rotating; preferred) or a **pre-generated ephemeral auth key**.
+> **✅ SETTLED (owner criterion met + verified against the live ACL, 2026-07-04): use the Tailscale OAuth client.** The owner's rule was "if the ACLs allow an OAuth client, use it." Verified: the tailnet's `tag:ci` is defined and admin-owned ("added 2026-03-24 for GitHub Actions CI/CD deploy"), and an OAuth client already exists at OpenBao **`secret/infra/tailscale-oauth`** with `purpose: "GitHub Actions CI/CD deploy via Tailscale"` — it completed the client-credentials flow and read the ACL (HTTP 200). So disk-search's CD uses `tailscale/github-action` **v4** (built for ephemeral GitHub-hosted runners; its post-step auto-`tailscale logout` is a feature here) authenticating via that OAuth client, minting an ephemeral node tagged `tag:ci`. **No pre-generated ephemeral auth key needed.** Kept in place to preserve the `#oq2` anchor; also recorded in [Resolved gap #4](#gap-4--deployment--service-topology-settled-adr-0006).
 
-Not resolvable server-side — it depends on what the existing tailnet ACL setup supports (an admin-console / ACL decision). ADR 0006's CD decision holds regardless of which is chosen.
+**From:** gap #4 (resolved, [ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)). **Decided:** which mechanism authenticates the ephemeral GitHub-hosted runner onto the tailnet → the **Tailscale OAuth client** (already provisioned for exactly this purpose), not a pre-generated ephemeral auth key. ADR 0006's CD decision holds.
 
 #### Agent notes
 
-- OAuth client is preferred (scoped, auto-rotating) but must be checked against the existing tailnet ACLs.
-- Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md).
+- **Verified live (2026-07-04):** the OAuth client at `secret/infra/tailscale-oauth` (`client_id`/`client_secret`, purpose "GitHub Actions CI/CD deploy via Tailscale") authenticated and GET-ed the tailnet ACL; `tag:ci` is present in `tagOwners` (`["autogroup:admin"]`). `tailscale/github-action` v4 is the correct action for an **ephemeral** GitHub-hosted runner — the opposite of the persistent VM 200 runner, which rejected it (auto-logout would sever a persistent `tag:ci`) per the Tailscale-ACL research.
+- **⚠️ Latent dependency — the tailnet ACL grants are still wildcard** (`src:* dst:* ip:*`). Today a `tag:ci` node reaches the disk-search CT with **no extra grant**; but the pending **wildcard→scoped migration** (`homelab/docs/superpowers/plans/2026-05-14-homelab-tailnet-wildcard-removal.md`) will remove that blanket access — when it lands, add an explicit grant `{src:["tag:ci"], dst:["<disk-search CT>"], ip:["22"]}` or the deploy silently breaks.
+- **Transport nuance:** the live `ssh` block is `action:check` for `autogroup:member → autogroup:self` **only** — it does not cover `tag:ci → CT` for _Tailscale SSH_. Prefer **bare OpenSSH + a deploy key** over the tailnet (the wildcard grant opens port 22; matches the VM 200 precedent), or add a `tag:ci → CT` ssh rule if Tailscale SSH is wanted. ADR 0006 says "restarts over `tailscale ssh`" → reconcile to bare-ssh or add the ssh rule.
+- **Operational finding (resolved 2026-07-04):** the stored `secret/infra/tailscale-api` token had **expired 2026-06-22**; owner minted a new one (now valid to 2026-10-01, verified HTTP 200). Independent of CD — the OAuth client is what CD uses.
+- Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md); tailnet ACL scoping in `homelab/docs/research/2026-05-14-tailscale-acl-wildcard-to-scoped-ci-runner.md`.
 
 #### My Comments
 
@@ -139,6 +147,7 @@ A second driver is coupled to this: TimescaleDB ([ADR 0007](adr/adr-0007-datasto
 
 #### Agent notes
 
+- **Owner direction (2026-07-03):** don't pick an RPO in the abstract — **first author a backup-requirements doc** (RPO, PITR, and the TimescaleDB dump/restore constraints) for disk-search in the private **`homelab` repo**, coordinated with the existing Hetzner backup strategy; then evaluate the inherited **≤1 h RPO / no-PITR** against those documented requirements and expand only if they demand it. **Non-blocking** — can land in parallel with or after deploy, **but must precede the first backup being taken.** _(Requirements-doc task — OQ stays open until the doc is written and the RPO call is made.)_
 - **Fallback design if tighter RPO/PITR is wanted:** pgBackRest physical backup + continuous WAL archiving on-CT (`repo1`) with a second repo (`repo2`) on S3-compatible storage (Backblaze B2 or Hetzner Storage Box), pgBackRest AES-256 encryption → PITR + offsite 3-2-1. Supplement with a weekly `pg_dumpall`.
 - TimescaleDB: **physical** backups (pgBackRest / `pg_basebackup`) need no special handling; only logical (`pg_dump`) backups carry hypertable caveats — prefer physical.
 - Keep the **monthly restore-test** discipline regardless — an untested backup is a hope. **Patch PostgreSQL/tooling** (recent `pg_dump`/`pg_basebackup`/`pg_rewind` CVEs live in the tools).
@@ -152,13 +161,15 @@ Create a document of all backup requirements and constraints, including RPO, PIT
 
 ### OQ4 — DB placement: own CT vs shared datastores CT
 
-**From:** gap #5 (resolved CT path, [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)). **Decision needed:** own Postgres **inside the disk-search CT** (self-contained, matches the spec's "same container" intent) vs the **shared datastores CT** (centralized, already in the dump pipeline).
+> **✅ SETTLED (owner, 2026-07-03):** own Postgres **inside the disk-search CT** — the app and its database are **self-contained in one CT** (consistent with the spec's "same container" intent; simpler to deploy and manage). The shared-datastores-CT option is **rejected**. Kept here rather than physically moved to Resolved, to preserve the `#oq4` anchor (ADR 0003, TODO); the resolution is also recorded in [Resolved gap #5](#gap-5--backup--disaster-recovery-settled-ct-path-adr-0003).
 
-Either way the DB must be added to `backup-dumps.sh`. Both are compatible with ADR 0003.
+**From:** gap #5 (resolved CT path, [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)). **Decided:** ~~own Postgres inside the disk-search CT vs the shared datastores CT~~ → **own Postgres inside the disk-search CT**.
+
+**Residual (implementation, not a decision):** at provisioning, add the CT's DB to `backup-dumps.sh` — with the **TimescaleDB-aware** dump caveat from [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling). Compatible with ADR 0003.
 
 #### Agent notes
 
-- Trade-off is self-containment vs centralization; the backup-wiring obligation is the same for both (coverage is a hardcoded allowlist, not auto-discovery).
+- **Resolved** in favor of self-containment. The backup-wiring obligation (coverage is a hardcoded allowlist, not auto-discovery) is now an M0/M5 implementation task, tracked via gap #5.
 
 #### My Comments
 
@@ -168,11 +179,13 @@ The app/project and it's associated database should be self-contained in the dis
 
 ### OQ5 — Off-box heartbeat
 
-**From:** gap #6 (resolved CT path). **Decision needed:** the one real observability gap after the CT decision — there is **no off-box watchdog**, so a total-box outage would be caught by no external observer. Choose the fix: add a disk-search liveness monitor to the **off-site GMK Uptime Kuma** (already alerts by email) vs a free **healthchecks.io** heartbeat.
+> **✅ SETTLED (owner, 2026-07-03):** use the **off-site GMK Uptime Kuma** to watch the disk-search CT (reuses existing infra; already alerts by email), additionally swept periodically by the **Hetzner EX130-R · Fleet Digest** (see the `homelab` repo). The **healthchecks.io** option is **rejected**. **Non-blocking** — land before entering production. Kept in place to preserve the `#oq5` anchor (OQ10, gap #6, the research README, TODO); resolution also recorded in [Resolved gap #6](#gap-6--application-self-observability-settled-ct-path-except-off-box-heartbeat).
+
+**From:** gap #6 (resolved CT path). **Decided:** the one real observability gap after the CT decision was the missing **off-box watchdog** (a total-box outage caught by no external observer) → **off-site GMK Uptime Kuma** (not healthchecks.io).
 
 #### Agent notes
 
-- Either satisfies the "one heartbeat must live off-box" requirement the research insists on. GMK Uptime Kuma reuses existing infra; healthchecks.io is a zero-infra external.
+- **Chosen:** the **off-site GMK Uptime Kuma** — reuses existing infra and satisfies the "one heartbeat must live off-box" requirement the research insists on. (The healthchecks.io alternative — zero-infra external — was the runner-up.)
 - **Settled and kept regardless** (generic infra monitoring can't see these): the in-app **`scraper_runs` table** (shared with [OQ8](#oq8--scraper-testing-finalization) / gap #9), a **dead-man's-switch heartbeat**, and **email-delivery confirmation**. Infra health (up/disk/CPU/RAM) is auto-covered — the fleet-digest health check auto-discovers the CT from `pct list`; confirm a **disk-space threshold** alert applies since raw scrape payloads grow. Error tracking (GlitchTip/Sentry) is **not** in the existing stack — add it only if wanted.
 - Research: [`lightweight-observability-and-scraper-health-monitoring.md`](research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md).
 
@@ -336,11 +349,11 @@ The original gap analysis and where each landed. 🔴/🟡/🟢 = original prior
 | # | Gap | Pri | Outcome |
 | --: | --- | :-: | --- |
 | 1 | Web-app authentication undefined | 🔴 | **Settled** — single-account Argon2id session login ([ADR 0005](adr/adr-0005-single-account-session-auth.md)). |
-| 2 | `.env` secrets contradict OpenBao standard | 🔴 | **Settled** (path) — local OpenBao Agent on the CT, decoupled from CI. Open part → [OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct). |
+| 2 | `.env` secrets contradict OpenBao standard | 🔴 | **Settled** — local bao-agent on the CT consuming the Hetzner **`bao-services` (CT 115)** store; SecretID delivery settled ([OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct) ✅, verified live 2026-07-04). |
 | 3 | No currency / landed-cost normalization | 🔴 | **Settled** — Frankfurter FX → USD; flag international listings (no fixed haircut). |
-| 4 | Deployment & service topology a black box | 🔴 | **Settled** — `rsync` over Tailscale SSH + systemd ([ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)). Open part → [OQ2](#oq2--ephemeral-runner-tailnet-auth). |
-| 5 | No backup / disaster recovery | 🟡 | **Settled** (CT path) — inherit restic + hourly dumps ([ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)). Open parts → [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling), [OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct). |
-| 6 | No application self-observability | 🟡 | **Settled** (CT path) — infra health auto-covers the CT; in-app `scraper_runs`/dead-man's-switch. Open part → [OQ5](#oq5--off-box-heartbeat). |
+| 4 | Deployment & service topology a black box | 🔴 | **Settled** — `rsync` over Tailscale + systemd ([ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)); runner tailnet auth settled → **Tailscale OAuth client** ([OQ2](#oq2--ephemeral-runner-tailnet-auth) ✅, verified live 2026-07-04). |
+| 5 | No backup / disaster recovery | 🟡 | **Settled** (CT path) — inherit restic + hourly dumps ([ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)); DB placement settled → **own-CT Postgres** ([OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct) ✅). Open part → [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling) (DB-RPO). |
+| 6 | No application self-observability | 🟡 | **Settled** (CT path) — infra health auto-covers the CT; in-app `scraper_runs`/dead-man's-switch; off-box heartbeat settled → **GMK Uptime Kuma** ([OQ5](#oq5--off-box-heartbeat) ✅). |
 | 7 | UI/UX specified as one line | 🟡 | **Settled** — Django + HTMX rendering + post-alert state machine. Open part → [OQ6](#oq6--final-ui-page-inventory--dismisssuppress-feedback--purchase-tracking). |
 | 8 | No v1 scope / phasing / acceptance criteria | 🟡 | **Settled** — six-milestone MVP plan (M0–M5) accepted; authoritative phasing to be authored via `spec-pipeline`. |
 | 9 | No scraper testing strategy | 🟡 | **Settled** — vcrpy + syrupy + contract canary + Pydantic v2 (+5 amendments). Open part → [OQ8](#oq8--scraper-testing-finalization). |
@@ -367,7 +380,7 @@ Full write-ups of the twelve gaps. For split gaps, only the **settled** part is 
 - **Runtime injection via OpenBao Agent** (`bao agent`, its own hardened systemd unit) using **AppRole auto-auth**. The agent templates secrets to a root-owned, `0640`, app-group-readable file on **tmpfs** (`/run/disk-search/secrets.env`, gone on reboot); app services depend on it via `After=`. No plaintext `.env` at rest, no secrets baked into unit files.
 - **The Agent runs locally on the CT, fully decoupled from CI.** Because CD is `rsync` over Tailscale SSH from a **GitHub-hosted** runner (gap #4), the public-repo CI job holds **no OpenBao credential at all** — it only rsyncs code and triggers `systemctl restart`; the running services pick up secrets the Agent has already templated. The `role_id` lives in the CT image/config-management.
 - **Reconcile the spec's language:** `.env` is acceptable **for local development only**; production resolves secrets from OpenBao at runtime.
-- **Still open:** the `secret_id` out-of-band delivery/renewal path → **[OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct)**. (The earlier "CD job fetches a response-wrapped `secret_id`" mechanism is withdrawn — CI is no longer on the box and, being public, must hold no OpenBao credential.)
+- **Settled 2026-07-04 (verified live):** the `secret_id` delivery/renewal path → disk-search onboards as the next **`bao-services` (CT 115)** consumer via a local **bao-agent**; a persistent, long-lived, **CIDR-bound** SecretID at `/etc/bao-agent/secret-id` delivered operator→CT by `bao-issue-secret-id.sh` (wrap token + `pct push`) → **[OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct)**. (The earlier "CD job fetches a response-wrapped `secret_id`" mechanism is withdrawn — CI holds no OpenBao credential; the Agent on the CT consumes locally. The spec's `remove_secret_id_file_after_reading=true` is also superseded — it breaks restart safety.)
 
 Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md) §3.
 
@@ -388,13 +401,13 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 **Was:** "GitHub Actions → automatic deployment to Hetzner on merge to main" stated the _what_, never the _how_: transport, how the app runs as a service, how CI reaches a non-public target. Evidence: [`disk-search.md:72`–`:75`](specs/disk-search.md).
 
-**Decision → [ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md):** a **GitHub-hosted `ubuntu-latest`** runner builds/tests, joins the tailnet **ephemerally**, then `rsync`s to the CT and restarts over `tailscale ssh` (self-hosted runner rejected on a public repo). Systemd web + worker units under a dedicated non-root user; **timers** for scrapes; venv built on the CT (`uv sync --frozen`); expand/contract migrations before restart. Full trigger/secret discipline lives in the ADR. **Still open:** the ephemeral-runner tailnet auth mechanism → **[OQ2](#oq2--ephemeral-runner-tailnet-auth)**. Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md); per-source scheduling refined in [`orchestration-choice…md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md).
+**Decision → [ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md):** a **GitHub-hosted `ubuntu-latest`** runner builds/tests, joins the tailnet **ephemerally**, then `rsync`s to the CT and restarts over `tailscale ssh` (self-hosted runner rejected on a public repo). Systemd web + worker units under a dedicated non-root user; **timers** for scrapes; venv built on the CT (`uv sync --frozen`); expand/contract migrations before restart. Full trigger/secret discipline lives in the ADR. **Settled 2026-07-04 (verified live):** the ephemeral-runner tailnet auth → the **Tailscale OAuth client** (`secret/infra/tailscale-oauth`, minting a `tag:ci` ephemeral node) via `tailscale/github-action` v4 → **[OQ2](#oq2--ephemeral-runner-tailnet-auth)**. Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md); per-source scheduling refined in [`orchestration-choice…md`](research/orchestration-choice-for-a-single-vm-price-polling-service.md).
 
 #### Gap 5 — Backup / disaster recovery (settled CT path, ADR 0003)
 
 **Was:** the accumulated historical price data _is_ the tool's compounding value; a single box with no backup means one disk failure erases the moat. Evidence: [`disk-search.md:19`](specs/disk-search.md), [`:22`](specs/disk-search.md); DB co-located per [`:69`](specs/disk-search.md).
 
-**Decision (CT path) — [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md):** add the disk-search **CT** to the existing Hetzner restic + hourly-dump pipeline; keep the monthly restore-test discipline. **Still open:** DB-RPO acceptance → **[OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling)**; DB placement → **[OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct)**.
+**Decision (CT path) — [ADR 0003](adr/adr-0003-deploy-as-lxc-container.md):** add the disk-search **CT** to the existing Hetzner restic + hourly-dump pipeline; keep the monthly restore-test discipline. **Settled 2026-07-03:** DB placement → **own Postgres inside the disk-search CT** (self-contained; [OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct)). **Still open:** DB-RPO acceptance → **[OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling)** (owner: document requirements in the `homelab` repo first).
 
 **Live-state findings (2026-07-03 — verified on the server; specifics in the private `homelab` repo):**
 
@@ -410,7 +423,7 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 
 **Was:** deal alerts tell the _user_ about drives; nothing tells the _operator_ that the app is down, out of disk, a scrape stopped, or alert emails aren't delivered. Evidence: [`disk-search.md:11`](specs/disk-search.md).
 
-**Decision (CT path):** split the concern — **infrastructure health** (up/disk/CPU/RAM) rides the existing Hetzner monitoring, which **auto-discovers the CT**; **application-level health** stays in-app via the **`scraper_runs` table** (shared with gap #9 / OQ8), a **dead-man's-switch heartbeat**, and **email-delivery confirmation**. **Still open:** the off-box heartbeat → **[OQ5](#oq5--off-box-heartbeat)**.
+**Decision (CT path):** split the concern — **infrastructure health** (up/disk/CPU/RAM) rides the existing Hetzner monitoring, which **auto-discovers the CT**; **application-level health** stays in-app via the **`scraper_runs` table** (shared with gap #9 / OQ8), a **dead-man's-switch heartbeat**, and **email-delivery confirmation**. **Settled 2026-07-03:** the off-box heartbeat → the **off-site GMK Uptime Kuma** watches the CT (also swept by the Hetzner Fleet Digest) → **[OQ5](#oq5--off-box-heartbeat)**.
 
 **Live-state findings (2026-07-03 — verified on the server):**
 
@@ -418,7 +431,7 @@ Research: [`currency-conversion-and-landed-cost-estimation…md`](research/2026-
 - **Alert _delivery_ is off-box** (email via MS Graph → M365), so a degraded-but-reachable box can still page out.
 - **But there is no off-box _watchdog_.** Every heartbeat is a push monitor to the **on-box** Uptime Kuma; the off-site GMK Uptime Kuma does not monitor Hetzner. **A total-box outage would be caught by no automated off-box observer** — exactly the failure mode the research flagged.
 
-**Implications:** the fleet-digest health check auto-covers a new container; confirm a **disk-space threshold** alert applies (raw payloads grow). **The one real gap is an off-box heartbeat** (OQ5). Keep the in-app pieces regardless; error tracking (GlitchTip/Sentry) is not in the existing stack — add if wanted. Research: [`lightweight-observability-and-scraper-health-monitoring.md`](research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md).
+**Implications:** the fleet-digest health check auto-covers a new container; confirm a **disk-space threshold** alert applies (raw payloads grow). **The one real gap was an off-box heartbeat — now settled as the off-site GMK Uptime Kuma** (OQ5). Keep the in-app pieces regardless; error tracking (GlitchTip/Sentry) is not in the existing stack — add if wanted. Research: [`lightweight-observability-and-scraper-health-monitoring.md`](research/2026-07-03-lightweight-observability-and-scraper-health-monitoring.md).
 
 #### Gap 7 — UI/UX (settled: Django + HTMX + post-alert model; inventory open)
 

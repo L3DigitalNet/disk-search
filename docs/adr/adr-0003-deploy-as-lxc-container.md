@@ -82,5 +82,5 @@ The spec's Server Configuration section states "Dedicated LXC container … (not
 ## More Information
 
 - **Findings that forced the decision:** open-questions.md [`#5` (backup) and `#6` (observability)](../open-questions.md) "Live-state findings" blocks, and resolved question **RQ5** (CT-vs-VM).
-- **Downstream consequences tracked as open questions:** OQ3 (DB-RPO acceptance), OQ4 (own-PG-in-CT vs shared datastores CT), and gap #2 (secrets via local OpenBao Agent).
+- **Downstream consequences:** OQ3 (DB-RPO acceptance) remains open; **OQ4 settled 2026-07-03 → own Postgres inside the disk-search CT** (self-contained); gap #2 (secrets via local OpenBao Agent).
 - **Live infrastructure specifics** (container IDs, script paths, addresses) live in the **private `homelab` repo** under `infrastructure/servers/hetzner-dedicated/` — deliberately kept out of this public repo.

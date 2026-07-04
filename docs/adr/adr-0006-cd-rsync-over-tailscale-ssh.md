@@ -74,7 +74,7 @@ open-questions.md gap #4 records this decision (superseding the earlier self-hos
 
 ## Open Question
 
-The **ephemeral-runner tailnet auth mechanism** — Tailscale **OAuth client** (preferred: scoped, auto-rotating) vs a pre-generated ephemeral auth key — is not yet fixed; it depends on what the existing tailnet ACL setup supports (open-questions.md OQ2). This ADR's decision holds regardless of which is chosen.
+The **ephemeral-runner tailnet auth mechanism** is **settled (2026-07-04, verified against the live ACL):** the **Tailscale OAuth client** at OpenBao `secret/infra/tailscale-oauth` (purpose "GitHub Actions CI/CD deploy via Tailscale"), minting an ephemeral `tag:ci` node via `tailscale/github-action` v4 (open-questions.md OQ2). One forward dependency: the tailnet grants are still wildcard, so when the wildcard→scoped ACL migration lands, add an explicit `tag:ci → disk-search CT:22` grant. This ADR's CD decision holds regardless.
 
 ## More Information
 
