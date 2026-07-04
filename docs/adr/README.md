@@ -32,3 +32,6 @@ Write one for a **significant** and **costly-to-reverse** decision — datastore
 | [0012](adr-0012-orchestration-apscheduler.md) | Orchestration engine — APScheduler in one supervised poller | Accepted | 2026-07-04 |
 | [0013](adr-0013-notification-transport-m365-graph.md) | Notification transport — reuse the existing M365 Graph send path | Accepted | 2026-07-04 |
 | [0014](adr-0014-scraping-runtime-escalation-stack.md) | Scraping runtime — HTTP-first, structured-data-first, browser-last stack | Accepted | 2026-07-04 |
+| [0015](adr-0015-availability-heartbeat-grain-volatility-scheduling.md) | Availability-heartbeat grain + volatility-aware scheduling | Accepted | 2026-07-04 |
+| [0016](adr-0016-search-api-self-governance.md) | Search-API self-governance — the ordered SearchBudgetGate | Accepted | 2026-07-04 |
+| [0017](adr-0017-resilient-acquisition.md) | Resilient acquisition — per-source isolation + circuit-break lifecycle | Accepted | 2026-07-04 |
