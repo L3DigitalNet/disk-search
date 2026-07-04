@@ -6,7 +6,9 @@
 
 ## How to maintain this document
 
-Read **[Open questions](#open-questions)** for anything that still needs a call. Everything under **[Resolved](#resolved)** is settled and kept only for provenance — you should not have to read it to know what's outstanding.
+- Read **[Open questions](#open-questions)** for anything that still needs a call. Everything under **[Resolved](#resolved)** is settled and kept only for provenance — you should not have to read it to know what's outstanding.
+- Settled questions are moved to **[Resolved](#resolved)**. If a question is partially settled, move the decided half to Resolved and leave a focused open question covering _only_ the remaining fork.
+- Once an ADR is written for a settled question, the resolved decision can be safely removed from this document to control its size. The ADR is the canonical record of the decision.
 
 **Rules:**
 
@@ -61,7 +63,7 @@ Read **[Open questions](#open-questions)** for anything that still needs a call.
     - [Resolved gaps \& decisions](#resolved-gaps--decisions)
       - [Gap 1 — Web-app authentication (settled, ADR 0005)](#gap-1--web-app-authentication-settled-adr-0005)
       - [Gap 2 — `.env` secrets model → OpenBao (settled except `secret_id` delivery)](#gap-2--env-secrets-model--openbao-settled-except-secret_id-delivery)
-      - [Gap 3 — Currency / landed-cost normalization (settled)](#gap-3--currency--landed-cost-normalization-settled)
+      - [Gap 3 — Currency / landed-cost normalization (settled, ADR 0008)](#gap-3--currency--landed-cost-normalization-settled-adr-0008)
       - [Gap 4 — Deployment \& service topology (settled, ADR 0006)](#gap-4--deployment--service-topology-settled-adr-0006)
       - [Gap 5 — Backup / disaster recovery (settled CT path, ADR 0003)](#gap-5--backup--disaster-recovery-settled-ct-path-adr-0003)
       - [Gap 6 — Application self-observability (settled CT path except off-box heartbeat)](#gap-6--application-self-observability-settled-ct-path-except-off-box-heartbeat)
@@ -362,8 +364,8 @@ The original gap analysis and where each landed. 🔴/🟡/🟢 = original prior
 | # | Gap | Pri | Outcome |
 | --: | --- | :-: | --- |
 | 1 | Web-app authentication undefined | 🔴 | **Settled** — single-account Argon2id session login ([ADR 0005](adr/adr-0005-single-account-session-auth.md)). |
-| 2 | `.env` secrets contradict OpenBao standard | 🔴 | **Settled** — local bao-agent on the CT consuming the Hetzner **`bao-services` (CT 115)** store; SecretID delivery settled ([OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct) ✅, verified live 2026-07-04). |
-| 3 | No currency / landed-cost normalization | 🔴 | **Settled** — Frankfurter FX → USD; flag international listings (no fixed haircut). |
+| 2 | `.env` secrets contradict OpenBao standard | 🔴 | **Settled** ([ADR 0009](adr/adr-0009-secrets-runtime-openbao-agent.md)) — local bao-agent on the CT consuming the Hetzner **`bao-services` (CT 115)** store; SecretID delivery settled ([OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct) ✅, verified live 2026-07-04). |
+| 3 | No currency / landed-cost normalization | 🔴 | **Settled** ([ADR 0008](adr/adr-0008-currency-landed-cost-normalization.md)) — Frankfurter FX → USD; flag international listings (no fixed haircut). |
 | 4 | Deployment & service topology a black box | 🔴 | **Settled** — `rsync` over Tailscale + systemd ([ADR 0006](adr/adr-0006-cd-rsync-over-tailscale-ssh.md)); runner tailnet auth settled → **Tailscale OAuth client** ([OQ2](#oq2--ephemeral-runner-tailnet-auth) ✅, verified live 2026-07-04). |
 | 5 | No backup / disaster recovery | 🟡 | **Settled** (CT path) — inherit restic + hourly dumps ([ADR 0003](adr/adr-0003-deploy-as-lxc-container.md)); DB placement settled → **own-CT Postgres** ([OQ4](#oq4--db-placement-own-ct-vs-shared-datastores-ct) ✅). Open part → [OQ3](#oq3--db-rpo-acceptance--timescaledb-dump-handling) (DB-RPO). |
 | 6 | No application self-observability | 🟡 | **Settled** (CT path) — infra health auto-covers the CT; in-app `scraper_runs`/dead-man's-switch; off-box heartbeat settled → **GMK Uptime Kuma** ([OQ5](#oq5--off-box-heartbeat) ✅). |
@@ -393,15 +395,15 @@ Full write-ups of the twelve gaps. For split gaps, only the **settled** part is 
 - **Runtime injection via OpenBao Agent** (`bao agent`, its own hardened systemd unit) using **AppRole auto-auth**. The agent templates secrets to a root-owned, `0640`, app-group-readable file on **tmpfs** (`/run/disk-search/secrets.env`, gone on reboot); app services depend on it via `After=`. No plaintext `.env` at rest, no secrets baked into unit files.
 - **The Agent runs locally on the CT, fully decoupled from CI.** Because CD is `rsync` over Tailscale SSH from a **GitHub-hosted** runner (gap #4), the public-repo CI job holds **no OpenBao credential at all** — it only rsyncs code and triggers `systemctl restart`; the running services pick up secrets the Agent has already templated. The `role_id` lives in the CT image/config-management.
 - **Reconcile the spec's language:** `.env` is acceptable **for local development only**; production resolves secrets from OpenBao at runtime.
-- **Settled 2026-07-04 (verified live):** the `secret_id` delivery/renewal path → disk-search onboards as the next **`bao-services` (CT 115)** consumer via a local **bao-agent**; a persistent, long-lived, **CIDR-bound** SecretID at `/etc/bao-agent/secret-id` delivered operator→CT by `bao-issue-secret-id.sh` (wrap token + `pct push`) → **[OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct)**. (The earlier "CD job fetches a response-wrapped `secret_id`" mechanism is withdrawn — CI holds no OpenBao credential; the Agent on the CT consumes locally. The spec's `remove_secret_id_file_after_reading=true` is also superseded — it breaks restart safety.)
+- **Settled 2026-07-04 (verified live) → [ADR 0009](adr/adr-0009-secrets-runtime-openbao-agent.md):** the `secret_id` delivery/renewal path → disk-search onboards as the next **`bao-services` (CT 115)** consumer via a local **bao-agent**; a persistent, long-lived, **CIDR-bound** SecretID at `/etc/bao-agent/secret-id` delivered operator→CT by `bao-issue-secret-id.sh` (wrap token + `pct push`) → **[OQ1](#oq1--secret_id-out-of-band-delivery-to-the-ct)**. (The earlier "CD job fetches a response-wrapped `secret_id`" mechanism is withdrawn — CI holds no OpenBao credential; the Agent on the CT consumes locally. The spec's `remove_secret_id_file_after_reading=true` is also superseded — it breaks restart safety.)
 
 Research: [`github-actions-cd-private-debian-vm.md`](research/2026-07-03-github-actions-cd-private-debian-vm.md) §3.
 
-#### Gap 3 — Currency / landed-cost normalization (settled)
+#### Gap 3 — Currency / landed-cost normalization (settled, ADR 0008)
 
 **Was:** the score is `USD` per `TB`, but several ranked merchants (ETB Technologies, Bargain Hardware) are UK/EU resellers pricing in GBP/EUR, and the buyer is US-based — cross-border listings scored on a false basis. Evidence: [`disk-search.md:13`](specs/disk-search.md), merchants at [`:40`–`:41`](specs/disk-search.md).
 
-**Decision (owner, 2026-07-03 — accepted with changes):**
+**Decision (owner, 2026-07-03 — accepted with changes) → [ADR 0008](adr/adr-0008-currency-landed-cost-normalization.md):**
 
 - **FX:** use **Frankfurter** (ECB-anchored, free, no API key, MIT, self-hostable), refreshed once/day. Store `fx_rate`, `fx_pair`, `fx_rate_date`, `fx_source` **on each observation** so historical scores are auditable and reproducible.
 - **Normalize all prices to USD, but do NOT apply a fixed "international overhead" haircut.** Instead **flag** international listings (e.g. `"international — extra shipping/duty likely; verify before buying"`) and let the owner decide. Rationale: a cross-border purchase is unlikely to be worthwhile (shipping + potential customs), and a hardcoded percentage would be false precision — surface the risk rather than bake in a number. HDDs classify under **HTS 8471.70 at a 0% base (MFN) rate**, so the volatile cost is the surcharge the flag defers to the user.
