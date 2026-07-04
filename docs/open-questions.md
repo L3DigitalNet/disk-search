@@ -1,26 +1,27 @@
 # Open Questions — `hw-radar.md`
 
-**Document Handling Rules and Guidelines:** [How to maintain this document](#how-to-maintain-this-document)
+## Important Notes
 
-**Terminology:** an **open question** (`OQ#`) is a decision still to be made — the primary unit of this document. A **resolved question** (`RQ#`, already settled) and the original **gaps** (`gap #`, the twelve spec-audit findings that seeded these questions) are settled provenance and live in the companion file **[`resolved-questions.md`](resolved-questions.md)**.
-
-**Two-file layout (split 2026-07-04):** this file holds only what is still **open** (currently just **OQ3**) plus the maintenance rules; every **settled** item — RQ1–RQ6, the 12-gap analysis, and the resolved OQ write-ups (OQ1–OQ2, OQ4–OQ14) — is in [`resolved-questions.md`](resolved-questions.md).
+- **Document Handling Rules and Guidelines:** [How to maintain this document](#how-to-maintain-this-document)
+- **Terminology:**
+  - _open question_ (`OQ#`) is a decision still to be made — the primary unit of this document.
+  - _resolved question_ (`RQ#`, already settled) and the original _gaps_ (`gap #`, the twelve spec-audit findings that seeded these questions) are settled provenance and live in the companion file [`resolved-questions.md`](resolved-questions.md).
 
 ## Table of Contents
 
 - [Open Questions — `hw-radar.md`](#open-questions--hw-radarmd)
+  - [Important Notes](#important-notes)
   - [Table of Contents](#table-of-contents)
   - [Open questions](#open-questions)
     - [OQ3 — DB RPO acceptance (+ TimescaleDB dump handling)](#oq3--db-rpo-acceptance--timescaledb-dump-handling)
       - [Agent notes](#agent-notes)
       - [My Comments](#my-comments)
+    - [OQ15 — Amazon acquisition path after PA-API deprecation](#oq15--amazon-acquisition-path-after-pa-api-deprecation)
+      - [Agent notes](#agent-notes-1)
+      - [My Comments](#my-comments-1)
   - [How to maintain this document](#how-to-maintain-this-document)
 
----
-
 ## Open questions
-
-**Only OQ3 remains genuinely open** (awaiting the owner's sign-off on the backup-requirements doc's §7). Every other OQ is settled — see [`resolved-questions.md`](resolved-questions.md) for the one-line resolutions (ADR-backed) or full decided substance (no ADR).
 
 ### OQ3 — DB RPO acceptance (+ TimescaleDB dump handling)
 
@@ -40,6 +41,20 @@ A second driver is coupled to this: TimescaleDB ([ADR 0007](adr/adr-0007-datasto
 #### My Comments
 
 Create a document of all backup requirements and constraints, including RPO, PITR, and TimescaleDB considerations. Evaluate the current backup strategy against these requirements and determine if the current ≤1 h RPO is acceptable or if a more robust solution is needed. Go into the `homelab` repo and create appropriate documentation for hw-radar and document it's backup needs there. The backup strategy will have to be coordinated with the existing Hetzner backup strategy and any other relevant infrastructure. We can expand/improve as necessary, but the first step is to document the requirements and constraints. This is not a blocker, it can be completed in parallel or after the project is deployed, but it should be done before the first backup is taken.
+
+### OQ15 — Amazon acquisition path after PA-API deprecation
+
+**From:** the [polling-cadence reconciliation](research/2026-07-04-polling-cadence-reconciliation.md) §6 (surfaced by the ChatGPT Deep Research run). **Decision needed:** the Amazon **Product Advertising API (PA-API 5)** `GetItems` documentation now carries a **2026-05-15 deprecation notice** directing developers to the **Creators API**. This invalidates an assumption in the settled Amazon acquisition/retention path (Amazon = display/discovery, ASIN-persistable, offers via PA-API/SP-API — [DR-001](specs/hw-radar-master-spec.md), the acquisition + [legal](resolved-questions.md) research). Choose the replacement path — migrate to the Creators API, rely on SP-API where authorized, or drop Amazon to **discovery-only** via the search APIs — **after verifying the deprecation and its timeline live** (dated fact; API timelines shift). **Non-blocking:** Amazon is _churning_, exposes no cheap availability signal, and is not a fast-lane/primary value source (reconciliation §1/§4); needed before the Amazon connector is built (~M5).
+
+#### Agent notes
+
+- **Time-sensitive:** the 2026-05-15 date is the ChatGPT run's read of `webservices.amazon.com/paapi5/documentation/get-items.html`; **re-verify live** before acting — do not treat as fixed.
+- **Retention is transport-independent:** whichever API path wins, [DR-001](specs/hw-radar-master-spec.md) already governs storage (Amazon = ASIN identifier indefinite, all else ephemeral 24 h, no image bytes — from the legal research). The deprecation changes _how_ Amazon data is fetched, not _what_ may be kept.
+- **Coupled docs to update once decided:** the Amazon rows in [`resolved-questions.md`](resolved-questions.md), the acquisition research report, and any Amazon interface row (IR) in the spec.
+
+#### My Comments
+
+_(owner — pending)_
 
 ## How to maintain this document
 
