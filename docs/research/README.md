@@ -1,6 +1,6 @@
 # Research
 
-This directory is the project's **research corpus** — 19 deep-research reports that ground the design of disk-search in evidence rather than assumption. Alongside [`../specs/disk-search.md`](../specs/disk-search.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
+This directory is the project's **research corpus** — 20 deep-research reports that ground the design of disk-search in evidence rather than assumption. Alongside [`../specs/disk-search.md`](../specs/disk-search.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
 
 Each report is a **dated, frozen snapshot** of what was found on the day it was run (all 2026-07-03), with inline citations. They are not living documents — findings get **reconciled forward** into the spec, the ADRs, and [`../open-questions.md`](../open-questions.md), rather than edited in place here.
 
@@ -32,6 +32,7 @@ Each report is a **dated, frozen snapshot** of what was found on the day it was 
 | [tavily-brave-serper](tavily-brave-serper.md) | Search APIs (Tavily/Brave/Serper) + official eBay Browse/Feed, Amazon SP-API, Newegg APIs | Discovery tier |
 | [us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor](us-scraping-and-data-retention-landscape-for-a-retail-hdd-price-monitor.md) | CFAA / ToS / copyright / data-retention footing for a US price monitor | Legal footing, cassette/PII rules — gap #9 |
 | [orchestration-choice-for-a-single-vm-price-polling-service](orchestration-choice-for-a-single-vm-price-polling-service.md) | Scheduling, rate-limiting, two-level token buckets on a single VM | Orchestration + poll budget — gap #10 / OQ7 |
+| [automated-test-policy-for-a-low-volume-scrapy-price-monitor](automated-test-policy-for-a-low-volume-scrapy-price-monitor.md) | Build-time scraper-test finalization: per-tier canary cadence, real-vs-synthetic cassette policy, PII scrubbing, parser-rot-vs-anti-bot classification, CI wiring | Scraper testing — OQ8 / gap #9 |
 
 ### Data model, entity resolution & scoring — making sense of it
 
