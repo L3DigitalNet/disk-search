@@ -1,8 +1,8 @@
 # Research
 
-This directory is the project's **research corpus** — 27 deep-research reports that ground the design of Hardware Radar in evidence rather than assumption. Alongside [`../specs/hw-radar-master-spec.md`](../specs/hw-radar-master-spec.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
+This directory is the project's **research corpus** — 31 deep-research reports that ground the design of Hardware Radar in evidence rather than assumption. Alongside [`../specs/hw-radar-master-spec.md`](../specs/hw-radar-master-spec.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
 
-Each report is a **dated, frozen snapshot** of what was found on the day it was run (the original corpus 2026-07-03, plus a 2026-07-04 follow-up batch resolving OQ6–OQ13: scoring-model test, UI inventory, polling cadence, orchestration, search self-governance, and the free email path), with inline citations. They are not living documents — findings get **reconciled forward** into the spec, the ADRs, and [`../resolved-questions.md`](../resolved-questions.md), rather than edited in place here.
+Each report is a **dated, frozen snapshot** of what was found on the day it was run (the original corpus 2026-07-03, plus a 2026-07-04 follow-up batch resolving OQ3 + OQ6–OQ15: scoring-model test, UI inventory, polling cadence, orchestration, search self-governance, the free email path, DB-backup/RPO, and the Amazon post-PA-API acquisition path), with inline citations. They are not living documents — findings get **reconciled forward** into the spec, the ADRs, and [`../resolved-questions.md`](../resolved-questions.md), rather than edited in place here.
 
 ## How to use this directory
 
