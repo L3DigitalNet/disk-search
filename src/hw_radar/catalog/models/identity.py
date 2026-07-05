@@ -1,6 +1,12 @@
 # pyright: reportIncompatibleVariableOverride=false
 # django-types treats concrete nested Meta classes as incompatible with abstract
 # base model Meta classes; Django's model metaclass handles this pattern.
+# `from __future__ import annotations` keeps the django-types generic form
+# (e.g. JSONField[dict[str, object]]) as an unevaluated string: BasedPyright still
+# resolves it, but the runtime never subscripts the non-generic JSONField class
+# (TypeError under PEP 649 lazy annotations on py3.14). Required, not cosmetic.
+from __future__ import annotations
+
 from typing import ClassVar
 
 from django.db import models
@@ -221,9 +227,13 @@ class ProductAlias(RetentionGoverned):
         null=True,
         blank=True,
     )
+    # PROTECT, not SET_NULL: source_site is part of the nulls_distinct=False
+    # single-target unique key below, so a SET_NULL cascade could null two
+    # same-text aliases into a uniqueness collision mid-delete. Marketplaces are
+    # reference data — deletion should be blocked, matching Listing/Seller.
     source_site = models.ForeignKey(
         "catalog.SourceSite",
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         related_name="aliases",
         null=True,
         blank=True,

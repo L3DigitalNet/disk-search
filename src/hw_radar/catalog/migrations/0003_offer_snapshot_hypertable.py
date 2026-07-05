@@ -7,6 +7,9 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunSQL(
             "SELECT create_hypertable('offer_snapshot', by_range('observed_at'));",
+            # noop reverse: unmigrating leaves the table as a hypertable. Forward-only
+            # schema — a real down-migration would drop chunks/data, which we never want
+            # to do implicitly. Rebuild from an empty DB if a true revert is needed.
             reverse_sql=migrations.RunSQL.noop,
         ),
     ]

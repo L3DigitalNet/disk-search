@@ -1,6 +1,10 @@
 # pyright: reportIncompatibleVariableOverride=false
 # django-types treats concrete nested Meta classes as incompatible with abstract
 # base model Meta classes; Django's model metaclass handles this pattern.
+# See identity.py header: future annotations keep JSONField[...] a resolvable
+# string for the type-checker without subscripting the class at runtime.
+from __future__ import annotations
+
 from decimal import Decimal
 from typing import ClassVar
 

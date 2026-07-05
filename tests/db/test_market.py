@@ -122,14 +122,29 @@ def test_bounded_class_requires_expiry(db: None) -> None:
 
 
 def test_search_observation_stores_no_provider_content(db: None) -> None:
+    # IR-006-minimal (Codex CR-002): search_observation persists the discovered URL
+    # plus our own query metadata ONLY. Allowlist, not blocklist: any column outside
+    # this set fails the test, so a future `result_title`/`result_snippet`/payload
+    # column can't slip in unnoticed. Widen the set only with a deliberate IR-006 review.
+    allowed = {
+        "id",
+        "retention_class",
+        "expires_at",
+        "provider",
+        "query_text",
+        "query_params_json",
+        "observed_at",
+        "result_rank",
+        "result_url",
+        "matched_listing_id",
+    }
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT column_name FROM information_schema.columns"
             " WHERE table_schema = 'public' AND table_name = 'search_observation'"
-            " AND column_name IN ('result_title', 'result_snippet', 'provider_payload_json',"
-            " 'response_json', 'response_text')"
         )
-        assert cursor.fetchall() == []
+        actual = {row[0] for row in cursor.fetchall()}
+    assert actual <= allowed, f"unexpected search_observation columns: {actual - allowed}"
 
 
 def test_no_binary_columns_anywhere(db: None) -> None:
