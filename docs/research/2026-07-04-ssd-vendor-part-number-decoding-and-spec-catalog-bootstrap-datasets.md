@@ -1,6 +1,6 @@
 ---
 schema_version: '1.1'
-id: ssd-vendor-part-number-decoding-and-spec-catalog-bootstrap-datasets
+id: 2026-07-04-ssd-vendor-part-number-decoding-and-spec-catalog-bootstrap-datasets
 title: SSD Vendor Part-Number (MPN) Decoding Schemes and Prior-Art Model-to-Spec Bootstrap Databases
 description: Per-vendor SSD MPN grammar reference (Samsung/Micron/Solidigm/SK hynix/Kioxia/WD-SanDisk/Seagate/Kingston) distinguishing official vs community-decoded schemes and base-vs-full-SKU suffixing, plus a bootstrap-dataset evaluation (smartmontools drivedb.h license posture, Open Icecat coverage/ToS, TechPowerUp SSD DB) for hw-radar's product_alias/spec catalog.
 doc_type: research

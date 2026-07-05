@@ -19,9 +19,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@v5
         with:
           # SPDX ids; covers the decided stack: Django/Scrapy (BSD-3),
           # APScheduler (MIT), psycopg (LGPL-3.0 — no obligations for a
