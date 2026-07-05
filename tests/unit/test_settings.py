@@ -116,5 +116,5 @@ def test_production_allowed_hosts_strips_whitespace(monkeypatch: pytest.MonkeyPa
 
 
 def test_no_deployment_hostname_hardcoded() -> None:
-    # Public-repo guard (CLAUDE.md): the settings module must embed no real host.
+    # Public-repo guard (AGENTS.md): the settings module must embed no real host.
     assert "l3digital" not in SETTINGS_PATH.read_text(encoding="utf-8")

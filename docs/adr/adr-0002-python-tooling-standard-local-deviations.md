@@ -2,11 +2,11 @@
 schema_version: '1.1'
 id: 'adr-0002-hw-radar-python-tooling-standard-local-deviations'
 title: 'ADR 0002: Python Tooling Standard — local deviations'
-description: 'Adopt the Python Tooling SSOT Standard with two scoped exceptions: defer the verification gate/CI until code exists, and keep .vscode/ and CLAUDE.md git-ignored.'
+description: 'Adopt the Python Tooling SSOT Standard with two scoped exceptions: defer the verification gate/CI until code exists (retired at scaffold), and keep .vscode/ git-ignored (CLAUDE.md half retired 2026-07-05h).'
 doc_type: 'adr'
 status: 'active'
 created: '2026-07-03'
-updated: '2026-07-03'
+updated: '2026-07-05'
 reviewed: null
 owner: ''
 consumer: 'mix'
@@ -62,7 +62,7 @@ Chosen option: **Option 2.** Lay down the toolchain **configuration** now so it 
 
 **Deviation A — verification gate and CI deferred.** `.github/workflows/check.yml`, the `src/<package>/` tree, `tests/`, `uv.lock`, and the first green gate are created by the separate "scaffold the repo" task. Until then `uv sync` and the gate are inert by design.
 
-**Deviation B — `.vscode/` and `CLAUDE.md` stay git-ignored.** They are created for local use but not committed. `AGENTS.md` (committed) is the canonical, self-contained instruction source a fresh clone sees; it documents the gate, the rules, and the VS Code task names so nothing is lost by `.vscode/` being local. This deliberately reverses the standard's "commit them" expectation, scoped to this repo's public-hygiene convention.
+**Deviation B — `.vscode/` and `CLAUDE.md` stay git-ignored.** They are created for local use but not committed. `AGENTS.md` (committed) is the canonical, self-contained instruction source a fresh clone sees; it documents the gate, the rules, and the VS Code task names so nothing is lost by `.vscode/` being local. This deliberately reverses the standard's "commit them" expectation, scoped to this repo's public-hygiene convention. **(Partially retired 2026-07-05h — see Confirmation: `CLAUDE.md` is now tracked as a thin `@AGENTS.md` import; `.vscode/` remains git-ignored.)**
 
 Option 1 was rejected because a broken CI check and reversed hygiene are worse than a briefly-deferred gate. Option 3 was rejected because it leaves the toolchain undefined during the design phase, when the config's whole value is to be ready before the first line of code.
 
@@ -80,6 +80,8 @@ Option 1 was rejected because a broken CI check and reversed hygiene are worse t
 Repo state confirms the decision: `pyproject.toml` carries the standard's tool tables; `AGENTS.md` is tracked; `.vscode/` and `CLAUDE.md` remain in `.gitignore`.
 
 **Update (2026-07-03) — Deviation A retired.** The "scaffold the repo" task landed in the same session: `src/hw_radar/` (version-only skeleton) + `tests/`, `uv.lock`, and `.github/workflows/check.yml` were added, and the full verification gate now runs **green** (`uv run python -m scripts.check`, exit 0). Deviation A (deferred gate/CI) no longer applies. **Deviation B remains in force** — `.vscode/` and `CLAUDE.md` stay git-ignored as long as the public-hygiene convention holds — so this ADR stays `active`.
+
+**Update (2026-07-05h) — Deviation B partially retired: `CLAUDE.md` now tracked.** Current Claude Code guidance (`code.claude.com/docs/en/claude-md`) documents `@AGENTS.md` import as the recommended pattern for repos maintaining both files, specifically to avoid duplicating instructions — the concern Deviation B was scoped around (reversing the standard's "commit them" expectation for public-hygiene reasons) no longer applies to `CLAUDE.md` once it holds no content of its own. Reviewed the file for anything the "no secrets/hostnames/IPs" banner would forbid — clean. Moved essentially all substantive content (project status, architecture, key documents, git/decision conventions) into `AGENTS.md`, which is now the single self-contained canonical source for any agent; `CLAUDE.md` is reduced to `@AGENTS.md` plus a `## Claude Code` section carrying only genuinely Claude-Code-specific rituals (the `docs/handoff.md` session-start read and session-closeout steps, both tied to local-only files that don't exist on a fresh clone). Removed from `.gitignore` and from the `scripts/transfer-ignored.sh` manifest (no longer a per-workstation local file). `.vscode/` is unaffected and remains git-ignored — Deviation B stays in force for that half only. ADR stays `active`.
 
 ## More Information
 

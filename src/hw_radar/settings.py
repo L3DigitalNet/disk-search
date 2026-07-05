@@ -28,7 +28,7 @@ SECRET_KEY = (
     else os.environ.get("DJANGO_SECRET_KEY", "dev-only-insecure-key")
 )
 
-# No deployment host is baked in (public repo — CLAUDE.md forbids committed
+# No deployment host is baked in (public repo — AGENTS.md forbids committed
 # hostnames). Production declares its public host(s) via HW_RADAR_ALLOWED_HOSTS
 # (rendered from OpenBao); missing = fail loud, like SECRET_KEY. Loopback is always
 # allowed so the on-CT /healthz smoke test resolves. CSRF origins derive from the
