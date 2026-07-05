@@ -1,3 +1,23 @@
+# >>> transfer-ignored manifest — local-only files synced between workstations >>>
+#   Kept OFF the public repo AND carried between workstations via the NAS by
+#   scripts/transfer-ignored.sh (--up / --down), which reads this block as its
+#   source of truth. Edit here to change what gets synced. One repo-relative path
+#   per line; a trailing '/' marks a directory.
+#   NOTE: git ignores '#' only at line start — do NOT put inline comments on the
+#   pattern lines below (git would take them literally). Per-path notes:
+#     docs/handoff.md  per-session handoff notes
+#     TODO.md          personal task backlog / scratchpad
+#     CLAUDE.md        local-only Claude agent guide for this repo
+#     .claude/         Claude Code local tooling / plugin config
+#     .vscode/         editor settings, tasks, recommended extensions
+docs/handoff.md
+TODO.md
+CLAUDE.md
+.claude/
+.vscode/
+# <<< transfer-ignored manifest <<<
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -223,22 +243,3 @@ __marimo__/
 # Codex review/delegate scratch (audit .md/.log; may echo read file contents — never commit)
 docs/codex-delegate/
 docs/codex-reviews/
-
-# >>> transfer-ignored manifest — local-only files synced between workstations >>>
-#   Kept OFF the public repo AND carried between workstations via the NAS by
-#   scripts/transfer-ignored.sh (--up / --down), which reads this block as its
-#   source of truth. Edit here to change what gets synced. One repo-relative path
-#   per line; a trailing '/' marks a directory.
-#   NOTE: git ignores '#' only at line start — do NOT put inline comments on the
-#   pattern lines below (git would take them literally). Per-path notes:
-#     docs/handoff.md  per-session handoff notes
-#     TODO.md          personal task backlog / scratchpad
-#     CLAUDE.md        local-only Claude agent guide for this repo
-#     .claude/         Claude Code local tooling / plugin config
-#     .vscode/         editor settings, tasks, recommended extensions
-docs/handoff.md
-TODO.md
-CLAUDE.md
-.claude/
-.vscode/
-# <<< transfer-ignored manifest <<<
