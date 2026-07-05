@@ -47,3 +47,13 @@ jobs:
             CC0-1.0,
             MIT-0,
             HPND
+          # Per-package exemptions from the allowlist above (purl form).
+          # lxml (Scrapy transitive via parsel) declares the PEP 639 expression
+          # "BSD-3-Clause AND GPL-1.0-or-later"; the GPL member is the bundled
+          # test.py runner script, which lxml's own LICENSES.txt classifies as
+          # GPL "aggregation" not affecting the package license — the library
+          # itself is BSD. Under the OQ20-ratified posture (GPL obligations
+          # trigger on distribution; hw-radar distributes nothing) this is
+          # acceptable; exemption scoped to the single package, MS-1a PR #8.
+          allow-dependencies-licenses: >-
+            pkg:pypi/lxml

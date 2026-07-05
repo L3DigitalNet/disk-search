@@ -1,8 +1,19 @@
 import asyncio
 import logging
+import os
 
-from hw_radar.poller import run
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hw_radar.settings")
+    import django
+
+    django.setup()
+
+    from hw_radar.poller import run
+
+    asyncio.run(run())
+
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
-    asyncio.run(run())
+    main()

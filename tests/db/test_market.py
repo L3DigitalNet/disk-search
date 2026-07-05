@@ -19,9 +19,11 @@ T0 = datetime(2026, 7, 4, 12, 0, 0, tzinfo=UTC)
 
 @pytest.fixture
 def spd(db: None) -> SourceSite:
+    # normalized_name is distinct from the "serverpartdeals" key migration 0005
+    # seeds into SourceSite/SourceConfig, so this test-local site doesn't collide.
     return SourceSite.objects.create(
         name="ServerPartDeals",
-        normalized_name="serverpartdeals",
+        normalized_name="serverpartdeals-test",
         source_type=SourceType.SPECIALIST_RESELLER,
     )
 

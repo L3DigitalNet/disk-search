@@ -18,7 +18,10 @@ dependencies = [
     "apscheduler>=3.11,<4",
     "django[argon2]>=6.0,<6.1",
     "gunicorn>=26.0",
+    "httpx>=0.28.1",
     "psycopg[binary]>=3.3",
+    "pydantic>=2.13.4",
+    "scrapy>=2.16.0",
 ]
 
 [dependency-groups]
@@ -32,6 +35,8 @@ dev = [
     "pytest>=9.0",
     "pytest-django>=4.12",
     "ruff>=0.14",
+    "syrupy>=5.4.0",
+    "vcrpy>=8.3.0",
 ]
 
 [build-system]
