@@ -13,7 +13,11 @@ version = "0.1.0"
 description = "Watches online marketplaces for enterprise/NAS and recertified HDDs/SSDs and scores the best deals."
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "django[argon2]>=6.0,<6.1",
+    "gunicorn>=26.0",
+    "psycopg[binary]>=3.3",
+]
 
 [dependency-groups]
 # pytest floor matches [tool.pytest.ini_options].minversion; ruff>=0.14 is the first
@@ -21,8 +25,10 @@ dependencies = []
 dev = [
     "basedpyright",
     "coverage[toml]",
+    "django-types>=0.24",
     "pip-audit",
     "pytest>=9.0",
+    "pytest-django>=4.12",
     "ruff>=0.14",
 ]
 
@@ -59,6 +65,9 @@ ignore = [
 "tests/**/*.py" = [
     "S101", # assert is normal in pytest tests if security rules are later enabled
 ]
+"src/hw_radar/*/migrations/*.py" = [
+    "RUF012", # generated migrations use mutable class attrs without ClassVar
+]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -67,6 +76,7 @@ docstring-code-format = true
 
 [tool.basedpyright]
 include = ["src", "tests"]
+exclude = ["**/migrations"]
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
 pythonPlatform = "All"
@@ -75,6 +85,7 @@ failOnWarnings = true
 [tool.pytest.ini_options]
 minversion = "9.0"
 testpaths = ["tests"]
+DJANGO_SETTINGS_MODULE = "hw_radar.settings"
 addopts = [
     "-ra",
     "--strict-markers",
@@ -84,6 +95,7 @@ addopts = [
 [tool.coverage.run]
 branch = true
 source = ["src"]
+omit = ["*/migrations/*"]
 
 [tool.coverage.report]
 show_missing = true

@@ -3,7 +3,14 @@ name: Check
 on:
   pull_request:
   push:
-    branches: ["main"]
+    branches: ["main", "dev"]
+  workflow_call:
+    inputs:
+      ref:
+        description: "Ref to check (deploy.yml passes the exact ref it will ship)"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -11,9 +18,25 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      db:
+        image: timescale/timescaledb:2.27.0-pg17
+        env:
+          POSTGRES_DB: hw_radar
+          POSTGRES_USER: hw_radar
+          POSTGRES_PASSWORD: hw_radar
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hw_radar"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-python@v6
         with:
