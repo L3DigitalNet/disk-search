@@ -231,13 +231,11 @@ docs/codex-reviews/
 #     docs/handoff.md  per-session handoff notes
 #     TODO.md          personal task backlog / scratchpad
 #     CLAUDE.md        local-only Claude agent guide for this repo
-#     AGENTS.md        local-only agent/toolchain contract (untracked 2026-07-04)
 #     .claude/         Claude Code local tooling / plugin config
 #     .vscode/         editor settings, tasks, recommended extensions
 docs/handoff.md
 TODO.md
 CLAUDE.md
-AGENTS.md
 .claude/
 .vscode/
 # <<< transfer-ignored manifest <<<
