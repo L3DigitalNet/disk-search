@@ -25,7 +25,7 @@ uv add <pkg> / uv add --dev <pkg>   # add deps (never hand-edit pyproject/uv.loc
 
 ### Where the code lives now
 
-The "Planned architecture" section below is the *design*; this is the *current* layout under the `src/` package (`hw_radar`):
+The "Planned architecture" section below is the _design_; this is the _current_ layout under the `src/` package (`hw_radar`):
 
 | Path | What's there |
 | --- | --- |

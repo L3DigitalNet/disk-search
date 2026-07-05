@@ -1,6 +1,6 @@
-@AGENTS.md
+# Claude Code
 
-## Claude Code
+@AGENTS.md
 
 **Session start:** read [`docs/handoff.md`](docs/handoff.md) first for live session-handoff notes (current state, in-flight work, next steps). It is **git-ignored and local-only** — it is not in the public repo and won't exist on a fresh clone, so treat its absence as "no handoff yet," and never commit it.
 
