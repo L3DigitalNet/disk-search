@@ -4,9 +4,9 @@ Cross-agent entry point for this repository. It follows the **Python Tooling SSO
 
 ## Project status: MS-0 foundation built & deployed — MS-1+ features not started
 
-The MS-0 foundation is **implemented and deployed to the single VM** (CD via `.github/workflows/deploy.yml`): a **Django 6** project with the **ADR-0010** data model (migrations through the `offer_snapshot` **TimescaleDB hypertable**), the `accounts`/`web`/`poller` apps, and `deploy/` (systemd + nginx). The verification gate below is **live and green**. What is **not** built yet is the MS-1+ product surface — the `fetch → parse → normalize → entity-resolve → score → alert` pipeline, the marketplace connectors, and scoring. Build those from here under the `src/` layout, adding real deps with `uv add`. Standard deviations are recorded in `docs/adr/` (ADR-0002).
+The MS-0 foundation is **implemented and deployed to a dedicated LXC container** (not a VM — see ADR-0003; CD via `.github/workflows/deploy.yml`): a **Django 6** project with the **ADR-0010** data model (migrations through the `offer_snapshot` **TimescaleDB hypertable**), the `accounts`/`web`/`poller` apps, and `deploy/` (systemd + nginx). The verification gate below is **live and green**. What is **not** built yet is the MS-1+ product surface — the `fetch → parse → normalize → entity-resolve → score → alert` pipeline, the marketplace connectors, and scoring. Build those from here under the `src/` layout, adding real deps with `uv add`. Standard deviations are recorded in `docs/adr/` (ADR-0002).
 
-The stack (see `docs/specs/hw-radar-master-spec.md` and the ADRs): **Django** + server-rendered templates + HTMX, PostgreSQL + TimescaleDB (live), Scrapy (planned, MS-1+), deployed to a single VM.
+The stack (see `docs/specs/hw-radar-master-spec.md` and the ADRs): **Django** + server-rendered templates + HTMX, PostgreSQL + TimescaleDB (live), Scrapy (planned, MS-1+), deployed to a dedicated Debian LXC container (ADR-0003).
 
 ## Operating model
 

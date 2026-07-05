@@ -11,11 +11,14 @@ Personal/business use; single maintainer.
 
 ## Status
 
-**MS-0 foundation implemented on `dev`; provisioning pending.** The Python
-verification gate (uv · Ruff · BasedPyright strict · pytest + coverage · pip-audit)
-is green locally and in CI. The repo now contains the Django foundation, initial
-TimescaleDB-backed schema, auth stub, health/login/dashboard surface, poller stub,
-and deploy artifacts; first live deployment is gated on CT provisioning.
+**MS-0 foundation built and deployed — live in production.** The Django
+foundation, TimescaleDB-backed schema (the ADR-0010 identity ladder through the
+`offer_snapshot` hypertable), auth stub, health/login/dashboard surface, poller
+stub, and deploy artifacts run on a dedicated Debian LXC container, deployed by
+GitHub Actions CD. The Python verification gate (uv · Ruff · BasedPyright strict ·
+pytest + coverage · pip-audit) is green locally and in CI. The MS-1+ product
+surface — the `fetch → parse → normalize → entity-resolve → score → alert`
+pipeline, the marketplace connectors, and scoring — is not built yet.
 
 ## Documentation
 
