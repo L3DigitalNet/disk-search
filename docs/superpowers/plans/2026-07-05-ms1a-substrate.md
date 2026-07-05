@@ -20,6 +20,7 @@
 - Conventional commits on `dev`, GPG-signed. This plan ends with the **MS-1a `dev→main` PR**.
 - Migrations are expand/contract (spec §8.5); new columns nullable-or-defaulted.
 - APScheduler job defaults stay `max_instances=1`, `coalesce=True` (ADR-0012); per-source `misfire_grace_time` from `SourceConfig`.
+- **Scrapy reactor contract (design §MS-1a, Codex SA-006):** the asyncio reactor is installed exactly once before anything imports `twisted.internet.reactor`; no module-level Twisted reactor imports; the runner primitive is **`AsyncCrawlerRunner`** (fallback `CrawlerRunner` + `Deferred.asFuture(loop)` only if the pinned Scrapy lacks it); one long-lived loop per process — **Scrapy-touching tests share ONE module-scoped event loop** (multi-`asyncio.run()` patterns are forbidden for them) and must prove two consecutive crawls on that loop.
 
 ## File Structure
 
@@ -87,7 +88,7 @@ tests/fixtures/demo_listings.html             # NEW: JSON-LD fixture page for th
 
 **Interfaces:**
 - Consumes: `TimeStamped`, `SourceSite`, `StockStatus`, `retention_constraints` (existing).
-- Produces: `SourceConfig`, `ScraperRun`, `FxRateDaily`, `SchedulerCheckpoint`, enums `SourceTier`, `VolatilityProfile`, `CheapSignal`, `LifecycleState`, `RunKind`, `RunStatus`, `RunFailureClass`; `Listing.is_international`; `OfferSnapshot.usd_item_price`. Every later task imports these from `hw_radar.catalog.models`.
+- Produces: `SourceConfig` (incl. the separate `heartbeat_enabled` / `fast_lane` booleans per the design §3 matrix), `ScraperRun`, `FxRateDaily`, `SchedulerCheckpoint`, enums `SourceTier`, `VolatilityProfile`, `CheapSignal`, `LifecycleState`, `RunKind`, `RunStatus`, `RunFailureClass`; `Listing.is_international`; `OfferSnapshot.usd_item_price`. Every later task imports these from `hw_radar.catalog.models`.
 
 - [ ] **Step 1: Add dependencies**
 
@@ -153,6 +154,7 @@ def test_source_config_defaults_are_safe() -> None:
     config = make_config(make_site())
     assert config.enabled is False  # sources ship disabled until their connector lands
     assert config.lifecycle_state == LifecycleState.ACTIVE
+    assert config.heartbeat_enabled is False  # orthogonal to fast_lane (design §3 matrix)
     assert config.fast_lane is False
     assert config.volatility_profile == VolatilityProfile.STABLE
     assert config.cheap_signal == CheapSignal.NONE
@@ -256,7 +258,8 @@ def test_seeded_sources_exist_and_are_disabled() -> None:
         config = SourceConfig.objects.get(source_site__normalized_name=key)
         assert config.tier == tier, key
         assert config.enabled is False, key
-        assert config.fast_lane is False, key  # flipped at MS-1d with heartbeat gating
+        assert config.heartbeat_enabled is False, key  # flipped at MS-1d per the design matrix
+        assert config.fast_lane is False, key  # flipped at MS-1d (WD/Seagate/eBay only, FR-002)
 ```
 
 - [ ] **Step 3: Run tests to verify they fail**
@@ -366,6 +369,10 @@ class SourceConfig(TimeStamped):
     cheap_signal = models.CharField(
         max_length=30, choices=CheapSignal.choices, default=CheapSignal.NONE
     )
+    # heartbeat_enabled = "a cheap probe gates the full pipeline" (any verified signal);
+    # fast_lane = FR-002's drop-prone AND cheap-signal intersection ONLY. Separate on
+    # purpose: ServerPartDeals is heartbeat-enabled at T2 cadence but never fast-laned.
+    heartbeat_enabled = models.BooleanField(default=False)
     fast_lane = models.BooleanField(default=False)
     lifecycle_state = models.CharField(
         max_length=20, choices=LifecycleState.choices, default=LifecycleState.ACTIVE
@@ -496,8 +503,9 @@ Review the generated `0004_ops_substrate.py`: it must contain the four new model
 
 ```python
 # Seeds the five MS-1 sources + the demo walking-skeleton source. All disabled;
-# MS-1d enables each as its connector lands and flips fast_lane for the three
-# recon-confirmed sources (WD/Seagate/SPD) when heartbeat gating exists.
+# MS-1d enables each as its connector lands, flips heartbeat_enabled where a cheap
+# signal is verified (WD/Seagate/SPD/eBay), and fast_lane strictly per FR-002
+# (WD/Seagate/eBay only — SPD is churning, never fast-laned; design 3 matrix).
 # Cadence numbers are OQ9-provisional tunables (spec C.2).
 from django.db import migrations
 
@@ -509,7 +517,7 @@ SOURCES = [
     ("Seagate Recertified Store", "seagate-recertified", "manufacturer_store", "t1",
      "www.seagate.com", 1800, 300, "drop_prone", "bootstrap_json"),
     ("ServerPartDeals", "serverpartdeals", "specialist_reseller", "t2",
-     "serverpartdeals.com", 3600, 900, "drop_prone", "shopify_products_json"),
+     "serverpartdeals.com", 3600, 900, "churning", "shopify_products_json"),
     ("goHardDrive", "goharddrive", "specialist_reseller", "t2",
      "www.goharddrive.com", 3600, 900, "churning", "none"),
     ("eBay", "ebay", "marketplace", "t0",
@@ -2498,6 +2506,7 @@ git commit -m "feat(pipeline): stage runner, persist stage, lifecycle applicatio
 
 ```python
 import asyncio
+from collections.abc import Iterator
 
 import pytest
 
@@ -2511,14 +2520,26 @@ from hw_radar.catalog.models import Listing, OfferSnapshot, RunStatus, ScraperRu
 pytestmark = pytest.mark.django_db(transaction=True, serialized_rollback=True)
 
 
+@pytest.fixture(scope="module")
+def scrapy_loop() -> Iterator[asyncio.AbstractEventLoop]:
+    # SINGLE loop for every Scrapy-touching test in this module (design §MS-1a
+    # reactor-lifecycle rule): the asyncio reactor binds to the loop present at
+    # install; fresh per-test asyncio.run() loops would race a stale reactor.
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+    asyncio.set_event_loop(None)
+    loop.close()
+
+
 def test_demo_adapter_is_registered() -> None:
     assert ADAPTERS["demo"] is DemoAdapter
 
 
-def test_walking_skeleton_end_to_end() -> None:
+def test_walking_skeleton_end_to_end(scrapy_loop: asyncio.AbstractEventLoop) -> None:
     # The MS-1a exit criterion: Scrapy (asyncio reactor, shared loop) → parse →
     # FX-stamp → resolve(stub) → persist, all under one event loop, no network.
-    run, _outcome = asyncio.run(run_source(DemoAdapter(), NullResolver()))
+    run, _outcome = scrapy_loop.run_until_complete(run_source(DemoAdapter(), NullResolver()))
     assert run.status == RunStatus.SUCCESS
     assert run.records_valid == 2
     listings = Listing.objects.filter(source_site__normalized_name="demo")
@@ -2529,9 +2550,17 @@ def test_walking_skeleton_end_to_end() -> None:
     assert snap.fx_pair == "USD/USD"  # FR-004 identity stamp present
 
 
-def test_walking_skeleton_rerun_appends() -> None:
-    asyncio.run(run_source(DemoAdapter(), NullResolver()))
-    asyncio.run(run_source(DemoAdapter(), NullResolver()))
+def test_two_consecutive_crawls_one_process_one_loop(
+    scrapy_loop: asyncio.AbstractEventLoop,
+) -> None:
+    # Codex SA-006 requirement: the second scheduled crawl is where a wrong
+    # reactor/runner integration breaks — prove both crawls inside ONE coroutine
+    # on the module loop, and that re-runs append (DR-005).
+    async def two_runs() -> None:
+        await run_source(DemoAdapter(), NullResolver())
+        await run_source(DemoAdapter(), NullResolver())
+
+    scrapy_loop.run_until_complete(two_runs())
     assert Listing.objects.filter(source_site__normalized_name="demo").count() == 2
     assert OfferSnapshot.objects.count() == 4
     assert ScraperRun.objects.filter(status=RunStatus.SUCCESS).count() == 2
@@ -2565,7 +2594,7 @@ from __future__ import annotations
 import asyncio
 
 from scrapy import signals
-from scrapy.crawler import CrawlerRunner
+from scrapy.crawler import AsyncCrawlerRunner
 from scrapy.settings import Settings
 from scrapy.utils.reactor import install_reactor, is_asyncio_reactor_installed
 
@@ -2593,7 +2622,12 @@ def install_asyncio_reactor() -> None:
 
 
 async def run_spider(spider_cls: type, **spider_kwargs: object) -> list[dict[str, object]]:
-    """Run one spider on the current loop; return its scraped items as dicts."""
+    """Run one spider on the current loop; return its scraped items as dicts.
+
+    AsyncCrawlerRunner is the asyncio-native primitive the Scrapy docs prescribe
+    (design §MS-1a / Codex SA-006). Documented fallback ONLY if the pinned Scrapy
+    lacks it: CrawlerRunner + `runner.crawl(...).asFuture(asyncio.get_running_loop())`.
+    """
     install_asyncio_reactor()
     settings = Settings()
     settings.setdict(BASE_SETTINGS, priority="project")
@@ -2602,11 +2636,10 @@ async def run_spider(spider_cls: type, **spider_kwargs: object) -> list[dict[str
     def collect(item: dict[str, object], response: object, spider: object) -> None:
         items.append(dict(item))
 
-    runner = CrawlerRunner(settings)
+    runner = AsyncCrawlerRunner(settings)
     crawler = runner.create_crawler(spider_cls)
     crawler.signals.connect(collect, signal=signals.item_scraped)
-    deferred = runner.crawl(crawler, **spider_kwargs)
-    await deferred.asFuture(asyncio.get_running_loop())
+    await runner.crawl(crawler, **spider_kwargs)
     return items
 ```
 
@@ -2715,7 +2748,7 @@ class DemoAdapter:
 uv run pytest tests/db/test_pipeline_demo.py -v
 ```
 
-Expected: all PASS. If the reactor complains about being installed twice across tests, ensure nothing else imported `twisted.internet.reactor` first — `install_asyncio_reactor()` is idempotent via `is_asyncio_reactor_installed()`.
+Expected: all PASS. The module-scoped `scrapy_loop` fixture is load-bearing: the reactor binds to the loop present at install, so every Scrapy-touching test must run on that one loop (`install_asyncio_reactor()` stays idempotent via `is_asyncio_reactor_installed()`, and nothing may import `twisted.internet.reactor` at module level).
 
 - [ ] **Step 6: Gate and commit**
 
