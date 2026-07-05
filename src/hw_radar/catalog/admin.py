@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.http import HttpRequest
 
 from hw_radar.catalog.models import (
     Category,
@@ -6,6 +7,7 @@ from hw_radar.catalog.models import (
     DriveUnit,
     FxRateDaily,
     Listing,
+    ListingResolution,
     Manufacturer,
     ProductAlias,
     ProductFamily,
@@ -31,3 +33,39 @@ admin.site.register(Listing)
 admin.site.register(SourceConfig)
 admin.site.register(ScraperRun)
 admin.site.register(FxRateDaily)
+
+
+@admin.register(ListingResolution)
+class ListingResolutionAdmin(
+    admin.ModelAdmin  # pyright: ignore[reportMissingTypeArgument]
+    # django's runtime ModelAdmin isn't subscriptable (no __class_getitem__);
+    # only django-types' stub declares it Generic, so the type argument can't
+    # be supplied without breaking admin.site.autodiscover() at import time.
+):
+    """Read-only: listing_resolution is an append-only audit trail (DR-010) —
+    admin is a review-queue inspection surface, not an editor."""
+
+    list_display = (
+        "listing",
+        "grain",
+        "method",
+        "confidence",
+        "matcher_version",
+        "resolved_at",
+        "superseded_by",
+    )
+    list_filter = ("grain", "method")
+    ordering = ("-resolved_at",)
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(
+        self, request: HttpRequest, obj: ListingResolution | None = None
+    ) -> bool:
+        return False
+
+    def has_delete_permission(
+        self, request: HttpRequest, obj: ListingResolution | None = None
+    ) -> bool:
+        return False

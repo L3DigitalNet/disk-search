@@ -1,6 +1,7 @@
 from hw_radar.catalog.models.base import (
     BOUNDED_RETENTION_CLASSES,
     INDEFINITE_RETENTION_CLASSES,
+    ResolutionGrain,
     RetentionClass,
     RetentionGoverned,
     TimeStamped,
@@ -46,6 +47,7 @@ from hw_radar.catalog.models.ops import (
     SourceTier,
     VolatilityProfile,
 )
+from hw_radar.catalog.models.resolution import ListingResolution, ResolutionMethod
 
 __all__ = [
     "BOUNDED_RETENTION_CLASSES",
@@ -60,6 +62,7 @@ __all__ = [
     "FxRateDaily",
     "LifecycleState",
     "Listing",
+    "ListingResolution",
     "Manufacturer",
     "MediaType",
     "OfferSnapshot",
@@ -71,6 +74,8 @@ __all__ = [
     "RawPayload",
     "RecertChannel",
     "RecordingTech",
+    "ResolutionGrain",
+    "ResolutionMethod",
     "RetentionClass",
     "RetentionGoverned",
     "RunFailureClass",

@@ -66,3 +66,13 @@ class TimeStamped(models.Model):
 
     class Meta:
         abstract = True
+
+
+class ResolutionGrain(models.TextChoices):
+    """C.3.3 resolution grains. String values are shared verbatim with
+    matching.types.Grain — the resolver maps between them by value."""
+
+    NONE = "none", "Unresolved"
+    FAMILY = "family", "Product family"
+    MODEL = "model", "Product model"
+    VARIANT = "variant", "Product variant"
