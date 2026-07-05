@@ -1,0 +1,27 @@
+# Installed to /etc/systemd/system/ by the provisioning runbook.
+# ADR-0006: plain gunicorn - never Type=notify (it does not call sd_notify()).
+# ADR-0009: secrets arrive only via the bao-agent tmpfs render.
+[Unit]
+Description=hw-radar web (gunicorn)
+After=network-online.target bao-agent.service postgresql.service
+Wants=network-online.target
+Requires=bao-agent.service
+
+[Service]
+Type=exec
+User=hwradar
+Group=hwradar
+WorkingDirectory=/opt/hw-radar/app
+Environment=HW_RADAR_ENV=production
+EnvironmentFile=/run/bao-agent/hw-radar.env
+ExecStart=/opt/hw-radar/app/.venv/bin/gunicorn hw_radar.wsgi:application --bind 127.0.0.1:8000 --workers 2 --timeout 60
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

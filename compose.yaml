@@ -1,0 +1,16 @@
+# Local development/test database ONLY - production runs its own in-CT
+# PostgreSQL+TimescaleDB (ADR-0003/0007). Community (TSL) image: the Apache-2
+# build lacks compression/retention, which later milestones rely on.
+services:
+  db:
+    image: timescale/timescaledb:2.27.0-pg17
+    environment:
+      POSTGRES_DB: hw_radar
+      POSTGRES_USER: hw_radar
+      POSTGRES_PASSWORD: hw_radar
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+volumes:
+  db-data:

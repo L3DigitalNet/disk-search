@@ -1,0 +1,78 @@
+name: Deploy
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit SHA to deploy (previous release SHA = rollback)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  check:
+    uses: ./.github/workflows/check.yml
+    with:
+      ref: ${{ inputs.ref || github.sha }}
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: production
+    # Host/user via env, not spliced into run: scripts — removes the shell-injection
+    # surface and keeps values off the command line (GitHub Actions hardening guidance).
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Record release SHA
+        run: echo "${{ inputs.ref || github.sha }}" > RELEASE
+
+      - name: Join tailnet (ephemeral tag:ci node)
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Wait for CT reachability
+        run: tailscale ping "$DEPLOY_HOST"
+
+      - name: Rsync source to CT
+        run: |
+          rsync -az --delete \
+            --exclude ".git" --exclude ".venv" --exclude "staticfiles" \
+            -e "ssh -o StrictHostKeyChecking=accept-new" \
+            ./ "$DEPLOY_USER@$DEPLOY_HOST:/opt/hw-radar/app/"
+
+      - name: Migrate and restart (venv built on-CT)
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash /opt/hw-radar/app/deploy/deploy-remote.sh"
+
+      - name: Smoke test
+        # Type=exec units return from `restart` once gunicorn execs, not once it is
+        # listening — poll healthz with a bounded retry so a slow worker boot doesn't
+        # trip a false deploy failure (and needless rollback).
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_USER@$DEPLOY_HOST" '
+            for _ in $(seq 1 15); do
+              if curl -fsS http://127.0.0.1:8000/healthz; then exit 0; fi
+              sleep 2
+            done
+            echo "healthz did not become ready within ~30s" >&2
+            exit 1
+          '

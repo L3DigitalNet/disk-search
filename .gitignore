@@ -209,6 +209,9 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# Written by deploy.yml to expose the deployed SHA at /healthz.
+RELEASE
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

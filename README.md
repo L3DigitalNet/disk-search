@@ -11,10 +11,11 @@ Personal/business use; single maintainer.
 
 ## Status
 
-**Scaffolded — toolchain live, features not started.** The Python verification gate
-(uv · Ruff · BasedPyright strict · pytest + coverage · pip-audit) is green locally
-and in CI; `src/hw_radar/` is a version-only skeleton. All design substance lives in
-the spec, ADRs, and research corpus below.
+**MS-0 foundation implemented on `dev`; provisioning pending.** The Python
+verification gate (uv · Ruff · BasedPyright strict · pytest + coverage · pip-audit)
+is green locally and in CI. The repo now contains the Django foundation, initial
+TimescaleDB-backed schema, auth stub, health/login/dashboard surface, poller stub,
+and deploy artifacts; first live deployment is gated on CT provisioning.
 
 ## Documentation
 
@@ -28,12 +29,18 @@ the spec, ADRs, and research corpus below.
 ## Development
 
 ```bash
+podman compose up -d db        # TimescaleDB dev database (docker works too)
 uv sync --all-groups            # create the env from uv.lock
+uv run python manage.py migrate
+uv run python manage.py createsuperuser
+uv run python manage.py runserver
 uv run python -m scripts.check  # full verification gate (fmt · lint · types · test · cov · audit)
 uv run ruff format . && uv run ruff check . --fix   # fix pass
 ```
 
-**Branching:** `main` is protected — no direct pushes. `dev` is the long-lived integration branch; do work on `dev` or short-lived `feature/*` branches off `dev`, merging features into `dev`. To release, open a pull request from `dev` into `main` and **merge with a merge commit** (not squash — this keeps the long-lived branch in sync with `main` and preserves history). Merges require the CI checks to pass and a signed-commit history.
+The verification gate needs the dev database running.
+
+**Branching:** `main` is protected and advances only via a pull request from `dev`. `dev` is the long-lived working branch — **commit and push to it directly** (no PR needed); use a short-lived `feature/*` branch only when you want isolation. To update `main`, open a PR from `dev` and **merge with a merge commit** (not squash — keeps `dev` in sync with `main` and preserves history); the PR must pass CI and carry signed commits.
 
 ## Decided stack
 

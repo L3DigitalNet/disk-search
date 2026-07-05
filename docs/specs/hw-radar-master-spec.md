@@ -737,11 +737,23 @@ The scraper-testing strategy is settled (gap #9) with build-time parameters _pro
 
 ### 17.3 Requirement-to-Test Traceability
 
-The implementer fills this in as the completion evidence (Appendix B.3). No implementation exists yet; the matrix is empty by construction.
+The implementer fills this in as completion evidence (Appendix B.3). MS-0 foundation rows are current as of the local implementation pass; provisioning-gated rows remain pending until the CT exists.
 
 | Requirement ID | Test / Verification Method | Status      |
 | -------------- | -------------------------- | ----------- |
-| —              | —                          | Not Started |
+| NFR-005 | `uv run python -m scripts.check` green locally; CI `check.yml` runs on PR plus `dev`/`main` pushes | Verified (MS-0 local) |
+| NFR-003 (partial) | MS-0 acceptance: at least one secret read from OpenBao render; no plaintext `.env` on CT; `bao-agent` survives restart | Pending provisioning |
+| FR-003 (schema shape) | `tests/db/test_identity.py::test_recert_and_new_are_one_model_two_variants` | Verified (resolver lands MS-1) |
+| DR-001 (as amended by DEV-002) | Schema constraints: `tests/db/test_market.py::test_retention_class_is_mandatory`, `test_indefinite_class_rejects_expiry`, `test_bounded_class_requires_expiry`; per-class TTL stamping/sweep land MS-1 | Partially verified (schema constraints) |
+| DR-003 | `tests/db/test_market.py::test_no_binary_columns_anywhere` | Verified |
+| DR-009 (schema prep) | `tests/db/test_identity.py::test_reference_tables_carry_retention_columns`; catalog ingest stamps `manufacturer_reference` at MS-1 | Verified (columns) |
+| DR-010 (alias shape) | `tests/db/test_identity.py::test_alias_supports_variant_grain` and `test_alias_is_marketplace_local`; `listing_resolution`/revocation land MS-1 | Verified (schema) |
+| IR-006 (persistence boundary) | `tests/db/test_market.py::test_search_observation_stores_no_provider_content` | Verified (schema guard) |
+| DR-005 (schema shape) | `tests/db/test_market.py::test_snapshots_append_not_duplicate` | Verified (pipeline MS-1) |
+| IR-001 (partial) | Authenticated pages over HTTPS-only via NGINX + Let's Encrypt | Pending provisioning |
+| IR-005 | systemd `EnvironmentFile=/run/bao-agent/hw-radar.env` plus `After=bao-agent` in `deploy/systemd/*`; live check at acceptance | Pending provisioning |
+| ADR-0010 confirmation | `catalog` migrations 0001-0003 plus `tests/db/test_identity.py`, `tests/db/test_market.py::test_offer_snapshot_is_a_hypertable` | Verified |
+| §17.2 Database layer | `tests/db/test_migrations.py::test_no_missing_migrations` plus pytest-django creating the test DB from empty on every run | Verified |
 
 ---
 
@@ -967,11 +979,12 @@ Repo convention: open decisions live in [`open-questions.md`](../open-questions.
 
 ## Deviations Log
 
-Maintained by the **implementer** during the build (Appendix B). Any divergence from this spec is recorded here — never silently patched into requirements text. No implementation exists yet; the log is empty.
+Maintained by the **implementer** during the build (Appendix B). Any divergence from this spec is recorded here — never silently patched into requirements text.
 
 | ID  | Spec Reference | Deviation | Reason | Approved? |
 | --- | -------------- | --------- | ------ | --------- |
-| —   | —              | —         | —      | —         |
+| DEV-001 | §8.6 | Dev-group deps `pytest-django` and `django-types` added | Required to test the Django stack and type-check Django without the mypy plugin; approved via the MS-0 plan (2026-07-04) | Accepted |
+| DEV-002 | DR-001 | `expires_at` is nullable: NULL = indefinite, with per-class check constraints | DR-001's literal non-null `expires_at` is unsatisfiable for indefinite classes; class-tied constraints are stronger than arbitrary sentinel dates | Accepted |
 
 ---
 

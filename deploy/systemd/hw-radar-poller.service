@@ -1,0 +1,26 @@
+[Unit]
+Description=hw-radar poller (APScheduler, ADR-0012)
+After=network-online.target bao-agent.service postgresql.service
+Wants=network-online.target
+Requires=bao-agent.service
+
+[Service]
+Type=exec
+User=hwradar
+Group=hwradar
+WorkingDirectory=/opt/hw-radar/app
+Environment=HW_RADAR_ENV=production
+EnvironmentFile=/run/bao-agent/hw-radar.env
+ExecStart=/opt/hw-radar/app/.venv/bin/python -m hw_radar.poller
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+MemoryHigh=512M
+MemoryMax=1G
+TasksMax=200
+
+[Install]
+WantedBy=multi-user.target
