@@ -1,6 +1,6 @@
 # Research
 
-This directory is the project's **research corpus** — 31 deep-research reports that ground the design of Hardware Radar in evidence rather than assumption. Alongside [`../specs/hw-radar-master-spec.md`](../specs/hw-radar-master-spec.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
+This directory is the project's **research corpus** — 36 deep-research reports that ground the design of Hardware Radar in evidence rather than assumption. Alongside [`../specs/hw-radar-master-spec.md`](../specs/hw-radar-master-spec.md) (the spec) and [`../adr/`](../adr/) (the decisions), these reports are a **design source of truth**: when a decision cites "research says…", this is where it says it.
 
 Each report is a **dated, frozen snapshot** of what was found on the day it was run (the original corpus 2026-07-03, plus a 2026-07-04 follow-up batch resolving OQ3 + OQ6–OQ15: scoring-model test, UI inventory, polling cadence, orchestration, search self-governance, the free email path, DB-backup/RPO, and the Amazon post-PA-API acquisition path), with inline citations. They are not living documents — findings get **reconciled forward** into the spec, the ADRs, and [`../resolved-questions.md`](../resolved-questions.md), rather than edited in place here.
 
@@ -67,6 +67,22 @@ Five parallel operational sweeps (dated filenames), run to ground the gap analys
 | [2026-07-03-currency-conversion-and-landed-cost-estimation-for-cross-border-drive-price-scoring](2026-07-03-currency-conversion-and-landed-cost-estimation-for-cross-border-drive-price-scoring.md) | FX normalization to USD, landed-cost / duty / VAT footguns | Gaps #3/#11 |
 | [2026-07-03-postgresql-backup-disaster-recovery-single-vm](2026-07-03-postgresql-backup-disaster-recovery-single-vm.md) | Backup/DR for a single small VM: pgBackRest, WAL/PITR, TimescaleDB caveats | Gap #5 / OQ3 |
 | [2026-07-03-lightweight-observability-and-scraper-health-monitoring](2026-07-03-lightweight-observability-and-scraper-health-monitoring.md) | Uptime, error tracking, scraper-rot detection at single-VM scale | Gaps #6/#9, OQ5/OQ8 |
+
+### 2026-07-04 follow-up batch — MS-1 acquisition / matching deep-dives
+
+Nine reports run 2026-07-04 to close the remaining domain/operational questions before MS-0 planning (the matching layer, polling cadence, heartbeat retention, licensing, and the Amazon path):
+
+| Report | Answers | Landed in |
+| --- | --- | --- |
+| [2026-07-04-wd-seagate-recert-endpoint-recon](2026-07-04-wd-seagate-recert-endpoint-recon.md) | WD & Seagate direct-recert stores — cheap-signal endpoint recon spike (both fast-lane eligible; `store.seagate.com` robots-disallowed → use the category-page bootstrap JSON) | Fast-lane eligibility — [ADR 0015](../adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md) / §8.1 |
+| [2026-07-04-availability-heartbeat-retention-and-storage-policy](2026-07-04-availability-heartbeat-retention-and-storage-policy.md) | Retention/storage policy for the high-frequency availability-heartbeat table (PostgreSQL + TimescaleDB) | Heartbeat retention — DR-008 / [OQ17](../resolved-questions.md#oq17--heartbeat-grain-retention--storage-policy) |
+| [2026-07-04-per-source-inventory-volatility-and-fast-lane-polling](2026-07-04-per-source-inventory-volatility-and-fast-lane-polling.md) | Per-source inventory volatility ↔ fast-lane polling axis (anti-correlation: fast-lane = drop-prone ∩ cheap signal) | Cadence / volatility — [OQ9](../resolved-questions.md#oq9--acquisition-cadence-throttle--skip-policy) (FR-002) |
+| [hardware-radar-polling-cadence](hardware-radar-polling-cadence.md) | Companion volatility / cheap-signal run feeding the cadence reconciliation | Cadence — [OQ9](../resolved-questions.md#oq9--acquisition-cadence-throttle--skip-policy) |
+| [2026-07-04-polling-cadence-reconciliation](2026-07-04-polling-cadence-reconciliation.md) | Reconciles the two parallel cadence runs into the FR-001 freshness SLO + FR-002 volatility axis + heartbeat grain | Cadence reconciliation — [OQ9](../resolved-questions.md#oq9--acquisition-cadence-throttle--skip-policy) |
+| [2026-07-04-amazon-data-acquisition-after-paapi-getitems-deprecation](2026-07-04-amazon-data-acquisition-after-paapi-getitems-deprecation.md) | Amazon product-data path after PA-API 5 GetItems deprecation → discovery-only posture | Amazon acquisition — [OQ15](../resolved-questions.md#oq15--amazon-acquisition-path-after-pa-api-deprecation) |
+| [2026-07-04-oem-part-number-cross-referencing-for-server-pull-drives](2026-07-04-oem-part-number-cross-referencing-for-server-pull-drives.md) | OEM part-number cross-referencing for server-pull drives (Dell/EMC, HPE, Lenovo/IBM, NetApp); OEM PN ↔ MPN is N:N | Matching-layer OEM aliases — [ADR 0019](../adr/adr-0019-listing-catalog-matching-layer.md) |
+| [2026-07-04-ssd-vendor-part-number-decoding-and-spec-catalog-bootstrap-datasets](2026-07-04-ssd-vendor-part-number-decoding-and-spec-catalog-bootstrap-datasets.md) | SSD vendor MPN decoding schemes + prior-art model→spec bootstrap datasets (never vendor `drivedb.h` — GPL) | Matching layer / catalog bootstrap — [ADR 0019](../adr/adr-0019-listing-catalog-matching-layer.md) |
+| [2026-07-04-oss-license-compliance-tooling-for-a-uv-managed-public-python-project](2026-07-04-oss-license-compliance-tooling-for-a-uv-managed-public-python-project.md) | OSS license-compliance tooling/process for a small public uv-managed project | License gate — [OQ20](../resolved-questions.md#oq20--oss-license-compliance-posture) (dependency-review) |
 
 ## Provenance
 
