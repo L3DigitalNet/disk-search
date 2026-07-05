@@ -97,6 +97,24 @@ def test_production_csrf_origins_derive_from_public_hosts(monkeypatch: pytest.Mo
     assert "https://127.0.0.1" not in prod.CSRF_TRUSTED_ORIGINS
 
 
+def test_production_allowed_hosts_strips_whitespace(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A comma-with-space value (the natural way a human writes a list) must not
+    # yield leading-space hosts that never match the Host header.
+    prod = _load_settings(
+        monkeypatch,
+        HW_RADAR_ENV="production",
+        DJANGO_SECRET_KEY="x" * 50,
+        HW_RADAR_ALLOWED_HOSTS="radar.example.net, radar.example.org ",
+    )
+    assert "radar.example.net" in prod.ALLOWED_HOSTS
+    assert "radar.example.org" in prod.ALLOWED_HOSTS
+    assert " radar.example.org" not in prod.ALLOWED_HOSTS
+    assert prod.CSRF_TRUSTED_ORIGINS == [
+        "https://radar.example.net",
+        "https://radar.example.org",
+    ]
+
+
 def test_no_deployment_hostname_hardcoded() -> None:
     # Public-repo guard (CLAUDE.md): the settings module must embed no real host.
     assert "l3digital" not in SETTINGS_PATH.read_text(encoding="utf-8")

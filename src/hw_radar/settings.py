@@ -35,9 +35,13 @@ SECRET_KEY = (
 # configured public hosts only — never the loopback entries.
 _LOCAL_HOSTS = ["localhost", "127.0.0.1"]
 if IS_PRODUCTION:
-    _public_hosts = [h for h in os.environ["HW_RADAR_ALLOWED_HOSTS"].split(",") if h]
+    _public_hosts = [
+        h.strip() for h in os.environ["HW_RADAR_ALLOWED_HOSTS"].split(",") if h.strip()
+    ]
 else:
-    _public_hosts = [h for h in os.environ.get("HW_RADAR_ALLOWED_HOSTS", "").split(",") if h]
+    _public_hosts = [
+        h.strip() for h in os.environ.get("HW_RADAR_ALLOWED_HOSTS", "").split(",") if h.strip()
+    ]
 ALLOWED_HOSTS = [*_public_hosts, *_LOCAL_HOSTS]
 
 INSTALLED_APPS = [
@@ -117,7 +121,7 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = Path(os.environ.get("HW_RADAR_STATIC_ROOT", BASE_DIR / "staticfiles"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
