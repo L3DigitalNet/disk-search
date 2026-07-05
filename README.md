@@ -33,7 +33,7 @@ uv run python -m scripts.check  # full verification gate (fmt · lint · types �
 uv run ruff format . && uv run ruff check . --fix   # fix pass
 ```
 
-**Branching:** `main` is protected — no direct pushes. `dev` is the long-lived integration branch; do work on `dev` or short-lived `feature/*` branches off `dev`, merging features into `dev`. To release, open a pull request from `dev` into `main` and **merge with a merge commit** (not squash — this keeps the long-lived branch in sync with `main` and preserves history). Merges require the CI checks to pass and a signed-commit history.
+**Branching:** `main` is protected and advances only via a pull request from `dev`. `dev` is the long-lived working branch — **commit and push to it directly** (no PR needed); use a short-lived `feature/*` branch only when you want isolation. To update `main`, open a PR from `dev` and **merge with a merge commit** (not squash — keeps `dev` in sync with `main` and preserves history); the PR must pass CI and carry signed commits.
 
 ## Decided stack
 
