@@ -1,0 +1,65 @@
+name: Deploy
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit SHA to deploy (previous release SHA = rollback)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  check:
+    uses: ./.github/workflows/check.yml
+    with:
+      ref: ${{ inputs.ref || github.sha }}
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Record release SHA
+        run: echo "${{ inputs.ref || github.sha }}" > RELEASE
+
+      - name: Join tailnet (ephemeral tag:ci node)
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Wait for CT reachability
+        run: tailscale ping "${{ secrets.DEPLOY_HOST }}"
+
+      - name: Rsync source to CT
+        run: |
+          rsync -az --delete \
+            --exclude ".git" --exclude ".venv" --exclude "staticfiles" \
+            -e "ssh -o StrictHostKeyChecking=accept-new" \
+            ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/hw-radar/app/"
+
+      - name: Migrate and restart (venv built on-CT)
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "bash /opt/hw-radar/app/deploy/deploy-remote.sh"
+
+      - name: Smoke test
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "curl -fsS http://127.0.0.1:8000/healthz"
