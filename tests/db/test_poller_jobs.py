@@ -4,7 +4,7 @@ import pytest
 
 from hw_radar.acquisition.scheduling.buckets import BucketRegistry
 from hw_radar.catalog.models import SourceConfig
-from hw_radar.poller import build_scheduler
+from hw_radar.poller.service import build_scheduler
 
 # transaction=True: recovery_probe_job writes via sync_to_async threads;
 # serialized_rollback preserves the migration-0005 seed (see test_pipeline.py).
@@ -30,7 +30,7 @@ def test_recovery_probe_reactivates_paused_source(monkeypatch: pytest.MonkeyPatc
     from hw_radar.acquisition import sources
     from hw_radar.acquisition.contracts import ParsedListing, RawBatch, RawItem
     from hw_radar.catalog.models import LifecycleState, RunKind
-    from hw_radar.poller import recovery_probe_job
+    from hw_radar.poller.service import recovery_probe_job
 
     class ProbeAdapter:
         name = "demo"

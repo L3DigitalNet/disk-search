@@ -4,12 +4,38 @@ import asyncio
 import logging
 import os
 import signal
+import subprocess
+import sys
 
 import pytest
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from hw_radar.acquisition.scheduling.buckets import BucketRegistry
-from hw_radar.poller import HEARTBEAT_SECONDS, build_scheduler, heartbeat, run
+from hw_radar.poller.service import HEARTBEAT_SECONDS, build_scheduler, heartbeat, run
+
+
+def test_poller_package_init_is_import_light() -> None:
+    # Regression guard for the service-extraction refactor. `python -m hw_radar.poller`
+    # makes runpy import the poller PACKAGE (__init__) to locate __main__, BEFORE
+    # __main__ runs django.setup(). That package import must stay ORM-free — the models
+    # import now lives in poller.service, reached only after __main__ configures Django.
+    # Proven in a clean subprocess with DJANGO_SETTINGS_MODULE unset: importing the
+    # package must succeed and must NOT pull hw_radar.catalog.models into sys.modules.
+    env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys, hw_radar.poller\n"
+            "assert 'hw_radar.catalog.models' not in sys.modules, "
+            "sorted(m for m in sys.modules if m.startswith('hw_radar'))",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def empty_scheduler() -> AsyncIOScheduler:
