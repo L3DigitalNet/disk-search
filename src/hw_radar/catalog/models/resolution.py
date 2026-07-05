@@ -122,6 +122,4 @@ class ListingResolution(models.Model):
         ]
 
     def __str__(self) -> str:
-        # self.listing.pk, not the listing_id shadow attribute: django-types
-        # has no stub for Django's auto-generated `<field>_id` attributes.
-        return f"listing {self.listing.pk} → {self.grain} ({self.method or 'unresolved'})"
+        return f"listing {self.listing_id} → {self.grain} ({self.method or 'unresolved'})"  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue] - django-types has no <field>_id stubs
