@@ -24,6 +24,7 @@ the spec, ADRs, and research corpus below.
 | [`docs/adr/`](docs/adr/) | Architecture Decision Records (MADR) — the authoritative record of significant decisions. |
 | [`docs/open-questions.md`](docs/open-questions.md) · [`docs/resolved-questions.md`](docs/resolved-questions.md) | Decision backlog (open) and settled provenance. |
 | [`docs/research/index.md`](docs/research/index.md) | Generated index of the research corpus (in-depth context behind decisions). |
+| [`AGENTS.md`](AGENTS.md) | The toolchain/agent contract (verification gate, dependency/typing/testing rules). |
 ## Development
 
 ```bash
