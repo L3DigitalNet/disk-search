@@ -10,7 +10,7 @@ def main() -> None:
 
     django.setup()
 
-    from hw_radar.poller import run
+    from hw_radar.poller.service import run
 
     asyncio.run(run())
 
