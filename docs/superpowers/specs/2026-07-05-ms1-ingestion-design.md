@@ -141,7 +141,7 @@ Build order (hardening the contract on simple sources before the OAuth one): **S
 | --- | --- |
 | Endpoint drift since the 2026-07-04 recon | Re-verify live before each connector plan; adapters isolate per-source breakage (ADR-0017) |
 | goHardDrive has no recon spike | Scout its structure at MS-1d plan time; it's tier-2 structured-data/HTML — if it demands browser tiers, that escalation is deferred (ADR-0014) and the source degrades to slower cadence, not SKIP |
-| Scrapy `CrawlerRunner` + APScheduler loop-sharing has integration subtleties (reactor install timing, per-run crawler lifecycle) | The MS-1a walking skeleton proves it before any connector work; ADR-0012 fixes the single-process design |
+| Scrapy `AsyncCrawlerRunner` + APScheduler loop-sharing has integration subtleties (reactor install timing, per-run crawler lifecycle, single-loop constraint) | The MS-1a reactor-lifecycle requirements (above) bind the implementation; the walking skeleton proves two consecutive crawls on one loop before any connector work; ADR-0012 fixes the single-process design. **The MS-1a plan must be refreshed to this contract before execution** (it predates this correction) |
 | Corpus precision misses 99.5% | C.3.5's own loop: veto fix + `matcher_version` bump + re-run; never loosen the gate |
 | eBay delete-on-delist obligations | `retention_class = ebay_listing_observation` enforced in schema (already present); heartbeat rows carry the same class (OQ17 carve-out) |
 
