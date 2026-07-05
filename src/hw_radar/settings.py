@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "hw_radar.accounts",
+    "hw_radar.web",
 ]
 
 MIDDLEWARE = [

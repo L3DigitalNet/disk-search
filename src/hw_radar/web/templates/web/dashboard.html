@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Hardware Radar</h1>
+  <p>Hello, {{ user.get_username }}. Foundation is live (MS-0).</p>
+  <p>Version {{ version }}; release {{ release }}</p>
+  <form method="post" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button type="submit">Log out</button>
+  </form>
+{% endblock %}
