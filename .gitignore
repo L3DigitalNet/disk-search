@@ -5,15 +5,10 @@
 #   per line; a trailing '/' marks a directory.
 #   NOTE: git ignores '#' only at line start — do NOT put inline comments on the
 #   pattern lines below (git would take them literally). Per-path notes:
-#     docs/handoff.md  per-session handoff notes
-#     TODO.md          personal task backlog / scratchpad
-#     .claude/         Claude Code local tooling / plugin config
+#     v3 handoff files, TODO.md, and .claude/.codex startup hooks are tracked.
 #     .vscode/         editor settings, tasks, recommended extensions
 #   CLAUDE.md is now TRACKED (ADR-0002 Deviation B partially retired,
 #   2026-07-05h) — a thin `@AGENTS.md` import, safe for the public repo.
-docs/handoff.md
-TODO.md
-.claude/
 .vscode/
 # <<< transfer-ignored manifest <<<
 
