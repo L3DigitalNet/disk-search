@@ -47,7 +47,11 @@ from hw_radar.catalog.models.ops import (
     SourceTier,
     VolatilityProfile,
 )
-from hw_radar.catalog.models.resolution import ListingResolution, ResolutionMethod
+from hw_radar.catalog.models.resolution import (
+    ListingResolution,
+    ResolutionMethod,
+    UnknownModelBackfill,
+)
 
 __all__ = [
     "BOUNDED_RETENTION_CLASSES",
@@ -91,6 +95,7 @@ __all__ = [
     "SourceType",
     "StockStatus",
     "TimeStamped",
+    "UnknownModelBackfill",
     "VerificationEvent",
     "VolatilityProfile",
     "WarrantyChannel",

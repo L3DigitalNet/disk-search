@@ -17,6 +17,7 @@ from hw_radar.catalog.models import (
     Seller,
     SourceConfig,
     SourceSite,
+    UnknownModelBackfill,
 )
 
 admin.site.register(Category)
@@ -67,5 +68,38 @@ class ListingResolutionAdmin(
 
     def has_delete_permission(
         self, request: HttpRequest, obj: ListingResolution | None = None
+    ) -> bool:
+        return False
+
+
+@admin.register(UnknownModelBackfill)
+class UnknownModelBackfillAdmin(
+    admin.ModelAdmin  # pyright: ignore[reportMissingTypeArgument]
+    # django's runtime ModelAdmin isn't subscriptable (no __class_getitem__);
+    # only django-types' stub declares it Generic, so the type argument can't
+    # be supplied without breaking admin.site.autodiscover() at import time.
+):
+    """Read-only: unknown_model_backfill is a database VIEW (C.3.4) — admin is
+    a review-queue inspection surface, not an editor."""
+
+    list_display = (
+        "hypothesis_key",
+        "mpn_hypothesis",
+        "vendor_hint",
+        "occurrences",
+        "family_grain_count",
+        "last_seen",
+    )
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(
+        self, request: HttpRequest, obj: UnknownModelBackfill | None = None
+    ) -> bool:
+        return False
+
+    def has_delete_permission(
+        self, request: HttpRequest, obj: UnknownModelBackfill | None = None
     ) -> bool:
         return False

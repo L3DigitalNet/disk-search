@@ -123,3 +123,23 @@ class ListingResolution(models.Model):
 
     def __str__(self) -> str:
         return f"listing {self.listing_id} → {self.grain} ({self.method or 'unresolved'})"  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue] - django-types has no <field>_id stubs
+
+
+class UnknownModelBackfill(models.Model):
+    """C.3.4 backfill queue — a database VIEW (migration 0007), not a table:
+    listings below model grain + the rung-2 decoded-but-unknown set, grouped by
+    decoded hypothesis with occurrence counts. Read-only; the deal-signal
+    ordering column arrives with scoring (MS-3), the occurrence-triggered
+    discovery loop with MS-1c."""
+
+    hypothesis_key = models.CharField(primary_key=True, max_length=300)
+    mpn_hypothesis = models.CharField(max_length=200, null=True)
+    vendor_hint = models.CharField(max_length=50, null=True)
+    occurrences = models.BigIntegerField()
+    family_grain_count = models.BigIntegerField()
+    first_seen = models.DateTimeField()
+    last_seen = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "unknown_model_backfill"
