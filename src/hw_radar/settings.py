@@ -5,7 +5,9 @@ Environment contract (see .env.example for dev values):
   HW_RADAR_ENV              "dev" (default) | "production"
   DJANGO_SECRET_KEY         REQUIRED in production (rendered from OpenBao, ADR-0009)
   HW_RADAR_DB_NAME/_USER/_PASSWORD/_HOST/_PORT
-  HW_RADAR_ALLOWED_HOSTS    comma-separated override
+  HW_RADAR_ALLOWED_HOSTS    REQUIRED in production (comma-separated public host(s));
+                            no deployment host is hardcoded (public repo). CSRF
+                            trusted origins are derived from it.
   HW_RADAR_STATIC_ROOT      collectstatic target (prod: served by nginx)
 Production values arrive via the bao-agent tmpfs render (systemd
 EnvironmentFile=/run/bao-agent/hw-radar.env) - never a plaintext file at rest.
@@ -26,12 +28,17 @@ SECRET_KEY = (
     else os.environ.get("DJANGO_SECRET_KEY", "dev-only-insecure-key")
 )
 
-_default_hosts = (
-    "hw-radar.l3digital.net,localhost,127.0.0.1" if IS_PRODUCTION else "localhost,127.0.0.1"
-)
-ALLOWED_HOSTS = [
-    h for h in os.environ.get("HW_RADAR_ALLOWED_HOSTS", _default_hosts).split(",") if h
-]
+# No deployment host is baked in (public repo — CLAUDE.md forbids committed
+# hostnames). Production declares its public host(s) via HW_RADAR_ALLOWED_HOSTS
+# (rendered from OpenBao); missing = fail loud, like SECRET_KEY. Loopback is always
+# allowed so the on-CT /healthz smoke test resolves. CSRF origins derive from the
+# configured public hosts only — never the loopback entries.
+_LOCAL_HOSTS = ["localhost", "127.0.0.1"]
+if IS_PRODUCTION:
+    _public_hosts = [h for h in os.environ["HW_RADAR_ALLOWED_HOSTS"].split(",") if h]
+else:
+    _public_hosts = [h for h in os.environ.get("HW_RADAR_ALLOWED_HOSTS", "").split(",") if h]
+ALLOWED_HOSTS = [*_public_hosts, *_LOCAL_HOSTS]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -127,6 +134,7 @@ CSRF_COOKIE_SECURE = IS_PRODUCTION
 X_FRAME_OPTIONS = "DENY"
 
 if IS_PRODUCTION:
-    # Same-origin server-rendered app; no CORS surface exists at MS-0.
-    CSRF_TRUSTED_ORIGINS = ["https://hw-radar.l3digital.net"]
+    # Same-origin server-rendered app; no CORS surface exists at MS-0. Trust the
+    # configured public host(s) as https origins — loopback is deliberately excluded.
+    CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in _public_hosts]
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
