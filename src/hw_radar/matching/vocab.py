@@ -25,7 +25,9 @@ _LAYER = "vocab"
 _GB = 1_000_000_000
 _TB = 1_000_000_000_000
 
-_CAPACITY = re.compile(r"\b(\d+(?:\.\d+)?)\s*(tb|gb)\b")
+_CAPACITY = re.compile(
+    r"\b(\d+(?:\.\d+)?)\s*(tb|gb)\b(?!/s)"
+)  # Final-review I-1: exclude link-speed tokens like '12gb/s'
 _RPM_PLAIN = re.compile(r"\b(\d{4,5})\s*rpm\b")
 _RPM_K = re.compile(r"\b(\d{1,2}(?:\.\d)?)k\s*rpm\b")
 _CACHE = re.compile(r"\b(\d{1,4})\s*mb\s+(?:cache|buffer)\b")

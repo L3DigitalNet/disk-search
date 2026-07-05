@@ -34,6 +34,13 @@ def test_conflicting_capacities_drop_confidence() -> None:
     assert attrs.capacity_bytes.confidence < 0.7
 
 
+def test_link_speed_preceding_capacity_never_wins() -> None:
+    # Final-review I-1: '12gb' inside '12Gb/s' must not become the capacity.
+    attrs = _x("SAS 12Gb/s 3.5in Seagate ST4000NM0023 4TB")
+    assert _value(attrs.capacity_bytes) == 4_000_000_000_000
+    assert attrs.capacity_bytes is not None and attrs.capacity_bytes.confidence == 0.9
+
+
 def test_interface_and_link_speed() -> None:
     attrs = _x("4TB 7.2K SAS 12Gb/s HDD")
     assert _value(attrs.interface) == "sas"
