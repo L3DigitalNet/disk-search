@@ -60,14 +60,23 @@ class FetchFailure(Exception):
 
 
 def _median_body_bytes(site: SourceSite) -> int | None:
-    sizes = [
-        size
-        for size in ScraperRun.objects.filter(source_site=site, status=RunStatus.SUCCESS)
+    # EC-007 invariant: detail_json["body_bytes"] is stored as a RUN-LEVEL SUM
+    # of every item's body size (see run_source below), but classify_response
+    # consumes median_body_bytes as a PER-ITEM comparison basis (an item is a
+    # soft-block if its own body is <20% of the median item size). Divide each
+    # run's total by its records_fetched to recover a per-item average before
+    # taking the median, and restrict the window to FULL runs — heartbeat/probe
+    # runs fetch a single item, which would otherwise inject a distorted
+    # "average of 1" and skew the basis.
+    rows = (
+        ScraperRun.objects.filter(source_site=site, status=RunStatus.SUCCESS, run_kind=RunKind.FULL)
         .order_by("-started_at")
-        .values_list("detail_json__body_bytes", flat=True)[:MEDIAN_BODY_WINDOW]
-        if isinstance(size, int) and size > 0
+        .values_list("detail_json__body_bytes", "records_fetched")[:MEDIAN_BODY_WINDOW]
+    )
+    averages = [
+        size / records for size, records in rows if isinstance(size, int) and size > 0 and records
     ]
-    return int(statistics.median(sizes)) if sizes else None
+    return int(statistics.median(averages)) if averages else None
 
 
 def _classify_batch(batch: RawBatch, *, expects_json: bool, median: int | None) -> None:

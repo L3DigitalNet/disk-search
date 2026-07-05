@@ -7,7 +7,10 @@ import pytest
 from django.utils import timezone
 
 from hw_radar.acquisition.contracts import NullResolver, ParsedListing, RawBatch, RawItem
-from hw_radar.acquisition.pipeline import run_source
+from hw_radar.acquisition.pipeline import (
+    _median_body_bytes,  # pyright: ignore[reportPrivateUsage]
+    run_source,
+)
 from hw_radar.acquisition.scheduling.apply import RunOutcome, apply_run_outcome
 from hw_radar.acquisition.scheduling.lifecycle import LifecycleEvent
 from hw_radar.catalog.models import (
@@ -19,6 +22,7 @@ from hw_radar.catalog.models import (
     RunStatus,
     ScraperRun,
     SourceConfig,
+    SourceSite,
 )
 
 # transaction=True: run_source writes from sync_to_async threads.
@@ -183,6 +187,63 @@ def test_apply_probe_failure_is_state_neutral() -> None:
     assert config.consecutive_failures == 0
     assert config.backoff_until is None
     assert config.last_run_at is not None
+
+
+def _seed_full_run_history(
+    site: SourceSite, *, runs: int, body_bytes: int, records_fetched: int
+) -> None:
+    now = timezone.now()
+    for i in range(runs):
+        ScraperRun.objects.create(
+            source_site=site,
+            run_kind=RunKind.FULL,
+            status=RunStatus.SUCCESS,
+            started_at=now - timedelta(minutes=i + 1),
+            finished_at=now - timedelta(minutes=i + 1),
+            records_fetched=records_fetched,
+            detail_json={"body_bytes": body_bytes, "resolver_errors": 0},
+        )
+
+
+def _multi_item(n: int, size: int) -> list[RawItem]:
+    return [
+        RawItem(url=f"https://demo.invalid/{i}", payload_text="x" * size, payload_json={"sku": i})
+        for i in range(n)
+    ]
+
+
+def _multi_parsed(n: int) -> list[ParsedListing]:
+    return [
+        ParsedListing(
+            source_listing_key=f"sku-{i}",
+            url=f"https://demo.invalid/{i}",
+            title=f"Demo {i}",
+            price=Decimal("99.99"),
+        )
+        for i in range(n)
+    ]
+
+
+def test_median_body_bytes_uses_per_item_average_not_run_total() -> None:
+    # EC-007 regression: detail_json["body_bytes"] is a run-level SUM (6 items
+    # x 1000 bytes = 6000), so the median basis must recover the per-item
+    # average (~1000), not the raw run total (~6000).
+    site = SourceSite.objects.get(normalized_name="demo")
+    _seed_full_run_history(site, runs=3, body_bytes=6000, records_fetched=6)
+    assert _median_body_bytes(site) == 1000
+
+
+def test_healthy_multi_item_run_is_not_misclassified_as_anti_bot() -> None:
+    # EC-007 regression: prior to the fix, classify_response compared each
+    # item's ~1000-byte body against a run-total median of ~6000, so every
+    # healthy item looked like a <20% soft-block outlier and the run failed.
+    site = SourceSite.objects.get(normalized_name="demo")
+    _seed_full_run_history(site, runs=3, body_bytes=6000, records_fetched=6)
+    adapter = FakeAdapter(_multi_item(6, 1000), _multi_parsed(6))
+    run, outcome = asyncio.run(run_source(adapter, NullResolver()))
+    assert run.status == RunStatus.SUCCESS
+    assert run.failure_class == ""
+    assert outcome.event is LifecycleEvent.SUCCESS
 
 
 def test_apply_honors_retry_after_verbatim() -> None:

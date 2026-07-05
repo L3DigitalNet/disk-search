@@ -85,3 +85,17 @@ def test_network_exceptions_are_transient() -> None:
 
 def test_unexpected_exception_is_unknown() -> None:
     assert classify_exception(ValueError("boom")) == RunFailureClass.UNKNOWN
+
+
+@pytest.mark.parametrize("status", [404, 451])
+def test_unmapped_error_status_falls_through_to_unknown(status: int) -> None:
+    # §12.1 fall-through: a >=400 status not in TRANSIENT/ANTI_BOT with clean
+    # content isn't a recognized failure family, so it escalates as UNKNOWN.
+    verdict = classify_response(
+        http_status=status,
+        content_type="text/html",
+        expected_json=False,
+        body_text="<html>not found</html>",
+        median_body_bytes=None,
+    )
+    assert verdict == RunFailureClass.UNKNOWN
