@@ -230,6 +230,27 @@ def test_usd_item_price_generated_column() -> None:
     assert snap.usd_item_price == Decimal("108.0000")
 
 
+def test_non_usd_snapshot_without_fx_stamp_is_rejected() -> None:
+    # FR-004 in schema: a EUR row with no FX stamp must fail, not compute as USD.
+    site = make_site("Demo Site EU", "demo-site-eu")
+    listing = Listing.objects.create(
+        source_site=site,
+        source_listing_key="sku-eu-1",
+        canonical_url="https://example.de/sku-eu-1",
+        url_hash="c" * 64,
+        title_raw="Demo 16TB (EU)",
+        retention_class=RetentionClass.MERCHANT_FACT,
+    )
+    with pytest.raises(IntegrityError):
+        OfferSnapshot.objects.create(
+            listing=listing,
+            observed_at=timezone.now(),
+            currency="EUR",
+            item_price=Decimal("100.00"),
+            retention_class=RetentionClass.MERCHANT_FACT,
+        )
+
+
 def test_listing_is_international_defaults_false() -> None:
     site = make_site()
     listing = Listing.objects.create(
@@ -473,10 +494,28 @@ and to `OfferSnapshot` (after `fx_source`), with `usd_item_price` mirroring the 
 
 ```python
     usd_item_price = models.GeneratedField(
-        expression=models.F("item_price") * Coalesce(models.F("fx_rate"), models.Value(Decimal("1"))),
+        # NULL fx_rate propagates to NULL — never silently treat a foreign-currency
+        # amount as USD (ADR-0008; USD rows carry the identity stamp fx_rate=1).
+        expression=models.F("item_price") * models.F("fx_rate"),
         output_field=models.DecimalField(max_digits=14, decimal_places=4),
         db_persist=True,
     )
+```
+
+and add to `OfferSnapshot.Meta.constraints` (FR-004 enforced in schema, not convention — a non-USD row without a full FX stamp must not persist):
+
+```python
+            models.CheckConstraint(
+                condition=(
+                    models.Q(currency="USD")
+                    | (
+                        models.Q(fx_rate__isnull=False)
+                        & ~models.Q(fx_pair="")
+                        & models.Q(fx_rate_date__isnull=False)
+                    )
+                ),
+                name="offer_snapshot_fx_stamped_non_usd",
+            ),
 ```
 
 Update `src/hw_radar/catalog/models/__init__.py`: add imports + `__all__` entries for `CheapSignal`, `FxRateDaily`, `LifecycleState`, `RunFailureClass`, `RunKind`, `RunStatus`, `SchedulerCheckpoint`, `ScraperRun`, `SourceConfig`, `SourceTier`, `VolatilityProfile` (alphabetical, matching the existing style).
@@ -852,6 +891,16 @@ def test_backoff_expiry_admits() -> None:
     assert admit(backoff_until=NOW - timedelta(seconds=1)).admitted
 
 
+def test_probe_bypasses_backoff_window() -> None:
+    # ADR-0017: the daily recovery probe runs even while backoff_until is pending.
+    decision = admit(
+        lifecycle_state=LifecycleState.PAUSED_PENDING_FIX,
+        run_kind=RunKind.PROBE,
+        backoff_until=NOW + timedelta(hours=12),
+    )
+    assert decision.admitted
+
+
 def test_denies_on_exhausted_bucket() -> None:
     reg = BucketRegistry()
     reg.configure_source("demo", rate_per_min=60.0, burst=0, now_s=0.0)
@@ -1139,7 +1188,13 @@ def check_admission(
         return AdmissionDecision(False, DenyReason.SKIPPED)
     if lifecycle_state is LifecycleState.PAUSED_PENDING_FIX and run_kind is not RunKind.PROBE:
         return AdmissionDecision(False, DenyReason.PAUSED)
-    if backoff_until is not None and backoff_until > now:
+    if (
+        backoff_until is not None
+        and backoff_until > now
+        and run_kind is not RunKind.PROBE
+    ):
+        # Probes bypass the back-off window: a paused source's failure events set
+        # backoff_until, and ADR-0017's daily recovery probe must still run.
         return AdmissionDecision(False, DenyReason.BACKING_OFF)
     if not registry.admit(source_key, domain, now_s):
         return AdmissionDecision(False, DenyReason.BUCKET)
@@ -1826,6 +1881,22 @@ def test_snapshot_carries_fx_stamp_and_stock() -> None:
     assert snap.retention_class == RetentionClass.MERCHANT_FACT
 
 
+def test_bounded_retention_requires_expiry() -> None:
+    # CR-007: the persist API must be able to carry bounded classes (eBay, MS-1d).
+    from datetime import timedelta
+
+    s = site()
+    with pytest.raises(Exception):  # IntegrityError; DR-001 constraint
+        upsert_listing(s, normalized(key="sku-ebay"), RetentionClass.EBAY_LISTING_OBSERVATION)
+    listing, _ = upsert_listing(
+        s,
+        normalized(key="sku-ebay"),
+        RetentionClass.EBAY_LISTING_OBSERVATION,
+        expires_at=timezone.now() + timedelta(hours=6),
+    )
+    assert listing.expires_at is not None
+
+
 def test_store_raw_hashes_content() -> None:
     item = RawItem(url="https://demo.invalid/page", payload_text="<html>x</html>")
     raw = store_raw(item, fetched_at=datetime(2026, 7, 5, tzinfo=UTC), retention_class=RetentionClass.MERCHANT_FACT)
@@ -1963,6 +2034,35 @@ def test_zero_records_on_authentic_200_is_parser_rot() -> None:
     assert outcome.event is LifecycleEvent.PARSER_ROT
 
 
+def test_hanging_fetch_times_out_as_transient() -> None:
+    # ADR-0012: hard fetch-stage timeout — a wedged adapter must not hold the job.
+    class Hanging(FakeAdapter):
+        async def fetch(self) -> RawBatch:
+            await asyncio.sleep(3600)
+            raise AssertionError("unreachable")
+
+    run, outcome = asyncio.run(
+        run_source(Hanging([], []), NullResolver(), fetch_timeout_s=0.05)
+    )
+    assert run.status == RunStatus.FAILED
+    assert run.failure_class == RunFailureClass.TRANSIENT
+    assert outcome.event is LifecycleEvent.TRANSIENT_FAILURE
+
+
+def test_resolver_crash_never_blocks_ingestion() -> None:
+    # C.3: the listing persists; the resolver error is recorded, the run succeeds.
+    class Exploding:
+        def resolve_listing(self, listing_id: int) -> None:
+            raise RuntimeError("resolver bug")
+
+    adapter = FakeAdapter([ok_item()], [ok_parsed()])
+    run, outcome = asyncio.run(run_source(adapter, Exploding()))
+    assert run.status == RunStatus.SUCCESS
+    assert outcome.event is LifecycleEvent.SUCCESS
+    assert run.detail_json["resolver_errors"] == 1
+    assert Listing.objects.count() == 1
+
+
 def test_adapter_crash_is_classified() -> None:
     class Exploding(FakeAdapter):
         async def fetch(self) -> RawBatch:
@@ -2072,8 +2172,15 @@ def url_hash(url: str) -> str:
 
 
 def store_raw(
-    item: RawItem, *, fetched_at: datetime, retention_class: RetentionClass
+    item: RawItem,
+    *,
+    fetched_at: datetime,
+    retention_class: RetentionClass,
+    expires_at: datetime | None = None,
 ) -> RawPayload:
+    """expires_at is REQUIRED (non-None) for bounded retention classes — the DR-001
+    check constraints reject the row otherwise. Bounded-class TTL policy arrives
+    with the eBay connector (MS-1d); merchant_fact callers pass None."""
     body = item.payload_text or ""
     return RawPayload.objects.create(
         provider="acquisition",
@@ -2084,11 +2191,16 @@ def store_raw(
         content_hash=hashlib.sha256((body or str(item.payload_json)).encode()).hexdigest(),
         http_status=item.http_status,
         retention_class=retention_class,
+        expires_at=expires_at,
     )
 
 
 def upsert_listing(
-    site: SourceSite, normalized: NormalizedListing, retention_class: RetentionClass
+    site: SourceSite,
+    normalized: NormalizedListing,
+    retention_class: RetentionClass,
+    *,
+    expires_at: datetime | None = None,
 ) -> tuple[Listing, bool]:
     return Listing.objects.update_or_create(
         source_site=site,
@@ -2100,6 +2212,7 @@ def upsert_listing(
             "condition_label_raw": normalized.condition_label,
             "is_international": normalized.is_international,
             "retention_class": retention_class,
+            "expires_at": expires_at,
         },
     )
 
@@ -2131,6 +2244,7 @@ def append_snapshot(
         attrs_json=dict(normalized.attrs),
         raw_payload=raw,
         retention_class=listing.retention_class,
+        expires_at=listing.expires_at,
     )
 ```
 
@@ -2279,6 +2393,7 @@ sync_to_async because the runner lives on the poller's event loop.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import statistics
 
@@ -2309,6 +2424,7 @@ from hw_radar.catalog.models import (
 logger = logging.getLogger(__name__)
 
 MEDIAN_BODY_WINDOW = 10  # recent successful runs consulted for EC-007 body-size outliers
+FETCH_TIMEOUT_S = 120.0  # ADR-0012 hard fetch-stage timeout; a hung adapter must not wedge the poller
 
 _EVENT_BY_CLASS: dict[RunFailureClass, LifecycleEvent] = {
     RunFailureClass.TRANSIENT: LifecycleEvent.TRANSIENT_FAILURE,
@@ -2382,13 +2498,17 @@ async def run_source(
     resolver: ListingResolver,
     *,
     retention_class: RetentionClass = RetentionClass.MERCHANT_FACT,
+    run_kind: RunKind | None = None,
+    fetch_timeout_s: float = FETCH_TIMEOUT_S,
 ) -> tuple[ScraperRun, RunOutcome]:
+    effective_kind = run_kind or adapter.run_kind
     site = await sync_to_async(SourceSite.objects.get)(normalized_name=adapter.site_key)
     run = await sync_to_async(ScraperRun.objects.create)(
-        source_site=site, run_kind=adapter.run_kind, started_at=timezone.now()
+        source_site=site, run_kind=effective_kind, started_at=timezone.now()
     )
     try:
-        batch = await adapter.fetch()
+        async with asyncio.timeout(fetch_timeout_s):
+            batch = await adapter.fetch()
         median = await sync_to_async(_median_body_bytes)(site)
         _classify_batch(batch, expects_json=adapter.expects_json, median=median)
         try:
@@ -2413,18 +2533,18 @@ async def run_source(
         await sync_to_async(run.save)()
         event = (
             LifecycleEvent.PROBE_SUCCESS
-            if adapter.run_kind is RunKind.PROBE
+            if effective_kind is RunKind.PROBE
             else LifecycleEvent.SUCCESS
         )
         return run, RunOutcome(event)
     except FetchFailure as exc:
-        return await _finalize_failure(run, exc.failure_class, str(exc))
+        return await _finalize_failure(run, exc.failure_class, str(exc), effective_kind)
     except Exception as exc:  # noqa: BLE001 — every crash must classify + record (NFR-001)
-        return await _finalize_failure(run, classify_exception(exc), repr(exc))
+        return await _finalize_failure(run, classify_exception(exc), repr(exc), effective_kind)
 
 
 async def _finalize_failure(
-    run: ScraperRun, failure_class: RunFailureClass, message: str
+    run: ScraperRun, failure_class: RunFailureClass, message: str, run_kind: RunKind
 ) -> tuple[ScraperRun, RunOutcome]:
     logger.warning("run %s failed: %s (%s)", run.pk, failure_class, message)
     run.status = RunStatus.FAILED
@@ -2432,6 +2552,10 @@ async def _finalize_failure(
     run.error = message[:2000]
     run.finished_at = timezone.now()
     await sync_to_async(run.save)()
+    if run_kind is RunKind.PROBE:
+        # A failed recovery probe keeps the source paused (ADR-0017); it must not
+        # remap to ANTI_BOT/etc. and stack a fresh back-off window.
+        return run, RunOutcome(LifecycleEvent.PROBE_FAILURE)
     return run, RunOutcome(_EVENT_BY_CLASS[failure_class])
 ```
 
@@ -2441,8 +2565,14 @@ Then run the resolver after persist inside `run_source` (before the success save
         listing_ids, upserted, appended = await sync_to_async(_persist_all)(
             site, batch, normalized, retention_class
         )
+        resolver_errors = 0
         for listing_id in listing_ids:
-            await sync_to_async(resolver.resolve_listing)(listing_id)
+            try:
+                await sync_to_async(resolver.resolve_listing)(listing_id)
+            except Exception:  # noqa: BLE001 — resolver failure never blocks ingestion (C.3)
+                logger.exception("resolver failed for listing %s", listing_id)
+                resolver_errors += 1
+        run.detail_json["resolver_errors"] = resolver_errors
 ```
 
 (Adjust `_persist_all`'s return to `tuple[list[int], int, int]` accordingly — the resolver call is behavior MS-1b relies on, so it must be wired now even though `NullResolver` is a no-op.)
@@ -2617,8 +2747,18 @@ BASE_SETTINGS: dict[str, object] = {
 
 
 def install_asyncio_reactor() -> None:
-    if not is_asyncio_reactor_installed():
+    # Scrapy >=2.13: is_asyncio_reactor_installed() RAISES RuntimeError when no
+    # reactor is installed yet (it no longer silently installs the default) —
+    # that no-reactor case is the normal first call in a fresh process.
+    try:
+        already_asyncio = is_asyncio_reactor_installed()
+    except RuntimeError:
         install_reactor(ASYNCIO_REACTOR)
+        return
+    if not already_asyncio:
+        # A wrong (non-asyncio) reactor cannot be switched; fail loudly rather
+        # than let crawls hang against a foreign reactor.
+        raise RuntimeError("a non-asyncio Twisted reactor is already installed")
 
 
 async def run_spider(spider_cls: type, **spider_kwargs: object) -> list[dict[str, object]]:
@@ -2831,12 +2971,18 @@ def empty_scheduler():
     return build_scheduler(BucketRegistry(), configs=[])
 ```
 
-(replace every bare `build_scheduler()` call with `empty_scheduler()`; the SIGTERM test drives `run(configs=[])` — see the implementation signature below. The three service jobs are always present:)
+(replace every bare `build_scheduler()` call with `empty_scheduler()`; the SIGTERM test drives `run(configs=[], checkpoint=False)` — the DB-free unit mode, see the implementation signature below. The five service jobs are always present:)
 
 ```python
 def test_service_jobs_always_registered() -> None:
     scheduler = empty_scheduler()
-    for job_id in ("poller-heartbeat", "fx-refresh", "deadman-push", "bucket-checkpoint"):
+    for job_id in (
+        "poller-heartbeat",
+        "fx-refresh",
+        "deadman-push",
+        "bucket-checkpoint",
+        "recovery-probes",
+    ):
         assert scheduler.get_job(job_id) is not None, job_id
 ```
 
@@ -2849,7 +2995,9 @@ from hw_radar.acquisition.scheduling.buckets import BucketRegistry
 from hw_radar.catalog.models import SourceConfig
 from hw_radar.poller import build_scheduler
 
-pytestmark = pytest.mark.django_db
+# transaction=True: recovery_probe_job writes via sync_to_async threads;
+# serialized_rollback preserves the migration-0005 seed (see test_pipeline.py).
+pytestmark = pytest.mark.django_db(transaction=True, serialized_rollback=True)
 
 
 def test_disabled_sources_get_no_jobs() -> None:
@@ -2858,6 +3006,53 @@ def test_disabled_sources_get_no_jobs() -> None:
     configs = list(SourceConfig.objects.select_related("source_site").filter(enabled=True))
     scheduler = build_scheduler(registry, configs=configs)
     assert scheduler.get_job("poll-demo") is None
+
+
+def test_recovery_probe_reactivates_paused_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    # ADR-0017 end-to-end: paused source + passing daily probe → active again.
+    # A fake (non-Scrapy) adapter keeps the Scrapy reactor confined to
+    # test_pipeline_demo.py's module loop (the single-loop rule).
+    import asyncio
+    from datetime import UTC, datetime
+    from decimal import Decimal
+
+    from hw_radar.acquisition import sources
+    from hw_radar.acquisition.contracts import ParsedListing, RawBatch, RawItem
+    from hw_radar.catalog.models import LifecycleState, RunKind
+    from hw_radar.poller import recovery_probe_job
+
+    class ProbeAdapter:
+        name = "demo"
+        site_key = "demo"
+        run_kind = RunKind.FULL
+        expects_json = True
+
+        async def fetch(self) -> RawBatch:
+            return RawBatch(
+                source="demo",
+                fetched_at=datetime(2026, 7, 5, tzinfo=UTC),
+                items=[RawItem(url="https://demo.invalid/p", payload_json={"sku": "p"})],
+            )
+
+        def parse(self, batch: RawBatch) -> list[ParsedListing]:
+            return [
+                ParsedListing(
+                    source_listing_key="probe-sku",
+                    url="https://demo.invalid/p",
+                    title="Probe 8TB",
+                    price=Decimal("99.99"),
+                )
+            ]
+
+    monkeypatch.setitem(sources.ADAPTERS, "demo", ProbeAdapter)
+    SourceConfig.objects.filter(source_site__normalized_name="demo").update(
+        enabled=True, lifecycle_state=LifecycleState.PAUSED_PENDING_FIX
+    )
+    registry = BucketRegistry()
+    registry.configure_source("demo", rate_per_min=60.0, burst=3, now_s=0.0)
+    asyncio.run(recovery_probe_job(registry))
+    config = SourceConfig.objects.get(source_site__normalized_name="demo")
+    assert config.lifecycle_state == LifecycleState.ACTIVE
 
 
 def test_enabled_source_gets_job_with_config_cadence_and_bucket() -> None:
@@ -2970,6 +3165,7 @@ HEARTBEAT_SECONDS = 60
 DEADMAN_SECONDS = 60
 CHECKPOINT_SECONDS = 60
 FX_REFRESH_HOUR_UTC = 6
+RECOVERY_PROBE_SECONDS = 86_400  # ADR-0017: daily recovery probe for paused sources
 
 
 def heartbeat() -> None:
@@ -3033,6 +3229,41 @@ async def checkpoint_job(registry: BucketRegistry) -> None:
     await sync_to_async(save_buckets)(registry)
 
 
+async def recovery_probe_job(registry: BucketRegistry) -> None:
+    """ADR-0017: paused_pending_fix sources get a daily probe; success reactivates."""
+    paused = await sync_to_async(
+        lambda: list(
+            SourceConfig.objects.select_related("source_site").filter(
+                enabled=True, lifecycle_state=LifecycleState.PAUSED_PENDING_FIX
+            )
+        )
+    )()
+    for config in paused:
+        key = config.source_site.normalized_name
+        factory = ADAPTERS.get(key)
+        if factory is None:
+            continue
+        decision = check_admission(
+            enabled=config.enabled,
+            lifecycle_state=LifecycleState(config.lifecycle_state),
+            run_kind=RunKind.PROBE,
+            backoff_until=config.backoff_until,
+            now=timezone.now(),
+            registry=registry,
+            source_key=key,
+            domain=config.domain,
+            now_s=time.monotonic(),
+        )
+        if not decision.admitted:
+            logger.info("probe for %s not admitted: %s", key, decision.reason)
+            continue
+        _run, outcome = await run_source(factory(), NullResolver(), run_kind=RunKind.PROBE)
+        await sync_to_async(apply_run_outcome)(
+            config, outcome, now=timezone.now(), rand=random.random
+        )
+        logger.info("recovery probe for %s → %s", key, config.lifecycle_state)
+
+
 def build_scheduler(
     registry: BucketRegistry, configs: Sequence[SourceConfig]
 ) -> AsyncIOScheduler:
@@ -3043,6 +3274,10 @@ def build_scheduler(
     scheduler.add_job(
         checkpoint_job, "interval", seconds=CHECKPOINT_SECONDS, id="bucket-checkpoint",
         args=[registry],
+    )
+    scheduler.add_job(
+        recovery_probe_job, "interval", seconds=RECOVERY_PROBE_SECONDS,
+        id="recovery-probes", args=[registry],
     )
     for config in configs:
         key = config.source_site.normalized_name
@@ -3064,9 +3299,17 @@ def build_scheduler(
     return scheduler
 
 
-async def run(configs: Sequence[SourceConfig] | None = None) -> None:
+async def run(
+    configs: Sequence[SourceConfig] | None = None, *, checkpoint: bool = True
+) -> None:
+    """checkpoint=False is the DB-free unit mode: no bucket load/save ORM calls
+    (tests/unit/test_poller.py drives run(configs=[], checkpoint=False))."""
     install_asyncio_reactor()  # before APScheduler starts; Scrapy shares this loop
-    registry = await sync_to_async(load_buckets)(now_s=time.monotonic())
+    registry = (
+        await sync_to_async(load_buckets)(now_s=time.monotonic())
+        if checkpoint
+        else BucketRegistry()
+    )
     if configs is None:
         configs = await sync_to_async(
             lambda: list(
@@ -3082,7 +3325,11 @@ async def run(configs: Sequence[SourceConfig] | None = None) -> None:
     logger.info("poller started (%s source job(s))", len(configs))
     await stop.wait()
     scheduler.shutdown(wait=False)
-    await sync_to_async(save_buckets)(registry)
+    if checkpoint:
+        try:
+            await sync_to_async(save_buckets)(registry)
+        except Exception:  # noqa: BLE001 — shutdown must complete even if the DB is gone
+            logger.warning("bucket checkpoint on shutdown failed", exc_info=True)
     logger.info("poller stopped")
 ```
 
@@ -3118,7 +3365,7 @@ if __name__ == "__main__":
 uv run pytest tests/unit/test_deadman.py tests/unit/test_poller.py tests/db/test_poller_jobs.py -v
 ```
 
-Expected: all PASS (the SIGTERM test now calls `run(configs=[])`, which skips the DB read; buckets checkpoint on shutdown needs the DB — if that write makes the unit test require a DB, guard it: `save_buckets` failures at shutdown are logged, not raised — wrap in try/except with `logger.warning`).
+Expected: all PASS. The SIGTERM unit test calls `run(configs=[], checkpoint=False)` — no ORM call happens on that path (CR-003); checkpoint load/save is exclusive to `checkpoint=True` production mode, and the shutdown save is exception-guarded so a dead DB cannot block process exit.
 
 - [ ] **Step 5: Verify the process contract manually**
 
@@ -3158,7 +3405,7 @@ Expected: every gate step green, coverage ≥85%.
 - [ ] **Step 2: Local docs**
 
 - `docs/handoff.md`: add the MS-1a session entry (substrate landed; all sources seeded disabled; demo source proves the loop; fast_lane flags deliberately False until MS-1d).
-- `TODO.md` `## Claude`: add two operator-visible follow-ups: (1) add `HW_RADAR_KUMA_PUSH_URL` to the CT's bao-agent template + create the Kuma push monitor (dead-man alerting is inert until then); (2) MS-1d must flip `enabled` per connector and `fast_lane` for WD/Seagate/SPD once heartbeat gating exists.
+- `TODO.md` `## Claude`: add two operator-visible follow-ups: (1) add `HW_RADAR_KUMA_PUSH_URL` to the CT's bao-agent template + create the Kuma push monitor (dead-man alerting is inert until then); (2) MS-1d must flip `enabled` per connector, `heartbeat_enabled` for WD/Seagate/SPD/eBay (verified cheap signals), and `fast_lane` for **WD/Seagate/eBay only** (FR-002 — SPD is churning, never fast-laned; design §3 matrix).
 - Spec Deviations Log: no deviations expected from this plan; if any step deviated, record it in §Deviations before the PR.
 
 - [ ] **Step 3: Open the MS-1a PR**
@@ -3177,5 +3424,5 @@ Merge (merge commit, not squash) once `check` + `dependency-review` are green. P
 ## Self-review notes (author pass, 2026-07-05)
 
 - **Spec coverage (MS-1a slice):** C.2 substrate → Tasks 1/2/5/7; ADR-0017 lifecycle → Tasks 2/5; §12.1 classifier → Task 3; ADR-0008 FX + FR-004 stamps → Tasks 1/4; C.1 adapter contract → Task 3; ADR-0012 loop-sharing + ADR-0014 guardrails → Task 6; §18.5 dead-man + ERR-007 checkpoints → Tasks 5/7. Heartbeat gating, real connectors, matcher: deliberately MS-1b/d, not gaps.
-- **Known simplifications (accepted at MS-1a, revisited later):** latency-spike detection (AW-005 math exists in `backoff.py`; the trigger — 3-poll latency median — wires up when connectors produce real timings in MS-1d); degradation thresholds (ERR-004 formulas land with the MS-5 canary); `store_raw` persists the first batch item as run-level evidence rather than per-listing raw rows (per-listing linkage becomes meaningful with real per-item payloads in MS-1d).
+- **Known simplifications (accepted at MS-1a, revisited later):** registry tunables are read at poller startup — cadence changes apply live via reschedule-on-ramp, but `enabled`/bucket-parameter/adapter changes require a poller restart (`systemctl restart hw-radar-poller`); a live registry-refresh job is deferred to MS-1d when sources actually start flipping (CR-006). Also: latency-spike detection (AW-005 math exists in `backoff.py`; the trigger — 3-poll latency median — wires up when connectors produce real timings in MS-1d); degradation thresholds (ERR-004 formulas land with the MS-5 canary); `store_raw` persists the first batch item as run-level evidence rather than per-listing raw rows (per-listing linkage becomes meaningful with real per-item payloads in MS-1d).
 - **Type consistency check:** `run_source` returns `tuple[ScraperRun, RunOutcome]` everywhere (Task 5 impl, Task 5/6 tests, Task 7 `poll_source`); `build_scheduler(registry, configs)` matches all three test files; `check_admission` kwargs match Task 2 tests and Task 7 call site; `_persist_all` return-shape adjustment is stated inline where the resolver loop is wired.
