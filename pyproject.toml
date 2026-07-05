@@ -14,6 +14,7 @@ description = "Watches online marketplaces for enterprise/NAS and recertified HD
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "apscheduler>=3.11,<4",
     "django[argon2]>=6.0,<6.1",
     "gunicorn>=26.0",
     "psycopg[binary]>=3.3",
