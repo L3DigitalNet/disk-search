@@ -4,11 +4,13 @@ from hw_radar.catalog.models import (
     Category,
     DriveSpec,
     DriveUnit,
+    Listing,
     Manufacturer,
     ProductAlias,
     ProductFamily,
     ProductModel,
     ProductVariant,
+    Seller,
     SourceSite,
 )
 
@@ -21,3 +23,5 @@ admin.site.register(DriveSpec)
 admin.site.register(ProductAlias)
 admin.site.register(DriveUnit)
 admin.site.register(SourceSite)
+admin.site.register(Seller)
+admin.site.register(Listing)

@@ -6,6 +6,7 @@ from hw_radar.catalog.models.base import (
     TimeStamped,
     retention_constraints,
 )
+from hw_radar.catalog.models.evidence import RawPayload, SearchObservation, VerificationEvent
 from hw_radar.catalog.models.identity import (
     AliasSourceKind,
     AliasType,
@@ -24,7 +25,14 @@ from hw_radar.catalog.models.identity import (
     RecordingTech,
     WarrantyChannel,
 )
-from hw_radar.catalog.models.market import SourceSite, SourceType
+from hw_radar.catalog.models.market import (
+    Listing,
+    OfferSnapshot,
+    Seller,
+    SourceSite,
+    SourceType,
+    StockStatus,
+)
 
 __all__ = [
     "BOUNDED_RETENTION_CLASSES",
@@ -35,20 +43,27 @@ __all__ = [
     "Condition",
     "DriveSpec",
     "DriveUnit",
+    "Listing",
     "Manufacturer",
     "MediaType",
+    "OfferSnapshot",
     "Packaging",
     "ProductAlias",
     "ProductFamily",
     "ProductModel",
     "ProductVariant",
+    "RawPayload",
     "RecertChannel",
     "RecordingTech",
     "RetentionClass",
     "RetentionGoverned",
+    "SearchObservation",
+    "Seller",
     "SourceSite",
     "SourceType",
+    "StockStatus",
     "TimeStamped",
+    "VerificationEvent",
     "WarrantyChannel",
     "retention_constraints",
 ]
