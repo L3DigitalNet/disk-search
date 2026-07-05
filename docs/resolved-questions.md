@@ -45,6 +45,7 @@
     - [OQ18 — Recovery-time objective (RTO) for v1](#oq18--recovery-time-objective-rto-for-v1)
     - [OQ19 — Accessibility & i18n declaration](#oq19--accessibility--i18n-declaration)
     - [OQ20 — OSS license-compliance posture](#oq20--oss-license-compliance-posture)
+    - [OQ21 — `httpx` dependency for API/FX/heartbeat HTTP paths](#oq21--httpx-dependency-for-apifxheartbeat-http-paths)
 
 ---
 
@@ -519,3 +520,13 @@ _Recommendation ratified as presented (2026-07-04): adopt the full design incl. 
 **My Comments:** **Task for Claude:** Conduct further research and determine the required tooling and processes to ensure OSS license compliance for the project. Provide a recommendation on whether to implement an automated license check, perform a one-time manual review, or accept the risk and update the documentation accordingly.
 
 _Recommendation ratified as presented (2026-07-04): `dependency-review-action` gate + manual `licensecheck` for non-PR dependency adds + §16 reword + TSL note._
+
+### OQ21 — `httpx` dependency for API/FX/heartbeat HTTP paths
+
+**✅ Resolved (owner, 2026-07-05) — no ADR; this is the record; §8.6 carries the dependency row.** Raised by the MS-1 design brainstorm ([design doc](superpowers/specs/2026-07-05-ms1-ingestion-design.md)). Three MS-1 HTTP paths are single-URL API/plain GETs where Scrapy is the wrong tool: the eBay Browse API (OAuth2 client-credentials + REST calls), the Frankfurter daily FX fetch ([ADR 0008](adr/adr-0008-currency-landed-cost-normalization.md)), and the ADR-0015 heartbeat probes (fixed cheap-signal URLs at 2–5 min cadence, where per-probe Scrapy crawler lifecycle is disproportionate). §8.6 did not list an HTTP client, and Appendix B requires an OQ entry + owner approval for any unlisted dependency.
+
+- **Decision: add `httpx`** (BSD-3, inside the OQ20 license allowlist) as the HTTP client for API-tier calls, FX fetches, and heartbeat probes. Scrape-tier fetching (full page/category crawls) remains Scrapy per [ADR 0014](adr/adr-0014-scraping-runtime-escalation-stack.md) — this does not touch the escalation ladder.
+- **Alternatives rejected:** forcing everything through Scrapy (contorts authenticated REST clients into spider shape; heavyweight per-heartbeat) · stdlib `urllib` (no async, no HTTP/2, hand-rolled retries) · `aiohttp` (viable, but `httpx` shares the `requests`-style API and is the ecosystem default for async clients).
+- **Politeness parity:** heartbeat probes still honor the C-007 posture — robots verified at source registration, honest UA, hard timeouts, cadence ≥ crawl-delay (Seagate: 20 s).
+
+**My Comments:** Approved 2026-07-05 during the MS-1 brainstorm (substrate section ratified "Approve incl. httpx").

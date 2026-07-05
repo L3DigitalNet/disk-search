@@ -17,7 +17,7 @@
 
 ## Open questions
 
-**None currently open.** All five questions raised by the **2026-07-04 spec gap analysis** (OQ16–OQ20) were owner-resolved 2026-07-04 and relocated to [`resolved-questions.md`](resolved-questions.md) (OQ17 and OQ20 research-backed). The next question opened here takes the number **OQ21**.
+**None currently open.** All five questions raised by the **2026-07-04 spec gap analysis** (OQ16–OQ20) were owner-resolved 2026-07-04 and relocated to [`resolved-questions.md`](resolved-questions.md) (OQ17 and OQ20 research-backed). OQ21 (`httpx` dependency, raised by the 2026-07-05 MS-1 brainstorm) was owner-resolved the same day and recorded directly in `resolved-questions.md`. The next question opened here takes the number **OQ22**.
 
 ## How to maintain this document
 
