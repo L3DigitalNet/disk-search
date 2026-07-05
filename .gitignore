@@ -7,12 +7,12 @@
 #   pattern lines below (git would take them literally). Per-path notes:
 #     docs/handoff.md  per-session handoff notes
 #     TODO.md          personal task backlog / scratchpad
-#     CLAUDE.md        local-only Claude agent guide for this repo
 #     .claude/         Claude Code local tooling / plugin config
 #     .vscode/         editor settings, tasks, recommended extensions
+#   CLAUDE.md is now TRACKED (ADR-0002 Deviation B partially retired,
+#   2026-07-05h) — a thin `@AGENTS.md` import, safe for the public repo.
 docs/handoff.md
 TODO.md
-CLAUDE.md
 .claude/
 .vscode/
 # <<< transfer-ignored manifest <<<

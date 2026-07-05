@@ -30,7 +30,6 @@ from asgiref.sync import sync_to_async
 from django.utils import timezone
 
 from hw_radar.acquisition import deadman, fx
-from hw_radar.acquisition.contracts import NullResolver
 from hw_radar.acquisition.pipeline import run_source
 from hw_radar.acquisition.scheduling.admission import check_admission
 from hw_radar.acquisition.scheduling.apply import apply_run_outcome
@@ -39,6 +38,7 @@ from hw_radar.acquisition.scheduling.checkpoint import load_buckets, save_bucket
 from hw_radar.acquisition.scrapy_support import install_asyncio_reactor
 from hw_radar.acquisition.sources import ADAPTERS
 from hw_radar.catalog.models import LifecycleState, RunKind, SourceConfig
+from hw_radar.matching.resolver import CatalogResolver
 
 if TYPE_CHECKING:
     from apscheduler.job import Job
@@ -78,7 +78,7 @@ async def poll_source(site_key: str, registry: BucketRegistry, scheduler: AsyncI
     if factory is None:
         logger.warning("source %s enabled but has no adapter registered", site_key)
         return
-    _run, outcome = await run_source(factory(), NullResolver())
+    _run, outcome = await run_source(factory(), CatalogResolver())
     interval_before = config.current_interval_s
     await sync_to_async(apply_run_outcome)(config, outcome, now=timezone.now(), rand=random.random)
     if config.current_interval_s != interval_before:
@@ -139,7 +139,7 @@ async def recovery_probe_job(registry: BucketRegistry) -> None:
         if not decision.admitted:
             logger.info("probe for %s not admitted: %s", key, decision.reason)
             continue
-        _run, outcome = await run_source(factory(), NullResolver(), run_kind=RunKind.PROBE)
+        _run, outcome = await run_source(factory(), CatalogResolver(), run_kind=RunKind.PROBE)
         await sync_to_async(apply_run_outcome)(
             config, outcome, now=timezone.now(), rand=random.random
         )

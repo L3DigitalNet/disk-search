@@ -20,6 +20,7 @@ class Condition(models.TextChoices):
     REFURBISHED = "refurbished", "Refurbished"
     USED = "used", "Used"
     OPEN_BOX = "open_box", "Open box"
+    FOR_PARTS = "for_parts", "For parts / not working"
     UNKNOWN = "unknown", "Unknown"
 
 

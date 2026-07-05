@@ -11,8 +11,13 @@ from typing import ClassVar
 from django.db import models
 from django.db.models.functions import Coalesce
 
-from hw_radar.catalog.models.base import RetentionGoverned, TimeStamped, retention_constraints
-from hw_radar.catalog.models.identity import ProductVariant
+from hw_radar.catalog.models.base import (
+    ResolutionGrain,
+    RetentionGoverned,
+    TimeStamped,
+    retention_constraints,
+)
+from hw_radar.catalog.models.identity import ProductFamily, ProductModel, ProductVariant
 
 
 class SourceType(models.TextChoices):
@@ -79,6 +84,32 @@ class Listing(RetentionGoverned):
     product_variant = models.ForeignKey(
         ProductVariant, on_delete=models.SET_NULL, related_name="listings", null=True, blank=True
     )
+    # Denormalized CURRENT resolution (C.3.3): most-specific-wins, lower grains
+    # NULL; refreshed ONLY by matching.resolver.CatalogResolver on accept. The
+    # append-only audit trail lives in ListingResolution — these fields are a
+    # read-path convenience, never the source of truth.
+    # Explicit type arguments (see resolution.py's superseded_by): django-types
+    # cannot infer the generic parameter from the "catalog.X" string form, and
+    # silently falls back to a None-only field type — which breaks assignment
+    # from matching.resolver on accept.
+    product_family: models.ForeignKey[ProductFamily | None] = models.ForeignKey(
+        "catalog.ProductFamily",
+        on_delete=models.SET_NULL,
+        related_name="listings",
+        null=True,
+        blank=True,
+    )
+    product_model: models.ForeignKey[ProductModel | None] = models.ForeignKey(
+        "catalog.ProductModel",
+        on_delete=models.SET_NULL,
+        related_name="listings",
+        null=True,
+        blank=True,
+    )
+    resolution_grain = models.CharField(
+        max_length=10, choices=ResolutionGrain.choices, default=ResolutionGrain.NONE
+    )
+    resolution_confidence = models.FloatField(null=True, blank=True)
     source_listing_key = models.CharField(max_length=255)
     canonical_url = models.URLField(max_length=1000)
     url_hash = models.CharField(max_length=64)

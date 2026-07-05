@@ -66,6 +66,16 @@ def test_recovery_probe_reactivates_paused_source(monkeypatch: pytest.MonkeyPatc
     assert config.lifecycle_state == LifecycleState.ACTIVE
 
 
+def test_poller_wires_the_catalog_resolver() -> None:
+    # MS-1b: scheduled polls must resolve through the ADR-0019 resolver, not the
+    # MS-1a NullResolver stub. Import-level tripwire + type check.
+    from hw_radar.matching.resolver import CatalogResolver
+    from hw_radar.poller import service
+
+    assert service.CatalogResolver is CatalogResolver
+    assert not hasattr(service, "NullResolver")
+
+
 def test_enabled_source_gets_job_with_config_cadence_and_bucket() -> None:
     SourceConfig.objects.filter(source_site__normalized_name="demo").update(enabled=True)
     registry = BucketRegistry()
