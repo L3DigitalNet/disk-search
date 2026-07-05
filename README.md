@@ -34,6 +34,8 @@ uv run python -m scripts.check  # full verification gate (fmt · lint · types �
 uv run ruff format . && uv run ruff check . --fix   # fix pass
 ```
 
+**Branching:** `main` is protected — no direct pushes. `dev` is the long-lived integration branch; do work on `dev` or short-lived `feature/*` branches off `dev`, merging features into `dev`. To release, open a pull request from `dev` into `main` and **merge with a merge commit** (not squash — this keeps the long-lived branch in sync with `main` and preserves history). Merges require the CI checks to pass and a signed-commit history.
+
 ## Decided stack
 
 Python · Scrapy (HTTP-first / structured-data-first / browser-last) · PostgreSQL +
