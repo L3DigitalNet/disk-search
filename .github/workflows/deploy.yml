@@ -48,7 +48,21 @@ jobs:
           tags: tag:ci
 
       - name: Wait for CT reachability
-        run: tailscale ping "$DEPLOY_HOST"
+        # Validate the ACTUAL deploy path — a Tailscale-SSH connection — with a
+        # warmup retry. Plain `tailscale ping` is wrong here: the NAT'd CT and the
+        # NAT'd ephemeral runner can only meet over a DERP relay, and `tailscale
+        # ping` exits non-zero unless a DIRECT path forms (it never will). DERP is
+        # fine for SSH/rsync; this loop proves that end-to-end while giving the
+        # tag:ci node time to learn the peer + establish the DERP path.
+        run: |
+          for i in $(seq 1 12); do
+            if ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 \
+                 "$DEPLOY_USER@$DEPLOY_HOST" true 2>/dev/null; then
+              echo "CT reachable via Tailscale SSH (attempt $i)"; exit 0
+            fi
+            echo "waiting for CT SSH reachability ($i/12)…"; sleep 5
+          done
+          echo "CT did not become SSH-reachable within ~60s" >&2; exit 1
 
       - name: Rsync source to CT
         run: |
