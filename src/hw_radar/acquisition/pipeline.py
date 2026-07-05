@@ -97,13 +97,11 @@ def _persist_all(
     listing_ids: list[int] = []
     upserted = 0
     appended = 0
-    # observed_at is wall-clock persistence time, not the adapter's reported
-    # batch.fetched_at: a rerun against the same source can report an identical
-    # fetched_at (e.g. a replayed/fixture batch), and observed_at is half of the
-    # offer_snapshot composite PK (listing_id, observed_at) — collapsing it to
-    # batch.fetched_at would make DR-005's append-only rerun invariant depend on
-    # the adapter's clock instead of ours.
-    observed_at = timezone.now()
+    # observed_at is the instant the offer was observed at fetch time, not
+    # persistence time: it must match RawPayload.fetched_at and the FX stamping
+    # basis (batch.fetched_at.date()) so stored raw payloads can be replayed
+    # faithfully.
+    observed_at = batch.fetched_at
     for record in normalized:
         listing, _created = upsert_listing(site, record, retention_class)
         append_snapshot(listing, record, observed_at=observed_at, raw=raw)
@@ -158,7 +156,7 @@ async def run_source(
         for listing_id in listing_ids:
             try:
                 await sync_to_async(resolver.resolve_listing)(listing_id)
-            except Exception:
+            except Exception:  # resolver failure never blocks ingestion (C.3)
                 logger.exception("resolver failed for listing %s", listing_id)
                 resolver_errors += 1
         run.records_fetched = len(batch.items)
@@ -180,7 +178,7 @@ async def run_source(
         return run, RunOutcome(event)
     except FetchFailure as exc:
         return await _finalize_failure(run, exc.failure_class, str(exc), effective_kind)
-    except Exception as exc:
+    except Exception as exc:  # every crash must classify + record (NFR-001)
         return await _finalize_failure(run, classify_exception(exc), repr(exc), effective_kind)
 
 

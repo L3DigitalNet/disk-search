@@ -26,8 +26,6 @@ from hw_radar.catalog.models import (
 # the migration-0005 seed rows for every later test in the session.
 pytestmark = pytest.mark.django_db(transaction=True, serialized_rollback=True)
 
-FETCHED_AT = datetime(2026, 7, 5, 12, 0, tzinfo=UTC)
-
 
 class FakeAdapter:
     name = "fake"
@@ -40,7 +38,11 @@ class FakeAdapter:
         self._parsed = parsed
 
     async def fetch(self) -> RawBatch:
-        return RawBatch(source=self.name, fetched_at=FETCHED_AT, items=self._items)
+        # A fresh timestamp per call: observed_at is now stamped from
+        # batch.fetched_at, which is half of OfferSnapshot's (listing_id,
+        # observed_at) composite PK — a fixed constant here would collide on
+        # the rerun test below instead of exercising DR-005's append-only path.
+        return RawBatch(source=self.name, fetched_at=datetime.now(UTC), items=self._items)
 
     def parse(self, batch: RawBatch) -> list[ParsedListing]:
         return self._parsed
