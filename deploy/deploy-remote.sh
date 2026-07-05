@@ -6,6 +6,14 @@ cd /opt/hw-radar/app
 
 export PATH="$HOME/.local/bin:$PATH"
 
+# uv-managed interpreters + cache must live OUTSIDE /home: the web/poller units
+# run as hwradar with ProtectHome=true, and uv builds .venv/bin/python as a symlink
+# to the managed interpreter. Under the deploy user's default ~/.local/share/uv,
+# that target is hidden from hwradar's namespace and the service fails to exec.
+# /opt/uv is created deploy:hwradar 0755 at provisioning (docs/runbooks/provisioning.md).
+export UV_PYTHON_INSTALL_DIR=/opt/uv/python
+export UV_CACHE_DIR=/opt/uv/cache
+
 export HW_RADAR_ENV=production
 set -a
 # Secrets come only from the bao-agent tmpfs render (ADR-0009), never a file at rest.
