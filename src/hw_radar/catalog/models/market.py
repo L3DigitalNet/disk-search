@@ -86,6 +86,7 @@ class Listing(RetentionGoverned):
     title_normalized = models.TextField(blank=True, default="")
     condition_label_raw = models.CharField(max_length=255, blank=True, default="")
     listing_fingerprint = models.CharField(max_length=64, blank=True, default="")
+    is_international = models.BooleanField(default=False)
     page_metadata_json: models.JSONField[dict[str, object]] = models.JSONField(
         default=dict, blank=True
     )
@@ -127,6 +128,13 @@ class OfferSnapshot(RetentionGoverned):
     fx_pair = models.CharField(max_length=7, blank=True, default="")
     fx_rate_date = models.DateField(null=True, blank=True)
     fx_source = models.CharField(max_length=50, blank=True, default="")
+    usd_item_price = models.GeneratedField(
+        # NULL fx_rate propagates to NULL — never silently treat a foreign-currency
+        # amount as USD (ADR-0008; USD rows carry the identity stamp fx_rate=1).
+        expression=models.F("item_price") * models.F("fx_rate"),
+        output_field=models.DecimalField(max_digits=14, decimal_places=4),
+        db_persist=True,
+    )
     extraction_method = models.CharField(max_length=50, blank=True, default="")
     confidence_score = models.FloatField(null=True, blank=True)
     attrs_json: models.JSONField[dict[str, object]] = models.JSONField(default=dict, blank=True)
@@ -141,5 +149,16 @@ class OfferSnapshot(RetentionGoverned):
     class Meta:
         db_table = "offer_snapshot"
         constraints: ClassVar[list[models.BaseConstraint]] = [
-            *retention_constraints("offer_snapshot")
+            *retention_constraints("offer_snapshot"),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(currency="USD")
+                    | (
+                        models.Q(fx_rate__isnull=False)
+                        & ~models.Q(fx_pair="")
+                        & models.Q(fx_rate_date__isnull=False)
+                    )
+                ),
+                name="offer_snapshot_fx_stamped_non_usd",
+            ),
         ]

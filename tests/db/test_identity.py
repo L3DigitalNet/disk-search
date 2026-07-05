@@ -124,8 +124,10 @@ def test_alias_is_marketplace_local(exos_16tb: ProductModel) -> None:
     amazon = SourceSite.objects.create(
         name="Amazon", normalized_name="amazon", source_type=SourceType.MARKETPLACE
     )
+    # normalized_name is distinct from the "ebay" key migration 0005 seeds into
+    # SourceConfig/SourceSite, so this test-local site doesn't collide with it.
     ebay = SourceSite.objects.create(
-        name="eBay", normalized_name="ebay", source_type=SourceType.MARKETPLACE
+        name="eBay", normalized_name="ebay-test", source_type=SourceType.MARKETPLACE
     )
     for site in (amazon, ebay):
         ProductAlias.objects.create(
