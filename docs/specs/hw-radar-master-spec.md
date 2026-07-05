@@ -52,6 +52,7 @@ related:
 | 0.5 | 2026-07-04 | Claude (owner-approved conformance pass) | Template-contract conformance (the source template set was refactored 2026-07-04 into tiered Light/Standard/Full files with a machine contract — `check_specs.py` + tooling notes): milestone IDs reverted repo-wide to the contract's `MS-#` form (spec, ADRs, questions record — supersedes v0.4's `M#` unification, which predated the published contract); Appendix A milestone row restored to the `MS-` prefix form the contract's parser requires; H1 gains the `(Full)` profile suffix; the reference-catalog refresh heading under §10.1 un-numbered (its ad-hoc `10.1b` number is outside the canonical section registry). |
 | 0.6 | 2026-07-04 | Claude (owner-directed) | Pinned the CT resource sizing — the last open provisioning input (§18.1 gains a "CT resources" row): v1 starting allocation **2 vCPU · 4 GiB · 32 GiB rootfs · 512 MiB swap**, derived from the HTTP-first single-user workload (in-CT PostgreSQL+TimescaleDB is the RAM/disk driver; browser deferred, ADR 0014), with an MS-5 bump to ≥4 vCPU · 8 GiB and disk growth guarded by the §18.5 disk-space alert. Tunable/hot-resizable; no ADR (an operational parameter, not an architecture decision). The infrastructure architecture is now fully finalized for provisioning. |
 | 0.7 | 2026-07-04 | Claude (owner-directed cleanup) | Pre-planning doc-hygiene pass (no design change): corrected the revision-history ordering (v0.6 had been inserted above v0.5). Repo-level companion changes in the same pass: **`AGENTS.md` re-tracked** (removed from `.gitignore` — it had been briefly un-tracked 2026-07-04, which 404'd the public README link + its spec citations; now valid again), the `dependency-review` CI actions bumped, and further-research prompt #14 + the SSD report frontmatter id corrected. |
+| 0.9 | 2026-07-05 | Claude (owner-directed hygiene sweep) | Pre-MS-1 drift cleanup (no design change): reconciled the TLS-termination topology to the deployed **Model A** — public HTTPS terminates at the container *host's* reverse proxy (host NGINX + Let's Encrypt), the in-CT NGINX runs plain HTTP `:80` and proxies to gunicorn, and Django trusts `X-Forwarded-Proto`. Updated §8.1, the §8.2.2 deployment diagram, and the §18.1 runtime-services table (all had shown TLS terminating inside the CT). |
 | 0.8 | 2026-07-05 | Claude (owner-directed) | MS-0 doc close-out against the **live CT-116 deployment** (no design change): §17.3 traceability rows for the provisioning-gated MS-0 slices (NFR-003, IR-001, IR-005) flipped **Pending provisioning → Verified (MS-0 live)** with the acceptance evidence, and the table lead-in updated to reflect acceptance; §13.6 CSRF/CORS hardening item checked off (CSRF: Django default + `CSRF_TRUSTED_ORIGINS` from `HW_RADAR_ALLOWED_HOSTS`; CORS: N/A, same-origin app). |
 
 **Spec lifecycle:** This document is **living until `approved`**, then **change-controlled**: post-approval edits require a new revision row and, for scope-affecting changes, re-approval by the owner. Implementation deviations are recorded in the [Deviations Log](#deviations-log), not silently patched into requirements. When replaced, set `status: superseded` and `superseded_by:` in the frontmatter.
@@ -284,7 +285,7 @@ Single-stakeholder project: the owner/maintainer is simultaneously the end user,
 
 ### 8.1 Architecture Summary
 
-Hardware Radar is a **single-container, single-database, single-maintainer** system. One dedicated LXC container on the Hetzner Proxmox host (D-003) runs everything: a Django web application with server-rendered templates + HTMX (D-004), a long-running APScheduler poller process (D-012), a PostgreSQL + TimescaleDB instance (D-007) holding both the relational catalog and the price-history hypertable, and a local OpenBao Agent that renders runtime secrets to tmpfs (D-009). NGINX terminates HTTPS with Let's Encrypt.
+Hardware Radar is a **single-container, single-database, single-maintainer** system. One dedicated LXC container on the Hetzner Proxmox host (D-003) runs everything: a Django web application with server-rendered templates + HTMX (D-004), a long-running APScheduler poller process (D-012), a PostgreSQL + TimescaleDB instance (D-007) holding both the relational catalog and the price-history hypertable, and a local OpenBao Agent that renders runtime secrets to tmpfs (D-009). Public HTTPS is terminated one hop up, at the container **host's** reverse proxy (host NGINX + Let's Encrypt), which proxies over the private bridge to the container's own NGINX on plain HTTP; the in-container NGINX serves static files and proxies to gunicorn, and Django trusts the forwarded-proto header (**Model A** — the NAT'd container has no public IP to answer ACME directly; see §18.1).
 
 The data path is a staged pipeline — **`fetch → parse → normalize → entity-resolve → score → persist → alert`** — with stages independently testable and re-runnable. For fast-lane sources (`drop-prone` ∩ verified cheap signal) this pipeline is gated behind a cheap no-render `availability_heartbeat_observation` that fires the full pipeline only on a detected transition (D-015 / [ADR 0015](../adr/adr-0015-availability-heartbeat-grain-volatility-scheduling.md)). Acquisition is **tiered by source**: official APIs first (eBay Browse/Feed), then machine-readable structured data (JSON-LD → platform JSON → bootstrap JSON → HTML selectors), then HTTP-first scraping escalating browser-last (`curl_cffi` → Playwright via `scrapy-playwright` → managed unblocker or skip) (D-014); search APIs are discovery-only. The poller owns all shared acquisition state in-process: per-source cadence/jitter, two-level token buckets, back-off ladders, and the circuit-breaker registry — the reason scheduling is one supervised process rather than per-scrape systemd timers (D-012).
 
@@ -314,7 +315,8 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    NGINX[NGINX + Lets Encrypt] --> Web[Django web unit gunicorn]
+    HostNGINX[Host NGINX + Lets Encrypt<br/>public TLS termination] -->|HTTP over private bridge| NGINX
+    NGINX[NGINX statics + reverse proxy, plain HTTP :80] --> Web[Django web unit gunicorn]
     Poller[APScheduler poller unit] --> Pipeline[fetch → … → alert stages]
     Web --> DB[(PostgreSQL + TimescaleDB)]
     Pipeline --> DB
@@ -329,6 +331,8 @@ flowchart LR
         BaoAgent
     end
 ```
+
+Public TLS terminates at the **host** reverse proxy (outside the container), not inside the CT — the container is NAT'd with no public IP, so it cannot answer an ACME HTTP-01 challenge directly (**Model A**, §18.1). The in-CT NGINX runs plain HTTP on `:80`.
 
 #### 8.2.3 Component View
 
@@ -779,8 +783,10 @@ Runtime services:
 | Web unit (gunicorn; `ExecReload=kill -HUP $MAINPID`; not `Type=notify`) | Serve UI | systemd, dedicated non-root user, `ProtectSystem=strict`/`NoNewPrivileges` | Fleet-digest probes; Uptime Kuma |
 | Poller unit (APScheduler) | Acquisition pipeline + governance state | systemd, `Restart=on-failure`, resource limits | `scraper_runs` records; dead-man's-switch heartbeat |
 | bao-agent unit | Render runtime secrets to tmpfs | systemd (hardened); app units `After=` it | Unit `Active`; render file present; survives restart without re-issuing SecretID |
-| NGINX | HTTPS termination (Let's Encrypt) | systemd | — |
+| NGINX (in-CT) | Static files + reverse proxy to gunicorn, plain HTTP `:80` | systemd | — |
 | PostgreSQL (+TimescaleDB) | Datastore | systemd | Hourly dumps (once wired) |
+
+**TLS termination (Model A).** Public HTTPS is terminated at the Proxmox **host's** front reverse proxy (host NGINX + certbot/Let's Encrypt), which proxies over the private bridge to the in-CT NGINX on plain HTTP `:80`. The container is NAT'd with no public IP, so it cannot answer an ACME HTTP-01 challenge itself — the LE cert is issued and renewed host-side. Django trusts `X-Forwarded-Proto` (`SECURE_PROXY_SSL_HEADER`) so it treats proxied requests as secure. The host proxy is a host service, external to the CT's own runtime services above.
 
 ### 18.2 Configuration
 
