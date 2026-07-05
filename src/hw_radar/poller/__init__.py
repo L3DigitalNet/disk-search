@@ -196,7 +196,10 @@ def build_scheduler(registry: BucketRegistry, configs: Sequence[SourceConfig]) -
 
 
 async def run(configs: Sequence[SourceConfig] | None = None, *, checkpoint: bool = True) -> None:
-    """checkpoint=False is the DB-free unit mode: no bucket load/save ORM calls
+    """checkpoint=False + configs=[] is the unit-test mode: no ORM call on the
+    startup/shutdown path itself (no bucket load/save, no config query). The
+    registered service jobs (FX refresh, checkpoints, probes) do touch the DB —
+    but only when they fire, which a short-lived unit run never reaches
     (tests/unit/test_poller.py drives run(configs=[], checkpoint=False))."""
     install_asyncio_reactor()  # before APScheduler starts; Scrapy shares this loop
     registry = (
