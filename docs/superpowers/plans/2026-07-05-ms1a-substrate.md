@@ -70,7 +70,7 @@ tests/fixtures/demo_listings.html             # NEW: JSON-LD fixture page for th
 **Interfaces locked by this plan** (later tasks and MS-1b/c/d consume these exact names):
 
 - `contracts.ParsedListing` / `contracts.NormalizedListing` (Pydantic), `contracts.SourceAdapter` (Protocol: `name: str`, `site_key: str`, `run_kind: RunKind`, `expects_json: bool`, `async fetch() -> RawBatch`, `parse(batch: RawBatch) -> list[ParsedListing]`), `contracts.ListingResolver` (Protocol: `resolve_listing(listing_id: int) -> None`).
-- `pipeline.run_source(adapter, resolver) -> ScraperRun` — the one entry point the poller schedules.
+- `pipeline.run_source(adapter, resolver, *, retention_class=..., run_kind=None, fetch_timeout_s=...) -> tuple[ScraperRun, RunOutcome]` — the one entry point the poller schedules (both full polls and recovery probes).
 - `scheduling.apply.apply_run_outcome(config, outcome, now, rand) -> None` — the only mutator of `SourceConfig` scheduling state.
 - `fx.stamp(parsed, observed_date) -> NormalizedListing` (raises `fx.MissingRateError`), `fx.refresh_daily(currencies) -> int`.
 - `scrapy_support.run_spider(spider_cls, **spider_kwargs) -> list[dict[str, object]]` (async).
@@ -789,6 +789,14 @@ def test_parser_rot_trips_only_when_sustained() -> None:
     assert tripped == LifecycleState.PAUSED_PENDING_FIX
 
 
+def test_unknown_failure_quarantines_for_manual_classification() -> None:
+    # ADR-0017: UNKNOWN → paused_pending_fix + operator attention, not retry-as-transient.
+    assert (
+        transition(LifecycleState.ACTIVE, LifecycleEvent.UNKNOWN_FAILURE, consecutive_parser_rot=0)
+        == LifecycleState.PAUSED_PENDING_FIX
+    )
+
+
 def test_paused_recovers_only_via_probe_success() -> None:
     paused = LifecycleState.PAUSED_PENDING_FIX
     assert transition(paused, LifecycleEvent.SUCCESS, consecutive_parser_rot=0) == paused
@@ -1128,8 +1136,12 @@ def transition(
             if consecutive_parser_rot + 1 >= PARSER_ROT_TRIP_THRESHOLD:
                 return LifecycleState.PAUSED_PENDING_FIX
             return LifecycleState.BACKING_OFF
-        case LifecycleEvent.TRANSIENT_FAILURE | LifecycleEvent.UNKNOWN_FAILURE:
+        case LifecycleEvent.TRANSIENT_FAILURE:
             return LifecycleState.BACKING_OFF
+        case LifecycleEvent.UNKNOWN_FAILURE:
+            # ADR-0017: UNKNOWN is the conservative fall-through — hold the source
+            # for manual classification; never keep retrying it as if transient.
+            return LifecycleState.PAUSED_PENDING_FIX
         case LifecycleEvent.DEGRADATION | LifecycleEvent.PROBE_FAILURE:
             return state
         case LifecycleEvent.MANUAL_SKIP | LifecycleEvent.MANUAL_REACTIVATE:  # pragma: no cover
@@ -2117,6 +2129,21 @@ def test_apply_transient_backs_off_and_resets_interval() -> None:
     assert config.backoff_until > now
 
 
+def test_apply_probe_failure_is_state_neutral() -> None:
+    # CR-NEW-002: a failed probe on a paused source keeps it paused, untouched —
+    # no back-off window, no failure counters (the daily probe job is the cadence).
+    config = SourceConfig.objects.get(source_site__normalized_name="demo")
+    config.lifecycle_state = LifecycleState.PAUSED_PENDING_FIX
+    config.save()
+    now = timezone.now()
+    apply_run_outcome(config, RunOutcome(LifecycleEvent.PROBE_FAILURE), now=now, rand=lambda: 1.0)
+    config.refresh_from_db()
+    assert config.lifecycle_state == LifecycleState.PAUSED_PENDING_FIX
+    assert config.consecutive_failures == 0
+    assert config.backoff_until is None
+    assert config.last_run_at is not None
+
+
 def test_apply_honors_retry_after_verbatim() -> None:
     config = SourceConfig.objects.get(source_site__normalized_name="demo")
     now = timezone.now()
@@ -2279,9 +2306,11 @@ _FAILURE_EVENTS = frozenset(
         LifecycleEvent.ANTI_BOT,
         LifecycleEvent.PARSER_ROT,
         LifecycleEvent.UNKNOWN_FAILURE,
-        LifecycleEvent.PROBE_FAILURE,
     }
 )
+# PROBE_FAILURE is deliberately NOT a failure event here: a failed daily probe on an
+# already-paused source keeps it paused (the transition is a no-op) and must not
+# stack back-off windows or failure counters — the probe cadence is the daily job.
 
 
 @dataclass(frozen=True)
@@ -2553,8 +2582,9 @@ async def _finalize_failure(
     run.finished_at = timezone.now()
     await sync_to_async(run.save)()
     if run_kind is RunKind.PROBE:
-        # A failed recovery probe keeps the source paused (ADR-0017); it must not
-        # remap to ANTI_BOT/etc. and stack a fresh back-off window.
+        # A failed recovery probe keeps the source paused (ADR-0017); PROBE_FAILURE
+        # is state-neutral in apply_run_outcome (only last_run_at moves), so it
+        # cannot stack a back-off window or remap to ANTI_BOT/etc.
         return run, RunOutcome(LifecycleEvent.PROBE_FAILURE)
     return run, RunOutcome(_EVENT_BY_CLASS[failure_class])
 ```
