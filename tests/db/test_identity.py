@@ -38,12 +38,44 @@ def test_drive_category_is_seeded(db: None) -> None:
 
 
 def test_recert_and_new_are_one_model_two_variants(exos_16tb: ProductModel) -> None:
-    ProductVariant.objects.create(product_model=exos_16tb, condition=Condition.NEW)
-    ProductVariant.objects.create(
-        product_model=exos_16tb,
-        condition=Condition.RECERTIFIED,
-        recert_channel=RecertChannel.FACTORY,
+    # FR-003 MS-1 acceptance, resolver-driven since MS-1b: a recert and a new
+    # listing of the same drive resolve to ONE product_model, TWO variants.
+    from hw_radar.catalog.models import (
+        AliasSourceKind,
+        AliasType,
+        DriveSpec,
+        Listing,
+        MediaType,
+        ProductAlias,
+        RetentionClass,
+        SourceSite,
     )
+    from hw_radar.matching.resolver import CatalogResolver
+
+    DriveSpec.objects.create(
+        product_model=exos_16tb, media_type=MediaType.HDD, capacity_tb="16.000"
+    )
+    ProductAlias.objects.create(
+        alias_type=AliasType.MPN,
+        normalized_alias_text="st16000nm001g",
+        product_model=exos_16tb,
+        source_kind=AliasSourceKind.CATALOG_AUTHORITATIVE,
+    )
+    site = SourceSite.objects.create(name="FR3", normalized_name="fr3")
+    resolver = CatalogResolver()
+    for key, title in (
+        ("r", "Seagate Exos 16TB ST16000NM001G Factory Recertified"),
+        ("n", "Seagate Exos 16TB ST16000NM001G Brand New"),
+    ):
+        listing = Listing.objects.create(
+            source_site=site,
+            source_listing_key=key,
+            canonical_url=f"https://example.test/{key}",
+            url_hash=key,
+            title_raw=title,
+            retention_class=RetentionClass.MERCHANT_FACT,
+        )
+        resolver.resolve_listing(listing.pk)
     assert ProductModel.objects.count() == 1
     assert ProductVariant.objects.filter(product_model=exos_16tb).count() == 2
 

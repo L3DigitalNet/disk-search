@@ -17,7 +17,7 @@ from hw_radar.catalog.models.base import (
     TimeStamped,
     retention_constraints,
 )
-from hw_radar.catalog.models.identity import ProductVariant
+from hw_radar.catalog.models.identity import ProductFamily, ProductModel, ProductVariant
 
 
 class SourceType(models.TextChoices):
@@ -88,14 +88,18 @@ class Listing(RetentionGoverned):
     # NULL; refreshed ONLY by matching.resolver.CatalogResolver on accept. The
     # append-only audit trail lives in ListingResolution — these fields are a
     # read-path convenience, never the source of truth.
-    product_family = models.ForeignKey(
+    # Explicit type arguments (see resolution.py's superseded_by): django-types
+    # cannot infer the generic parameter from the "catalog.X" string form, and
+    # silently falls back to a None-only field type — which breaks assignment
+    # from matching.resolver on accept.
+    product_family: models.ForeignKey[ProductFamily | None] = models.ForeignKey(
         "catalog.ProductFamily",
         on_delete=models.SET_NULL,
         related_name="listings",
         null=True,
         blank=True,
     )
-    product_model = models.ForeignKey(
+    product_model: models.ForeignKey[ProductModel | None] = models.ForeignKey(
         "catalog.ProductModel",
         on_delete=models.SET_NULL,
         related_name="listings",
