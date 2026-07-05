@@ -73,7 +73,8 @@ class ListingResolver(Protocol):
 
 
 class NullResolver:
-    """MS-1a stub: listings stay at grain=none. MS-1b installs the ADR-0019 resolver."""
+    """C.3 isolation stub kept for pipeline tests; the poller wires
+    matching.resolver.CatalogResolver (MS-1b)."""
 
     def resolve_listing(self, listing_id: int) -> None:
         return None
