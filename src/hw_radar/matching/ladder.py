@@ -1,0 +1,277 @@
+"""Match ladder rungs 0-2 + the hard-attribute contradiction veto (C.3.2) - pure.
+
+The resolver feeds DB state in as plain data (PriorResolution / AliasHit /
+HardAttrs); decide() does no I/O, so the golden verdict table runs without a
+DB. Only rungs 0-2 auto-accept. The veto runs at EVERY rung - an exact alias
+hit that contradicts extracted capacity goes to review, never into the price
+history (ADR-0019: false merges poison the moat asymmetrically; missed matches
+just queue).
+
+Confidence constants are OQ-provisional tunables; ADR-0016 settings-row
+versions arrive with the rung-3/occurrence thresholds at MS-1c."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from enum import StrEnum
+
+from hw_radar.matching.types import (
+    DecodeResult,
+    ExtractedAttributes,
+    Grain,
+    MpnCandidate,
+    Provenance,
+    TokenKind,
+)
+
+CONFIDENCE_BY_SOURCE_KIND: dict[str, float] = {
+    "catalog_authoritative": 0.98,
+    "manual": 0.95,
+    "listing_derived": 0.85,
+}
+CONFIDENCE_BY_PROVENANCE: dict[Provenance, float] = {
+    Provenance.VENDOR_OFFICIAL: 0.92,
+    Provenance.CORROBORATED_COMMUNITY: 0.85,
+    Provenance.INFERRED: 0.75,
+}
+OEM_FAMILY_FANOUT_CONFIDENCE = 0.8
+# Relative tolerance absorbing decimal-vs-marketing rounding (16TB vs 16000GB),
+# NOT 14-vs-16 mislabels.
+CAPACITY_TOLERANCE = 0.01
+
+# One corporate lineage: WD absorbed HGST; the Jan-2026 "Optimus" rebrand moved
+# WD-branded SSD lines under the SanDisk name with unchanged MPNs (spec C.3.1).
+# Equivalence is a GATE only — it never merges without an MPN/alias hit.
+_BRAND_EQUIV: tuple[frozenset[str], ...] = (frozenset({"western_digital", "hgst", "sandisk"}),)
+
+
+@dataclass(frozen=True)
+class HardAttrs:
+    """Catalog-side veto fields (from drive_spec / family agreement set).
+    None = unknown on the catalog side → that field cannot veto."""
+
+    capacity_bytes: int | None = None
+    interface: str | None = None
+    form_factor: str | None = None
+    sector_format: str | None = None
+    security: str | None = None
+
+
+@dataclass(frozen=True)
+class TargetRef:
+    """Ladder-side identity reference. family_id is populated even for
+    model/variant grains (enables the OEM family collapse); family_key names a
+    not-yet-materialized provisional family for rung 2 — the resolver
+    get_or_creates it (vendor, family_name)."""
+
+    grain: Grain
+    family_id: int | None = None
+    model_id: int | None = None
+    variant_id: int | None = None
+    family_key: tuple[str, str] | None = None
+
+
+@dataclass(frozen=True)
+class AliasHit:
+    target: TargetRef
+    source_kind: str
+    alias_type: str
+    brand: str | None
+    hard_attrs: HardAttrs
+    # The candidate that produced this hit (Codex CR-003): rung-1 auto-accept is
+    # 'brand + full normalized MPN' (C.3.2), so the ladder needs to know what
+    # KIND of token collided and what vendor its shape implies.
+    candidate_kind: TokenKind = TokenKind.MANUFACTURER_MPN
+    candidate_vendor: str = ""
+    candidate_structured: bool = False
+
+
+@dataclass(frozen=True)
+class PriorResolution:
+    target: TargetRef
+    confidence: float
+    hard_attrs: HardAttrs
+
+
+class Outcome(StrEnum):
+    ACCEPT = "accept"
+    REVIEW = "review"
+    NONE = "none"
+
+
+@dataclass(frozen=True)
+class Verdict:
+    outcome: Outcome
+    grain: Grain
+    rung: int | None = None
+    method: str = ""
+    target: TargetRef | None = None
+    confidence: float | None = None
+    evidence: dict[str, object] = field(default_factory=dict)
+
+
+def contradictions(extracted: ExtractedAttributes, catalog: HardAttrs) -> list[str]:
+    """Hard-attribute veto (C.3.2): fields where BOTH sides are known and disagree."""
+
+    vetoed: list[str] = []
+    if extracted.capacity_bytes is not None and catalog.capacity_bytes is not None:
+        a, b = extracted.capacity_bytes.value, catalog.capacity_bytes
+        if abs(a - b) > CAPACITY_TOLERANCE * max(a, b):
+            vetoed.append("capacity")
+    for name in ("interface", "form_factor", "sector_format", "security"):
+        extracted_attr = getattr(extracted, name)
+        catalog_value = getattr(catalog, name)
+        if (
+            extracted_attr is not None
+            and catalog_value is not None
+            and extracted_attr.value != catalog_value
+        ):
+            vetoed.append(name)
+    return vetoed
+
+
+def brands_consistent(extracted_brand: str | None, target_brand: str | None) -> bool:
+    if not extracted_brand or not target_brand or extracted_brand == target_brand:
+        return True
+    return any(extracted_brand in group and target_brand in group for group in _BRAND_EQUIV)
+
+
+def _hypothesis(candidates: Sequence[MpnCandidate]) -> str:
+    for candidate in candidates:
+        if candidate.kind is TokenKind.MANUFACTURER_MPN:
+            return candidate.normalized
+    return candidates[0].normalized if candidates else ""
+
+
+def decide(
+    extracted: ExtractedAttributes,
+    candidates: Sequence[MpnCandidate],
+    prior: PriorResolution | None,
+    alias_hits: Sequence[AliasHit],
+    decoded: DecodeResult | None,
+) -> Verdict:
+    evidence: dict[str, object] = {"mpn_hypothesis": _hypothesis(candidates)}
+    if decoded is not None:
+        evidence["vendor_hint"] = decoded.vendor
+
+    # Rung 0 — re-observation: inherit after RE-RUNNING the veto (survives
+    # relist/edit abuse — C.3.2 requires the check on every re-observation).
+    if prior is not None:
+        veto = contradictions(extracted, prior.hard_attrs)
+        if veto:
+            return Verdict(Outcome.REVIEW, Grain.NONE, rung=0, evidence={**evidence, "veto": veto})
+        return Verdict(
+            Outcome.ACCEPT,
+            prior.target.grain,
+            rung=0,
+            method="source_alias",
+            target=prior.target,
+            confidence=prior.confidence,
+            evidence=evidence,
+        )
+
+    # Rung 1 — exact alias against grain-tagged product_alias. The C.3.2 trigger
+    # is 'brand + full normalized MPN': a bare text collision is NOT enough
+    # (Codex CR-003). Brand evidence = extracted brand, OR a vendor-shaped MPN
+    # token whose implied vendor agrees with the target, OR a structured-field
+    # MPN (merchant-asserted). Absent all three → review, never auto-accept.
+    brand = extracted.brand.value if extracted.brand is not None else None
+    viable = [h for h in alias_hits if brands_consistent(brand, h.brand)]
+    if viable:
+
+        def has_brand_evidence(hit: AliasHit) -> bool:
+            if brand is not None:
+                return True  # extracted brand, already filtered consistent
+            if hit.candidate_structured:
+                return True
+            return bool(hit.candidate_vendor) and brands_consistent(hit.candidate_vendor, hit.brand)
+
+        targets = {
+            (h.target.grain, h.target.family_id, h.target.model_id, h.target.variant_id)
+            for h in viable
+        }
+        if len(targets) == 1:
+            best = max(viable, key=lambda h: CONFIDENCE_BY_SOURCE_KIND.get(h.source_kind, 0.5))
+            veto = contradictions(extracted, best.hard_attrs)
+            if veto:
+                return Verdict(
+                    Outcome.REVIEW, Grain.NONE, rung=1, evidence={**evidence, "veto": veto}
+                )
+            if not has_brand_evidence(best):
+                return Verdict(
+                    Outcome.REVIEW,
+                    Grain.NONE,
+                    rung=1,
+                    evidence={**evidence, "no_brand_evidence": True},
+                )
+            return Verdict(
+                Outcome.ACCEPT,
+                best.target.grain,
+                rung=1,
+                method="exact_alias",
+                target=best.target,
+                confidence=CONFIDENCE_BY_SOURCE_KIND.get(best.source_kind, 0.5),
+                evidence=evidence,
+            )
+        families = {h.target.family_id for h in viable}
+        if (
+            len(families) == 1
+            and None not in families
+            and all(h.alias_type == "oem_pn" for h in viable)
+        ):
+            # OEM N:N fan-out inside one family → attach at family grain (the
+            # OEM cross-reference verdict: an OEM PN can never assert a model).
+            clean = [h for h in viable if not contradictions(extracted, h.hard_attrs)]
+            if clean:
+                family_id = next(iter(families))
+                return Verdict(
+                    Outcome.ACCEPT,
+                    Grain.FAMILY,
+                    rung=1,
+                    method="exact_alias",
+                    target=TargetRef(grain=Grain.FAMILY, family_id=family_id),
+                    confidence=OEM_FAMILY_FANOUT_CONFIDENCE,
+                    evidence={**evidence, "oem_fanout": len(viable)},
+                )
+        return Verdict(
+            Outcome.REVIEW,
+            Grain.NONE,
+            rung=1,
+            evidence={**evidence, "conflicting_targets": len(targets)},
+        )
+
+    # Rung 2 — valid grammar decode, no catalog hit → family grain, provisional.
+    if decoded is not None and decoded.family_name:
+        if (
+            extracted.capacity_bytes is not None
+            and decoded.capacity_bytes is not None
+            and abs(extracted.capacity_bytes.value - decoded.capacity_bytes)
+            > CAPACITY_TOLERANCE * max(extracted.capacity_bytes.value, decoded.capacity_bytes)
+        ):
+            return Verdict(
+                Outcome.REVIEW,
+                Grain.NONE,
+                rung=2,
+                evidence={
+                    **evidence,
+                    "veto": ["capacity"],
+                    "decoder_capacity": decoded.capacity_bytes,
+                },
+            )
+        return Verdict(
+            Outcome.ACCEPT,
+            Grain.FAMILY,
+            rung=2,
+            method="mpn_decode",
+            target=TargetRef(grain=Grain.FAMILY, family_key=(decoded.vendor, decoded.family_name)),
+            confidence=CONFIDENCE_BY_PROVENANCE[decoded.provenance],
+            evidence={
+                **evidence,
+                "provisional": True,
+                "provenance": decoded.provenance,
+                "rule": decoded.rule,
+            },
+        )
+
+    return Verdict(Outcome.NONE, Grain.NONE, evidence=evidence)
