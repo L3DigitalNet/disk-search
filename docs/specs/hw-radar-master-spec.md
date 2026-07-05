@@ -6,7 +6,7 @@ profile: full # retains the full template skeleton (all §1–§21 + Appendix C 
 owner: 'Chris Purcell'
 implementer: 'Chris Purcell (supervising) + Claude Code coding agent'
 created: '2026-07-04'
-last_reviewed: '2026-07-04'
+last_reviewed: '2026-07-05'
 supersedes: 'docs/archived/hw-radar.md' # original spec; it predates the template and has no spec_id
 superseded_by: null
 related:
@@ -52,6 +52,7 @@ related:
 | 0.5 | 2026-07-04 | Claude (owner-approved conformance pass) | Template-contract conformance (the source template set was refactored 2026-07-04 into tiered Light/Standard/Full files with a machine contract — `check_specs.py` + tooling notes): milestone IDs reverted repo-wide to the contract's `MS-#` form (spec, ADRs, questions record — supersedes v0.4's `M#` unification, which predated the published contract); Appendix A milestone row restored to the `MS-` prefix form the contract's parser requires; H1 gains the `(Full)` profile suffix; the reference-catalog refresh heading under §10.1 un-numbered (its ad-hoc `10.1b` number is outside the canonical section registry). |
 | 0.6 | 2026-07-04 | Claude (owner-directed) | Pinned the CT resource sizing — the last open provisioning input (§18.1 gains a "CT resources" row): v1 starting allocation **2 vCPU · 4 GiB · 32 GiB rootfs · 512 MiB swap**, derived from the HTTP-first single-user workload (in-CT PostgreSQL+TimescaleDB is the RAM/disk driver; browser deferred, ADR 0014), with an MS-5 bump to ≥4 vCPU · 8 GiB and disk growth guarded by the §18.5 disk-space alert. Tunable/hot-resizable; no ADR (an operational parameter, not an architecture decision). The infrastructure architecture is now fully finalized for provisioning. |
 | 0.7 | 2026-07-04 | Claude (owner-directed cleanup) | Pre-planning doc-hygiene pass (no design change): corrected the revision-history ordering (v0.6 had been inserted above v0.5). Repo-level companion changes in the same pass: **`AGENTS.md` re-tracked** (removed from `.gitignore` — it had been briefly un-tracked 2026-07-04, which 404'd the public README link + its spec citations; now valid again), the `dependency-review` CI actions bumped, and further-research prompt #14 + the SSD report frontmatter id corrected. |
+| 0.8 | 2026-07-05 | Claude (owner-directed) | MS-0 doc close-out against the **live CT-116 deployment** (no design change): §17.3 traceability rows for the provisioning-gated MS-0 slices (NFR-003, IR-001, IR-005) flipped **Pending provisioning → Verified (MS-0 live)** with the acceptance evidence, and the table lead-in updated to reflect acceptance; §13.6 CSRF/CORS hardening item checked off (CSRF: Django default + `CSRF_TRUSTED_ORIGINS` from `HW_RADAR_ALLOWED_HOSTS`; CORS: N/A, same-origin app). |
 
 **Spec lifecycle:** This document is **living until `approved`**, then **change-controlled**: post-approval edits require a new revision row and, for scope-affecting changes, re-approval by the owner. Implementation deviations are recorded in the [Deviations Log](#deviations-log), not silently patched into requirements. When replaced, set `status: superseded` and `superseded_by:` in the frontmatter.
 
@@ -653,7 +654,7 @@ Store credential **references** here (env var names, secret-manager paths) — n
 Confirm each item is addressed above or mark N/A with a reason:
 
 - [x] Cookie/session settings — `Secure`, `HttpOnly`, `SameSite=Lax` (ADR 0005)
-- [ ] CSRF/CORS policy and allowed origins — not explicitly recorded in sources (Django defaults implied by D-004; confirm at MS-0)
+- [x] CSRF/CORS policy and allowed origins — CSRF: Django default protection plus `CSRF_TRUSTED_ORIGINS` derived from `HW_RADAR_ALLOWED_HOSTS`, `CSRF_COOKIE_SECURE`/`SameSite=Lax` in production (`settings.py`). CORS: **N/A** — same-origin server-rendered app (D-004), no cross-origin surface and no `django-cors-headers` dependency. Confirmed live at MS-0.
 - [x] Webhook/API signature validation — one-click action links are HMAC-signed, single-purpose (gap #7)
 - [x] Sensitive-data redaction in logs/fixtures — PII scrub of cassettes (OQ8, _provisional_); secrets never printed in CI (ADR 0006)
 - [x] CI/CD secret handling — Environment secrets, required reviewer, no OpenBao credential (ADR 0006/0009)
@@ -737,12 +738,12 @@ The scraper-testing strategy is settled (gap #9) with build-time parameters _pro
 
 ### 17.3 Requirement-to-Test Traceability
 
-The implementer fills this in as completion evidence (Appendix B.3). MS-0 foundation rows are current as of the local implementation pass; provisioning-gated rows remain pending until the CT exists.
+The implementer fills this in as completion evidence (Appendix B.3). MS-0 rows — foundation and provisioning-gated — are verified against the live CT-116 deployment (MS-0 accepted 2026-07-05: `https://hw-radar.l3digital.net` serving over HTTPS with a valid Let's Encrypt cert, secret read from the OpenBao render, `bao-agent` survives restart).
 
 | Requirement ID | Test / Verification Method | Status      |
 | -------------- | -------------------------- | ----------- |
 | NFR-005 | `uv run python -m scripts.check` green locally; CI `check.yml` runs on PR plus `dev`/`main` pushes | Verified (MS-0 local) |
-| NFR-003 (partial) | MS-0 acceptance: at least one secret read from OpenBao render; no plaintext `.env` on CT; `bao-agent` survives restart | Pending provisioning |
+| NFR-003 (MS-0 slice) | MS-0 acceptance: at least one secret read from OpenBao render; no plaintext `.env` on CT; `bao-agent` survives restart | Verified (MS-0 live) |
 | FR-003 (schema shape) | `tests/db/test_identity.py::test_recert_and_new_are_one_model_two_variants` | Verified (resolver lands MS-1) |
 | DR-001 (as amended by DEV-002) | Schema constraints: `tests/db/test_market.py::test_retention_class_is_mandatory`, `test_indefinite_class_rejects_expiry`, `test_bounded_class_requires_expiry`; per-class TTL stamping/sweep land MS-1 | Partially verified (schema constraints) |
 | DR-003 | `tests/db/test_market.py::test_no_binary_columns_anywhere` | Verified |
@@ -750,8 +751,8 @@ The implementer fills this in as completion evidence (Appendix B.3). MS-0 founda
 | DR-010 (alias shape) | `tests/db/test_identity.py::test_alias_supports_variant_grain` and `test_alias_is_marketplace_local`; `listing_resolution`/revocation land MS-1 | Verified (schema) |
 | IR-006 (persistence boundary) | `tests/db/test_market.py::test_search_observation_stores_no_provider_content` | Verified (schema guard) |
 | DR-005 (schema shape) | `tests/db/test_market.py::test_snapshots_append_not_duplicate` | Verified (pipeline MS-1) |
-| IR-001 (partial) | Authenticated pages over HTTPS-only via NGINX + Let's Encrypt | Pending provisioning |
-| IR-005 | systemd `EnvironmentFile=/run/bao-agent/hw-radar.env` plus `After=bao-agent` in `deploy/systemd/*`; live check at acceptance | Pending provisioning |
+| IR-001 (MS-0 slice) | Authenticated pages over HTTPS-only via NGINX + Let's Encrypt (valid LE cert; `/healthz` 200, login 200, `/` 302 auth-redirect over HTTPS) | Verified (MS-0 live) |
+| IR-005 | systemd `EnvironmentFile=/run/bao-agent/hw-radar.env` plus `After=bao-agent` in `deploy/systemd/*`; live check at acceptance | Verified (MS-0 live) |
 | ADR-0010 confirmation | `catalog` migrations 0001-0003 plus `tests/db/test_identity.py`, `tests/db/test_market.py::test_offer_snapshot_is_a_hypertable` | Verified |
 | §17.2 Database layer | `tests/db/test_migrations.py::test_no_missing_migrations` plus pytest-django creating the test DB from empty on every run | Verified |
 
