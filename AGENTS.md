@@ -2,11 +2,11 @@
 
 Cross-agent entry point for this repository. It follows the **Python Tooling SSOT Standard** (uv · Ruff · BasedPyright strict · pytest + coverage · pip-audit). This file is the canonical, tracked instruction source; `CLAUDE.md` and `docs/handoff.md` exist locally for Claude Code sessions but are **git-ignored and absent on a fresh clone** — do not rely on them.
 
-## Project status: scaffolded — toolchain live, feature implementation not started
+## Project status: MS-0 foundation built & deployed — MS-1+ features not started
 
-The repo is scaffolded and the verification gate below is **live and green**. `src/hw_radar` is a version-only skeleton — no features yet. Build features from here under the `src/` layout, adding real deps with `uv add`. Standard deviations are recorded in `docs/adr/` (ADR-0002).
+The MS-0 foundation is **implemented and deployed to the single VM** (CD via `.github/workflows/deploy.yml`): a **Django 6** project with the **ADR-0010** data model (migrations through the `offer_snapshot` **TimescaleDB hypertable**), the `accounts`/`web`/`poller` apps, and `deploy/` (systemd + nginx). The verification gate below is **live and green**. What is **not** built yet is the MS-1+ product surface — the `fetch → parse → normalize → entity-resolve → score → alert` pipeline, the marketplace connectors, and scoring. Build those from here under the `src/` layout, adding real deps with `uv add`. Standard deviations are recorded in `docs/adr/` (ADR-0002).
 
-The planned stack (see `docs/specs/hw-radar-master-spec.md` and `docs/open-questions.md`): **Django** + server-rendered templates + HTMX, PostgreSQL (+ TimescaleDB), Scrapy, deployed to a single VM.
+The stack (see `docs/specs/hw-radar-master-spec.md` and the ADRs): **Django** + server-rendered templates + HTMX, PostgreSQL + TimescaleDB (live), Scrapy (planned, MS-1+), deployed to a single VM.
 
 ## Operating model
 
@@ -30,7 +30,7 @@ uv run coverage report
 uv run pip-audit
 ```
 
-Do not claim completion if any command fails. `scripts/check.py` (`uv run python -m scripts.check`) runs this sequence, and `.github/workflows/check.yml` runs it in CI on every push/PR to `main`.
+Do not claim completion if any command fails. `scripts/check.py` (`uv run python -m scripts.check`) runs this sequence, and `.github/workflows/check.yml` runs it in CI on every push to `main` or `dev`, on all pull requests, and via `workflow_call` from `deploy.yml`.
 
 ## Dependency rules
 
