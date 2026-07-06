@@ -365,3 +365,25 @@ def test_unchanged_rung0_accept_stamps_freshness(site: SourceSite) -> None:
     CatalogResolver().resolve_listing(listing.pk)  # rung-0 unchanged re-poll
     edge.refresh_from_db()
     assert edge.last_evaluated_at > stamp_before
+
+
+def test_reconsider_accept_rehit_same_target_stamps_without_new_edge(
+    site: SourceSite,
+) -> None:
+    """The (d) unchanged-target skip: a reconsider that re-accepts the SAME
+    grain+target writes no new edge (no edge spam per monthly refresh) but
+    advances the freshness stamp."""
+    _seed_alias_for("ST16000NM002C")
+    listing = _listing(site, "rehit-1", "seagate exos st16000nm002c 16tb sata")
+    CatalogResolver().resolve_listing(listing.pk)  # rung 1 -> MODEL grain
+    listing.refresh_from_db()
+    assert listing.resolution_grain == ResolutionGrain.MODEL
+    edge = _edge(listing, is_current=True)
+    stamp_before = edge.last_evaluated_at
+    edges_before = _edge_count(listing)
+    CatalogResolver().resolve_listing(listing.pk, reconsider=True)  # same target re-hit
+    edge.refresh_from_db()
+    assert _edge_count(listing) == edges_before  # (d) branch: no new edge
+    assert edge.last_evaluated_at > stamp_before  # freshness recorded
+    listing.refresh_from_db()
+    assert listing.resolution_grain == ResolutionGrain.MODEL  # denorm untouched
