@@ -30,7 +30,9 @@ from hw_radar.acquisition.persist import append_snapshot, store_raw, upsert_list
 from hw_radar.acquisition.scheduling.apply import RunOutcome
 from hw_radar.acquisition.scheduling.lifecycle import LifecycleEvent
 from hw_radar.catalog.models import (
+    Listing,
     RawPayload,
+    ResolutionGrain,
     RetentionClass,
     RunFailureClass,
     RunKind,
@@ -143,6 +145,19 @@ def _persist_all(
     return listing_ids, upserted, appended
 
 
+def _grain_counts(listing_ids: list[int]) -> dict[str, int]:
+    # POST-resolution tally (SA-003): read after resolver.resolve_listing has
+    # run for every listing_id, so this reflects each listing's final grain
+    # for the run, not its pre-resolve default. Every persisted listing has a
+    # grain (default NONE), so counts always sum to records_valid.
+    counts: dict[str, int] = {str(choice): 0 for choice in ResolutionGrain.values}
+    grains = Listing.objects.filter(pk__in=listing_ids).values_list("resolution_grain", flat=True)
+    for grain in grains:
+        key = str(grain)
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
 async def _normalize(
     parsed_records: list[ParsedListing], observed_date: date
 ) -> list[NormalizedListing]:
@@ -196,6 +211,7 @@ async def run_source(
             except Exception:  # resolver failure never blocks ingestion (C.3)
                 logger.exception("resolver failed for listing %s", listing_id)
                 resolver_errors += 1
+        grain_counts = await sync_to_async(_grain_counts)(listing_ids)
         run.records_fetched = len(batch.items)
         run.records_valid = len(normalized)
         run.listings_upserted = upserted
@@ -203,6 +219,7 @@ async def run_source(
         run.detail_json = {
             "body_bytes": sum(len(item.payload_text or "") for item in batch.items),
             "resolver_errors": resolver_errors,
+            "grain_counts": grain_counts,
         }
         run.status = RunStatus.SUCCESS
         run.finished_at = timezone.now()

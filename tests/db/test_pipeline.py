@@ -2,6 +2,7 @@ import asyncio
 import random
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import cast
 
 import pytest
 from django.utils import timezone
@@ -18,6 +19,7 @@ from hw_radar.catalog.models import (
     Listing,
     OfferSnapshot,
     RawPayload,
+    ResolutionGrain,
     RetentionClass,
     RunFailureClass,
     RunKind,
@@ -191,6 +193,26 @@ def test_resolver_crash_never_blocks_ingestion() -> None:
     assert outcome.event is LifecycleEvent.SUCCESS
     assert run.detail_json["resolver_errors"] == 1
     assert Listing.objects.count() == 1
+
+
+def test_run_report_records_per_grain_resolution_counts() -> None:
+    # SA-003: MS-1e needs a real per-run denominator of post-resolution grain
+    # distribution, not just a pass/fail resolver_errors tally.
+    class FamilyResolver:
+        def resolve_listing(self, listing_id: int) -> None:
+            listing = Listing.objects.get(pk=listing_id)
+            listing.resolution_grain = ResolutionGrain.FAMILY
+            listing.save()
+
+    adapter = FakeAdapter([ok_item()], [ok_parsed()])
+    run, outcome = asyncio.run(run_source(adapter, FamilyResolver()))
+    assert run.status == RunStatus.SUCCESS
+    assert outcome.event is LifecycleEvent.SUCCESS
+    raw_grain_counts = run.detail_json["grain_counts"]
+    assert isinstance(raw_grain_counts, dict)
+    grain_counts = cast("dict[str, int]", raw_grain_counts)
+    assert grain_counts["family"] == 1
+    assert sum(grain_counts.values()) == run.records_valid
 
 
 def test_adapter_crash_is_classified() -> None:
