@@ -8,6 +8,10 @@ FLAGS = {  # (heartbeat_enabled, fast_lane) — fast_lane per FR-002 (drop_prone
     "serverpartdeals": (True, False),  # churning ⇒ heartbeat but never fast-laned
     "wd-recertified": (True, True),  # drop_prone ∩ occ_json ⇒ fast-lane eligible (CHECK passes)
     "seagate-recertified": (True, True),  # drop_prone ∩ bootstrap_json ⇒ fast-lane eligible
+    "ebay": (
+        True,
+        True,
+    ),  # drop_prone ∩ ebay_browse ⇒ fast-lane eligible; Browse poll IS the heartbeat
 }
 
 

@@ -159,15 +159,16 @@ def test_seeded_sources_exist_and_are_disabled() -> None:
     # Migration 0005 seeds the five MS-1 sources + demo, all disabled until
     # their connector lands (MS-1d flips each on as it ships). Migration 0011
     # flips heartbeat_enabled per-source as each connector's task lands (C1:
-    # serverpartdeals, C3: WD, C4: Seagate); fast_lane stays False for
-    # sources that aren't drop_prone-eligible (FR-002) until eBay lands.
+    # serverpartdeals, C3: WD, C4: Seagate, C5: eBay); fast_lane stays False for
+    # sources that aren't drop_prone-eligible (FR-002). eBay is heartbeat-native:
+    # its Browse poll IS the heartbeat, so fast_lane=True (drop_prone ∩ ebay_browse).
     expected = {
         # key: (tier, heartbeat_enabled, fast_lane)
         "wd-recertified": (SourceTier.T1_MANUFACTURER, True, True),
         "seagate-recertified": (SourceTier.T1_MANUFACTURER, True, True),
         "serverpartdeals": (SourceTier.T2_SPECIALIST, True, False),
         "goharddrive": (SourceTier.T2_SPECIALIST, False, False),
-        "ebay": (SourceTier.T0_OFFICIAL_API, False, False),
+        "ebay": (SourceTier.T0_OFFICIAL_API, True, True),
         "demo": (SourceTier.T2_SPECIALIST, False, False),
     }
     for key, (tier, heartbeat_enabled, fast_lane) in expected.items():
