@@ -162,17 +162,17 @@ def test_seeded_sources_exist_and_are_disabled() -> None:
     # serverpartdeals); fast_lane stays False for everyone until the
     # WD/Seagate/eBay tasks flip it (FR-002 drop_prone-only).
     expected = {
-        # key: (tier, heartbeat_enabled)
-        "wd-recertified": (SourceTier.T1_MANUFACTURER, False),
-        "seagate-recertified": (SourceTier.T1_MANUFACTURER, False),
-        "serverpartdeals": (SourceTier.T2_SPECIALIST, True),
-        "goharddrive": (SourceTier.T2_SPECIALIST, False),
-        "ebay": (SourceTier.T0_OFFICIAL_API, False),
-        "demo": (SourceTier.T2_SPECIALIST, False),
+        # key: (tier, heartbeat_enabled, fast_lane)
+        "wd-recertified": (SourceTier.T1_MANUFACTURER, True, True),
+        "seagate-recertified": (SourceTier.T1_MANUFACTURER, False, False),
+        "serverpartdeals": (SourceTier.T2_SPECIALIST, True, False),
+        "goharddrive": (SourceTier.T2_SPECIALIST, False, False),
+        "ebay": (SourceTier.T0_OFFICIAL_API, False, False),
+        "demo": (SourceTier.T2_SPECIALIST, False, False),
     }
-    for key, (tier, heartbeat_enabled) in expected.items():
+    for key, (tier, heartbeat_enabled, fast_lane) in expected.items():
         config = SourceConfig.objects.get(source_site__normalized_name=key)
         assert config.tier == tier, key
         assert config.enabled is False, key
         assert config.heartbeat_enabled is heartbeat_enabled, key
-        assert config.fast_lane is False, key  # flipped at MS-1d (WD/Seagate/eBay only, FR-002)
+        assert config.fast_lane is fast_lane, key  # FR-002: drop_prone-only (WD flipped C3)

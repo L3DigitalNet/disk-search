@@ -6,6 +6,7 @@ from django.db import migrations
 
 FLAGS = {  # (heartbeat_enabled, fast_lane) — fast_lane per FR-002 (drop_prone ∩ cheap signal)
     "serverpartdeals": (True, False),  # churning ⇒ heartbeat but never fast-laned
+    "wd-recertified": (True, True),  # drop_prone ∩ occ_json ⇒ fast-lane eligible (CHECK passes)
 }
 
 
