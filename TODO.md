@@ -1,12 +1,8 @@
 # TODO
 
-Human-facing work queue. The project builder owns the first section; agents
-maintain the second section from handoff docs, plans, reviews, and session work.
+Human-facing work queue. The project builder owns the first section; agents maintain the second section from handoff docs, plans, reviews, and session work.
 
 ## User Tracked Tasks
-
-Add personal tasks, reminders, or priorities here. Agents do not rewrite this
-section unless asked.
 
 ## Agent Tracked Tasks
 
