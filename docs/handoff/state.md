@@ -13,27 +13,20 @@ Last updated: 2026-07-06
   families / 15 models / 17 aliases), C.3.4 discovery loop, monthly refresh
   with resolver reconsider mode, matcher 2026.07.3, and a UTC-pinned poller
   schedule. Manual refresh entry point: `manage.py import_refdata --refresh`.
-- 2026-07-06 pre-MS-1d catch-up (259ada1..2044ba0): resolver/admin test-debt
-  backfill + pinned append-only listing delete-protection. Deletion posture
-  owner-confirmed INTENTIONAL (hard delete never; eBay IR-002 → future
-  Listing-grain soft-delete). WD `ultrastar` unreconciled-families entry
-  accepted as a cosmetic artifact (documented at `refdata/persist.py`). Drift
-  smoke test LOW → full consistency workflow skipped.
-- Next work: MS-1d connectors — re-verify source endpoints and run an eBay
-  smoke check at plan time (per design S-4), then heartbeat adapters and
-  ADR-0019 validation/ratification.
+- **MS-1d is IMPLEMENTED — PR #12 (dev→main) OPEN, awaiting CI** (`git push` 422ee50..2305eb1). Plan `docs/superpowers/plans/2026-07-06-ms1d-connectors.md` (Codex-reviewed, 2 rounds) executed subagent-driven: 22 tasks, each spec+quality reviewed; final whole-branch review READY TO MERGE. Landed: five connectors (ServerPartDeals/goHardDrive/WD/Seagate/eBay), ADR-0015 heartbeat subsystem (migrations 0009 models / 0010 TimescaleDB hypertable+cagg / 0011 flag flips), shared infra (`acquisition/http.py` robots guard, `httpx.TransportError`→TRANSIENT, `expires_at` threading, per-item raw payloads, per-grain counts), poller heartbeat scheduling (`run_heartbeat` + two-job model), and `tests/db/test_ms1_acceptance.py`. Full gate green (357 tests / 93% branch). **All sources `enabled=False`** — nothing auto-starts.
+- **Pre-go-live gates before ANY source flips `enabled=True`** (see `docs/handoff/deployed.md` SA-004 section + TODO): (1) SA-004 operational checklist (dumps/disk-alert/restore); (2) bounded-retention `expires_at` sweeper — ABSENT, required for bounded-class sources (esp. eBay 6h/DR-008); (3) eBay-only: Listing-grain delete-on-delist soft-delete (IR-002). Also tracked: D1 cross-lane admission coupling (a slow-repair-job failure can backoff-silence the fast heartbeat up to 24h — per-lane scheduling redesign, out of MS-1d scope).
+- Recon carry-forwards (in TODO): goHardDrive `CATEGORY_URL` + WD `query=recertified` (surfaces consumer recert, not the enterprise facet) need live-selector confirmation at go-live.
 - Local DB note: DB-backed tests need TimescaleDB. On this workstation, use
   `HW_RADAR_DB_PORT=5433` when the container is mapped to `127.0.0.1:5433`.
 
 ## Active Incidents
 
-- None. Caveat: a concurrent agent left `docs/prompts/*.md` dirty (uncommitted)
-  with reworded prompts that BROKE relative links (`docs/specs/…` should be
-  `../specs/…`); not this session's work — review before committing.
+- None. (The prior `docs/prompts/*.md` dirty-links caveat is resolved — the
+  committed prompt links are repo-root-relative and correct.)
 
 ## Next Agent
 
 1. Read `TODO.md` and `docs/handoff/specs-plans.md`.
-2. For MS-1d, start from `docs/superpowers/specs/2026-07-05-ms1-ingestion-design.md`
-   (§S-4) and the MS-1c plan under `docs/superpowers/plans/`.
-3. Keep tracked docs public-safe.
+2. **Merge PR #12 once CI is green** (dependency-review already passed; two `check` jobs were pending at session end). Then the next milestone is MS-1e (validation corpus + ADR-0019 ratification) per `docs/superpowers/specs/2026-07-05-ms1-ingestion-design.md` §MS-1e.
+3. Before enabling any source in production, clear the three pre-go-live gates above (start with the bounded-retention sweeper — it hard-gates eBay).
+4. Keep tracked docs public-safe.
