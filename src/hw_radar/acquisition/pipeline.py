@@ -10,7 +10,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import statistics
-from datetime import date
+from collections.abc import Callable
+from datetime import date, datetime
 
 from asgiref.sync import sync_to_async
 from django.utils import timezone
@@ -97,9 +98,15 @@ def _persist_all(
     batch: RawBatch,
     normalized: list[NormalizedListing],
     retention_class: RetentionClass,
+    expires_at: datetime | None,
 ) -> tuple[list[int], int, int]:
     raw = (
-        store_raw(batch.items[0], fetched_at=batch.fetched_at, retention_class=retention_class)
+        store_raw(
+            batch.items[0],
+            fetched_at=batch.fetched_at,
+            retention_class=retention_class,
+            expires_at=expires_at,
+        )
         if batch.items
         else None
     )
@@ -112,7 +119,10 @@ def _persist_all(
     # faithfully.
     observed_at = batch.fetched_at
     for record in normalized:
-        listing, _created = upsert_listing(site, record, retention_class)
+        listing, _created = upsert_listing(site, record, retention_class, expires_at=expires_at)
+        # append_snapshot reads listing.expires_at (not the expires_at param
+        # directly) so a snapshot's TTL always matches its listing's current
+        # value, even if a future caller mutates the listing between calls.
         append_snapshot(listing, record, observed_at=observed_at, raw=raw)
         listing_ids.append(listing.pk)
         upserted += 1
@@ -138,6 +148,7 @@ async def run_source(
     resolver: ListingResolver,
     *,
     retention_class: RetentionClass = RetentionClass.MERCHANT_FACT,
+    expires_policy: Callable[[datetime], datetime | None] | None = None,
     run_kind: RunKind | None = None,
     fetch_timeout_s: float = FETCH_TIMEOUT_S,
 ) -> tuple[ScraperRun, RunOutcome]:
@@ -158,8 +169,12 @@ async def run_source(
         if batch.items and not parsed:
             raise FetchFailure(RunFailureClass.PARSER_ROT, "authentic fetch yielded 0 records")
         normalized = await _normalize(parsed, batch.fetched_at.date())
+        # expires_policy is a callable, not a fixed datetime, so bounded TTLs
+        # (e.g. eBay's DR-008 <=6h) stay relative to this batch's own fetch
+        # time rather than the moment run_source happened to be called.
+        expires_at = expires_policy(batch.fetched_at) if expires_policy else None
         listing_ids, upserted, appended = await sync_to_async(_persist_all)(
-            site, batch, normalized, retention_class
+            site, batch, normalized, retention_class, expires_at
         )
         resolver_errors = 0
         for listing_id in listing_ids:

@@ -17,6 +17,8 @@ from hw_radar.catalog.models import (
     LifecycleState,
     Listing,
     OfferSnapshot,
+    RawPayload,
+    RetentionClass,
     RunFailureClass,
     RunKind,
     RunStatus,
@@ -76,6 +78,29 @@ def test_success_path_persists_and_reports() -> None:
     assert run.snapshots_appended == 1
     assert Listing.objects.filter(source_site__normalized_name="demo").count() == 1
     assert OfferSnapshot.objects.count() == 1
+
+
+def test_bounded_retention_stamps_expires_at() -> None:
+    # DR-001: bounded classes REQUIRE a non-null expires_at or the DB's
+    # TTL-coherent CHECK constraint rejects the row. expires_policy is a
+    # callable (not a fixed datetime) so the TTL stays relative to each
+    # observation's own fetch time (DR-008 <=6h for eBay).
+    adapter = FakeAdapter([ok_item()], [ok_parsed()])
+    run, _ = asyncio.run(
+        run_source(
+            adapter,
+            NullResolver(),
+            retention_class=RetentionClass.EBAY_LISTING_OBSERVATION,
+            expires_policy=lambda observed: observed + timedelta(hours=6),
+        )
+    )
+    assert run.status == RunStatus.SUCCESS
+    listing = Listing.objects.get(source_site__normalized_name="demo")
+    assert listing.retention_class == RetentionClass.EBAY_LISTING_OBSERVATION
+    assert listing.expires_at is not None  # bounded class => CHECK would have rejected a null
+    assert RawPayload.objects.filter(
+        retention_class=RetentionClass.EBAY_LISTING_OBSERVATION
+    ).exists()
 
 
 def test_rerun_is_append_only() -> None:
