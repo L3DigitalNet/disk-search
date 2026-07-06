@@ -27,8 +27,8 @@ These settle what the MS-1e sub-milestone left to plan time:
 | E-1 | **Build the deterministic evaluation harness + harvest tooling in this milestone; defer the live harvest, label drafts, owner audit, and ratification run to a scheduled owner-in-the-loop follow-up.** | MS-1e merges with the harness proven on a synthetic fixture and the real-corpus test skip-guarded. Ratification (ADR flip) happens later, out of this PR, when a real corpus has been harvested and audited. No fake green. |
 | E-2 | **Eval architecture = Approach A (full production path).** Each corpus entry is rebuilt into a `ParsedListing`, normalized + `upsert_listing`-ed, snapshotted (`OfferSnapshot.attrs_json` = the entry's `attrs`) into a rolled-back test-DB transaction, then run through the real `CatalogResolver().resolve_listing`; the harness reads back the denorm grain + target FK + resolution-edge rung. | The gate certifies exactly the code path that writes to price history, on the exact input surface the resolver consumes (title + `attrs_json["mpn"]` hook). No proxy/second-code-path drift (the ADR-0019 rule 1 hazard). |
 | E-2b | **The precision corpus measures rungs 1–2; rung 0 is covered by a required behavioral regression suite, not the corpus denominator (SA-001).** A corpus of distinct first-observed listings structurally cannot exercise rung 0 (re-observation via source-local alias) — on a first observation `prior = NONE`, so the resolver evaluates rungs 1–2. Rung 0's contract is *veto-on-re-observation* (relist/edit abuse), a behavior, not a precision sample. | Ratification exit therefore requires **both**: ≥ 99.5% on the rung-1/2 corpus **and** the rung-0 regression suite green (unchanged re-observation inherits with no edge spam; a re-observation whose hard attribute now contradicts is demoted to REVIEW, not silently re-inherited). The spec never claims the corpus denominator alone is full ADR-0019 coverage. |
-| E-3 | **`expected_target` is a grain-shaped natural key of *display values*, loader-normalized to the actual catalog identity fields, never a catalog PK (SA-003).** Family grain: `manufacturer` + `family`. Model grain: adds `model_number`. Variant grain: adds the `ProductVariant` sellable-identity enums `condition` / `packaging` / `recert_channel` / `warranty_channel`. `none` grain: all null. | The committed corpus outlives any DB seed; the loader normalizes label display values through the production `canonicalize_title` / `normalize_alias_text` (one normalizer, both sides) and compares against the *predicted* target's stored normalized fields. A "variant string" cannot represent `ProductVariant` identity, which is `(product_model, condition, packaging, recert_channel, warranty_channel)`. The fixture doubles as a durable post-`matcher_version`-bump regression asset. |
-| E-4 | **The real labeled corpus is committed to this public repo** — `title` + the connector's *actual* `ParsedListing.attrs` keys + the persisted scalar fields (price, currency, condition, source_listing_key, url) only; **never** full raw payloads. | Titles + these fields are public marketplace data (repo-safe per AGENTS.md Public-Repo Rule); full payloads (seller handles/extra URLs) stay transient in the harvest staging file, uncommitted. |
+| E-3 | **`expected_target` is a grain-shaped natural key: a controlled `manufacturer_key` plus loader-normalized display values, never a catalog PK (SA-003).** Family grain: `manufacturer_key` (stored `Manufacturer.normalized_name`, exact) + `family`. Model grain: adds `model_number`. Variant grain: adds the `ProductVariant` sellable-identity enums `condition` / `packaging` / `recert_channel` / `warranty_channel`. `none` grain: all null. | The committed corpus outlives any DB seed; the loader normalizes `family`/`model_number` display values through the production `canonicalize_title` / `normalize_alias_text` (one normalizer, both sides) and matches `manufacturer_key` exactly against the *predicted* target's stored fields. A "variant string" cannot represent `ProductVariant` identity, which is `(product_model, condition, packaging, recert_channel, warranty_channel)`. The fixture doubles as a durable post-`matcher_version`-bump regression asset. |
+| E-4 | **The real labeled corpus is committed to this public repo** — `title` + the connector's *actual* `ParsedListing.attrs` keys + the persisted scalar fields (price, currency, `condition_label`, source_listing_key, url) only; **never** full raw payloads. | Titles + these fields are public marketplace data (repo-safe per AGENTS.md Public-Repo Rule); full payloads (seller handles/extra URLs) stay transient in the harvest staging file, uncommitted. |
 | E-5 | **Labeling per ingestion-design S-5**: Claude drafts every label; owner audits a random ~20% sample + **every** entry where the label disagrees with the matcher prediction. | Bounded owner time while keeping the ratification gate meaningfully independent. Audit status is tracked per entry. |
 
 ## 2. Module layout
@@ -87,7 +87,7 @@ A JSONL corpus plus a sidecar manifest under `tests/fixtures/matching_corpus/`.
   "label": {
     "expected_grain": "model",
     "expected_target": {
-      "manufacturer": "Seagate",
+      "manufacturer_key": "seagate",
       "family": "Exos X18",
       "model_number": "ST18000NM000J",
       "variant": null
@@ -111,13 +111,24 @@ A JSONL corpus plus a sidecar manifest under `tests/fixtures/matching_corpus/`.
   `_structured_mpn` hook (`attrs_json["mpn"]`, dormant for today's connectors) and the title-driven
   extraction path both see production-identical input (SA-004). MPN today comes from the **title**.
 - **`label.expected_grain`** ∈ `none | family | model | variant`.
-- **`label.expected_target`** holds **human-readable display values** (E-3): `manufacturer`, `family`,
-  `model_number`, and for variant grain a `variant` object carrying `condition`/`packaging`/
-  `recert_channel`/`warranty_channel` as their `ProductVariant` **enum-choice values** (exact match, no
-  normalization). The owner audits readable labels, not pre-normalized keys. Grain/key consistency is a
-  validated invariant: `variant` grain requires the `variant` object; `model` requires `model_number`;
-  `family` requires `family`; `none` requires all null (a listing that *should not* auto-accept —
-  genuinely unresolvable or a hard-attribute-contradiction case). Note the deliberate split:
+- **`label.expected_target`** mixes one controlled key with human-readable display values (E-3):
+  - **`manufacturer_key`** is the stored `Manufacturer.normalized_name` **controlled key** — `seagate`,
+    `western_digital`, `toshiba`, … — compared **exactly** (no title canonicalization; `Manufacturer`
+    keys are seeded from `SeedDocument.manufacturer_key`, not from `canonicalize_title`). `western_digital`
+    also covers WD- and SanDisk-branded listings per the C.3.1 Optimus rebrand vocabulary (`vocab.py`
+    `_BRANDS` maps `western digital` / `wd` / `sandisk` → `western_digital`); a WD listing labels
+    `manufacturer_key: "western_digital"`. Schema validation rejects a `manufacturer_key` absent from the
+    seeded manufacturer set.
+  - **`family`** and **`model_number`** are display values the loader normalizes (`canonicalize_title` →
+    `"exos x18"`; `normalize_alias_text` → `"st18000nm000j"`) before comparing to the predicted target's
+    stored fields.
+  - the variant grain's **`variant`** object carries `condition`/`packaging`/`recert_channel`/
+    `warranty_channel` as `ProductVariant` **enum-choice values** (exact match).
+
+  Grain/key consistency is a validated invariant: `variant` grain requires the `variant` object; `model`
+  requires `model_number`; `family` requires `family`; every non-`none` grain requires `manufacturer_key`;
+  `none` requires all of family/model/variant null (a listing that *should not* auto-accept — genuinely
+  unresolvable or a hard-attribute-contradiction case). Note the deliberate split:
   `listing.condition_label` is raw marketplace text (input side); `expected_target.variant.condition` is
   the normalized `ProductVariant.condition` enum (label side).
 - **`label.oem_dual_label`** — the OEM-token-AND-MPN spot-check flag (ADR-0019 rule 7 / consequence);
@@ -133,7 +144,10 @@ label to the predicted target by running the **production** normalizers on both:
 through `normalize_alias_text()` (→ `"st18000nm000j"` — casefold, strip every non-alphanumeric), then
 comparing against the resolver's stored `ProductFamily.normalized_name` / `ProductModel.normalized_model_number`.
 Labels therefore hold display values (`"Exos X18"`, `"ST18000NM000J"`); the loader — never a hand-authored
-second convention — produces the normalized keys. Variant enum fields compare as exact choice values.
+second convention — produces the normalized keys. `manufacturer_key` is the exception: it is already the
+stored `Manufacturer.normalized_name` controlled key and compares exactly (no canonicalization — that would
+turn `western_digital` into `western digital` and never match). Variant enum fields compare as exact choice
+values.
 
 ## 4. Harvest command — `manage.py harvest_corpus`
 
