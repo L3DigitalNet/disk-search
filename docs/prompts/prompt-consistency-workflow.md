@@ -1,105 +1,51 @@
-# **Workflow:** Enforce Hardware Radar Spec Consistency and Reduce Drift
+# **Workflow:** Enforce Consistency and Mitigate Drift Exposures
 
-Run a **workflow** to reconcile the Hardware Radar documentation graph and
-remove drift between the master spec, ADRs, decision records, research reports,
-implementation plans, and current repo state.
+Run a **workflow** to:
+
+- _Enforce consistency_ between the Hardware Radar master spec (`docs/specs/hw-radar-master-spec.md`), ADRs, resolved questions, open questions, and active milestone design/plan docs.
+- _Mitigate drift exposures_ by ensuring that all information is in its canonical location and not duplicated across documents.
 
 ## Goals
 
-- The master spec (`docs/specs/hw-radar-master-spec.md`) is internally
-  consistent and reflects the current accepted architecture.
-- Each ADR is internally consistent, status-correct, indexed in
-  `docs/adr/README.md`, and accurately summarized or referenced by the spec.
-- Accepted ADRs do not contradict each other, the spec, or the settled decision
-  record in `docs/resolved-questions.md`.
-- `docs/open-questions.md` contains only unresolved decisions; settled decisions
-  are moved to `docs/resolved-questions.md` or an ADR, as appropriate.
-- Active milestone docs under `docs/superpowers/` agree with the spec and ADRs,
-  or explicitly identify any plan/design updates still needed.
-- Duplicated facts are reduced to links or short summaries that point to the
-  canonical source.
+- The Hardware Radar master spec is **100%** internally consistent and reflects the current accepted architecture.
+- Each ADR is **100%** internally consistent, unambiguous, indexed in `docs/adr/README.md`, and accurately summarized or referenced in the spec.
+- There are **zero** contradictions or ambiguities between ADRs.
+- There are **zero** contradictions or ambiguities between any ADR and the Hardware Radar master spec.
+- Any resolved questions in `docs/resolved-questions.md` found to be inconsistent with the spec or ADRs are downgraded to open questions and relocated to `docs/open-questions.md` for further research and resolution.
+- Active milestone design and plan docs under `docs/superpowers/` are consistent with the spec and ADRs, or explicitly identify any plan updates still needed.
 
-## Source-Of-Truth Order
+## Additional Guidelines
 
-Use this order when two documents disagree:
+**Workflow parameters:**
 
-1. Accepted ADRs own costly architectural decisions.
-2. The master spec owns product requirements, milestones, data contracts, and
-   implementation acceptance criteria.
-3. `open-questions.md` and `resolved-questions.md` own decision state before a
-   decision graduates to an ADR.
-4. `docs/research/` owns evidence and dated recommendations, not current policy
-   by itself.
-5. `docs/superpowers/specs/` and `docs/superpowers/plans/` own milestone
-   decomposition and execution details, constrained by the spec and ADRs.
-6. `STATUS.md`, `TODO.md`, and `docs/handoff/` own current work state, not
-   architectural truth.
+- _Workers:_ Use Sonnet subagents for routine worker-level tasks when the harness supports them.
+- _Complex tasks:_ Use Opus for complex synthesis or high-risk architectural conflicts.
+- _Avoid:_ Haiku and Fable subagents for source-of-truth reconciliation.
+- Use as many subagents as needed to achieve a successful outcome.
+- You are empowered to expand the workflow with additional steps if needed to fill gaps or address issues that I may have missed.
 
-If the source-of-truth order is insufficient, flag the conflict instead of
-guessing.
+**Resolving inconsistencies:**
 
-## Checks
+- _Source-of-truth order:_ Accepted ADRs own costly architectural decisions; the master spec owns requirements, milestones, data contracts, and acceptance criteria; `open-questions.md` / `resolved-questions.md` own decision state before ADR graduation; `docs/research/` owns evidence and dated recommendations; `docs/superpowers/` owns milestone decomposition and execution details.
+- _Repo level sources:_ Research reports in `docs/research/`, active designs/plans in `docs/superpowers/`, `STATUS.md`, `TODO.md`, and `docs/handoff/specs-plans.md`.
+- _Internet research:_ Use `/qdev:research` when a decision depends on current external behavior, pricing, terms, APIs, laws, service limits, or software versions.
+- _Deep research escalation:_ If still unresolved, escalate to a deep-research prompt in `docs/further-research-needed-prompts.md` for further investigation.
+- _Public-repo hygiene:_ Do not add secrets, credential values, private hostnames, private IP addresses, or internal infrastructure details.
 
-### Spec Consistency
+**Reduce drift exposure:**
 
-- Check the spec for contradictions, stale TODO language, obsolete milestone
-  status, unresolved placeholders, broken links, and duplicate explanations.
-- Verify that requirement IDs, decision IDs, milestone IDs, and appendix
-  references stay stable.
-- Ensure implementation claims in the spec are backed by code, tests, deploy
-  artifacts, or explicitly documented acceptance evidence.
-
-### ADR Consistency
-
-- Verify each ADR's status, frontmatter, supersession fields, related links, and
-  index row.
-- Check that accepted ADRs are summarized in the spec only where necessary.
-  Keep detailed rationale in the ADR.
-- Identify resolved questions or recurring conventions that should become ADRs,
-  but do not create a new ADR unless explicitly asked.
-
-### Question Record
-
-- Confirm `docs/open-questions.md` lists only unresolved decisions.
-- When settling or reopening a question, preserve stable `OQ#` anchors and
-  update links from the spec, ADRs, research reports, TODO, and plans.
-- Do not edit the owner's `#### My Comments` blocks except when relocating the
-  whole question verbatim according to the file's own rules.
-
-### Research And Prompt Ledger
-
-- Use `docs/research/` for evidence. Treat dated claims as time-sensitive and
-  re-verify when the decision depends on current external behavior, pricing,
-  terms, APIs, laws, or service limits.
-- Do not hand-edit `docs/research/index.md`; it is generated.
-- If more research is needed, add a focused prompt to
-  `docs/further-research-needed-prompts.md` and link it from the relevant open
-  question or plan.
-
-### Drift Reduction
-
-- Keep comprehensive structured detail in one canonical place.
-- In the spec, summarize decisions and link to ADRs or research instead of
-  restating long rationale.
-- When promoting content into an ADR, spec section, or resolved question, remove
-  the redundant copy from the old location or replace it with a short pointer.
-- Keep public-repo hygiene: do not add secrets, credential values, private
-  hostnames, private IP addresses, or internal infrastructure details.
-
-## Workflow Parameters
-
-- Use subagents for independent scans when the harness supports them.
-- Use stronger models for synthesis or high-risk architectural conflicts.
-- Avoid low-capability workers for source-of-truth reconciliation.
-- Expand the workflow when needed to cover gaps not listed here.
+- _Deduplication:_ Avoid duplicating information across documents where possible. Comprehensive structured information belongs in its single canonical location (e.g., ADRs, spec, question records, or research reports). Use links/pointers/references to the canonical source instead of restating when it must be referenced elsewhere.
+- _Reference; don't repeat:_ Do not verbosely restate ADRs in the spec; the spec should summarize the critical points and reference the ADRs for details.
+- _Promote and remove:_ When a piece of information is promoted, ensure it is removed from the original location to avoid duplication and potential drift. A link may be left in the original location to point to the new canonical source, but the original content should be removed to prevent drift.
+- _Research index:_ Do not hand-edit `docs/research/index.md`; it is generated.
 
 ## References
 
-- [Master Spec](../specs/hw-radar-master-spec.md)
-- [ADR Index](../adr/README.md)
-- [Open Questions](../open-questions.md)
+- [Hardware Radar Master Spec](../specs/hw-radar-master-spec.md)
 - [Resolved Questions](../resolved-questions.md)
-- [Research Reports](../research/README.md)
+- [Open Questions](../open-questions.md)
+- [Architecture Decision Records](../adr)
+- [Research Reports](../research)
 - [Further Research Prompts](../further-research-needed-prompts.md)
 - [MS-1 Ingestion Design](../superpowers/specs/2026-07-05-ms1-ingestion-design.md)
 - [Specs And Plans Index](../handoff/specs-plans.md)
