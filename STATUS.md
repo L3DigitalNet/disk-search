@@ -8,6 +8,7 @@ unfinished work stays in `TODO.md`.
 - MS-0 foundation is live: Django 6 app, TimescaleDB data model, web health/login/dashboard, APScheduler poller, deployment artifacts, and CI verification gate.
 - MS-1a ingestion substrate is implemented: source/run models, scheduler lifecycle, FX support, pipeline runner, Scrapy integration, and poller service jobs.
 - MS-1b matching layer is implemented: conservative normalization, MPN/OEM parsing, ladder rungs 0-2, append-only resolution ledger, and unknown-model backfill view.
+- MS-1c catalog seed is implemented: refdata pipeline (contracts/loader/persist/discovery/refresh) seeded with 3 families / 15 models / 17 aliases (Seagate Exos recertified full fan-out, IronWolf Pro, WD Ultrastar DC HC550 starter subset), C.3.4 discovery loop, monthly refresh with resolver reconsider mode, matcher 2026.07.3, and a UTC-pinned poller schedule.
 - Agent Handoff System v3 is adopted for this repo with tracked handoff docs and Claude/Codex SessionStart hooks.
 
 ## Current State
