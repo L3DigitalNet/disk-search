@@ -157,18 +157,22 @@ def test_listing_is_international_defaults_false() -> None:
 
 def test_seeded_sources_exist_and_are_disabled() -> None:
     # Migration 0005 seeds the five MS-1 sources + demo, all disabled until
-    # their connector lands (MS-1d flips each on as it ships).
+    # their connector lands (MS-1d flips each on as it ships). Migration 0011
+    # flips heartbeat_enabled per-source as each connector's task lands (C1:
+    # serverpartdeals); fast_lane stays False for everyone until the
+    # WD/Seagate/eBay tasks flip it (FR-002 drop_prone-only).
     expected = {
-        "wd-recertified": SourceTier.T1_MANUFACTURER,
-        "seagate-recertified": SourceTier.T1_MANUFACTURER,
-        "serverpartdeals": SourceTier.T2_SPECIALIST,
-        "goharddrive": SourceTier.T2_SPECIALIST,
-        "ebay": SourceTier.T0_OFFICIAL_API,
-        "demo": SourceTier.T2_SPECIALIST,
+        # key: (tier, heartbeat_enabled)
+        "wd-recertified": (SourceTier.T1_MANUFACTURER, False),
+        "seagate-recertified": (SourceTier.T1_MANUFACTURER, False),
+        "serverpartdeals": (SourceTier.T2_SPECIALIST, True),
+        "goharddrive": (SourceTier.T2_SPECIALIST, False),
+        "ebay": (SourceTier.T0_OFFICIAL_API, False),
+        "demo": (SourceTier.T2_SPECIALIST, False),
     }
-    for key, tier in expected.items():
+    for key, (tier, heartbeat_enabled) in expected.items():
         config = SourceConfig.objects.get(source_site__normalized_name=key)
         assert config.tier == tier, key
         assert config.enabled is False, key
-        assert config.heartbeat_enabled is False, key  # flipped at MS-1d per the design matrix
+        assert config.heartbeat_enabled is heartbeat_enabled, key
         assert config.fast_lane is False, key  # flipped at MS-1d (WD/Seagate/eBay only, FR-002)
