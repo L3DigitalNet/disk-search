@@ -150,10 +150,21 @@ def _grain_counts(listing_ids: list[int]) -> dict[str, int]:
     # run for every listing_id, so this reflects each listing's final grain
     # for the run, not its pre-resolve default. Every persisted listing has a
     # grain (default NONE), so counts always sum to records_valid.
+    #
+    # listing_ids can repeat a pk: two records in one batch sharing a
+    # source_listing_key both resolve to the same Listing via upsert_listing's
+    # (source_site, source_listing_key) key, so _persist_all appends that pk
+    # once per record, not once per distinct listing. A filter(...).count()-style
+    # tally over DISTINCT query rows would collapse the repeat and undercount
+    # (E1 review) — build a pk->grain map instead and iterate listing_ids
+    # (with duplicates) so sum(counts) == len(listing_ids) == records_valid
+    # unconditionally.
+    grain_by_pk: dict[int, str] = dict(
+        Listing.objects.filter(pk__in=listing_ids).values_list("pk", "resolution_grain")
+    )
     counts: dict[str, int] = {str(choice): 0 for choice in ResolutionGrain.values}
-    grains = Listing.objects.filter(pk__in=listing_ids).values_list("resolution_grain", flat=True)
-    for grain in grains:
-        key = str(grain)
+    for listing_id in listing_ids:
+        key = str(grain_by_pk[listing_id])
         counts[key] = counts.get(key, 0) + 1
     return counts
 

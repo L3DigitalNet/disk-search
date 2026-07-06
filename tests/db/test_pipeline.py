@@ -1,14 +1,17 @@
 import asyncio
 import random
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import cast
 
 import pytest
 from django.utils import timezone
 
+from hw_radar.acquisition import fx
 from hw_radar.acquisition.contracts import NullResolver, ParsedListing, RawBatch, RawItem
+from hw_radar.acquisition.persist import upsert_listing
 from hw_radar.acquisition.pipeline import (
+    _grain_counts,  # pyright: ignore[reportPrivateUsage]
     _median_body_bytes,  # pyright: ignore[reportPrivateUsage]
     run_source,
 )
@@ -213,6 +216,33 @@ def test_run_report_records_per_grain_resolution_counts() -> None:
     grain_counts = cast("dict[str, int]", raw_grain_counts)
     assert grain_counts["family"] == 1
     assert sum(grain_counts.values()) == run.records_valid
+
+
+def test_grain_counts_sums_to_len_with_duplicate_listing_pk() -> None:
+    # E1 review: _persist_all's listing_ids can contain the SAME Listing.pk
+    # more than once — when two records in one batch share a source_listing_key,
+    # upsert_listing (keyed on (source_site, source_listing_key)) returns the
+    # SAME Listing both times, and each occurrence is appended to listing_ids.
+    # (A true end-to-end run_source repro isn't reachable: those two records
+    # would also share observed_at — fixed once per batch — so the second
+    # append_snapshot would collide on OfferSnapshot's (listing_id, observed_at)
+    # PK before persistence even finishes; that's a separate, pre-existing
+    # constraint unrelated to this fix.) So pin the contract directly against
+    # _grain_counts: it must tally against listing_ids WITH duplicates
+    # preserved, so sum(counts.values()) == len(listing_ids) unconditionally —
+    # matching records_valid, which counts every normalized record including
+    # ones that upsert to a listing seen earlier in the same batch. The old
+    # implementation summed DISTINCT query rows and collapsed the duplicate pk
+    # to a single count, undercounting.
+    site = SourceSite.objects.get(normalized_name="demo")
+    normalized = fx.stamp(ok_parsed(key="dup-key"), date(2026, 1, 1))
+    listing, _created = upsert_listing(site, normalized, RetentionClass.MERCHANT_FACT)
+    listing.resolution_grain = ResolutionGrain.FAMILY
+    listing.save()
+    listing_ids = [listing.pk, listing.pk]  # same pk twice, as _persist_all would produce
+    counts = _grain_counts(listing_ids)
+    assert counts["family"] == 2
+    assert sum(counts.values()) == len(listing_ids)  # not 1 — old distinct-row bug
 
 
 def test_adapter_crash_is_classified() -> None:
