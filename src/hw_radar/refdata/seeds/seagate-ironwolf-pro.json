@@ -1,0 +1,103 @@
+{
+  "schema": "hw-radar.refdata.seed/v1",
+  "manufacturer_name": "Seagate",
+  "manufacturer_key": "seagate",
+  "family_name": "IronWolf Pro",
+  "provenance": {
+    "source_kind": "first_party_datasheet",
+    "sources": [
+      {
+        "url": "https://www.seagate.com/files/www-content/datasheets/pdfs/ironwolf-pro-20tb-DS1914-21-2206US-en_US.pdf",
+        "title": "Seagate IronWolf Pro datasheet DS1914.21",
+        "retrieved": "2026-07-05"
+      }
+    ]
+  },
+  "models": [
+    {
+      "model_number": "ST20000NE000",
+      "spec": {
+        "media_type": "hdd",
+        "interface": "SATA 6Gb/s",
+        "form_factor": "3.5",
+        "capacity_tb": "20",
+        "rpm": 7200,
+        "cache_mb": 256,
+        "sector_format": "512e",
+        "recording_tech": "cmr",
+        "workload_tb_year": 300,
+        "market_tier": "nas",
+        "model_family": "IronWolf Pro"
+      },
+      "aliases": [{"alias_type": "mpn", "text": "ST20000NE000", "is_primary": true}]
+    },
+    {
+      "model_number": "ST18000NE000",
+      "spec": {
+        "media_type": "hdd",
+        "interface": "SATA 6Gb/s",
+        "form_factor": "3.5",
+        "capacity_tb": "18",
+        "rpm": 7200,
+        "cache_mb": 256,
+        "sector_format": "512e",
+        "recording_tech": "cmr",
+        "workload_tb_year": 300,
+        "market_tier": "nas",
+        "model_family": "IronWolf Pro"
+      },
+      "aliases": [{"alias_type": "mpn", "text": "ST18000NE000", "is_primary": true}]
+    },
+    {
+      "model_number": "ST16000NE000",
+      "spec": {
+        "media_type": "hdd",
+        "interface": "SATA 6Gb/s",
+        "form_factor": "3.5",
+        "capacity_tb": "16",
+        "rpm": 7200,
+        "cache_mb": 256,
+        "sector_format": "512e",
+        "recording_tech": "cmr",
+        "workload_tb_year": 300,
+        "market_tier": "nas",
+        "model_family": "IronWolf Pro"
+      },
+      "aliases": [{"alias_type": "mpn", "text": "ST16000NE000", "is_primary": true}]
+    },
+    {
+      "model_number": "ST14000NE0008",
+      "spec": {
+        "media_type": "hdd",
+        "interface": "SATA 6Gb/s",
+        "form_factor": "3.5",
+        "capacity_tb": "14",
+        "rpm": 7200,
+        "cache_mb": 256,
+        "sector_format": "512e",
+        "recording_tech": "cmr",
+        "workload_tb_year": 300,
+        "market_tier": "nas",
+        "model_family": "IronWolf Pro"
+      },
+      "aliases": [{"alias_type": "mpn", "text": "ST14000NE0008", "is_primary": true}]
+    },
+    {
+      "model_number": "ST12000NE0008",
+      "spec": {
+        "media_type": "hdd",
+        "interface": "SATA 6Gb/s",
+        "form_factor": "3.5",
+        "capacity_tb": "12",
+        "rpm": 7200,
+        "cache_mb": 256,
+        "sector_format": "512e",
+        "recording_tech": "cmr",
+        "workload_tb_year": 300,
+        "market_tier": "nas",
+        "model_family": "IronWolf Pro"
+      },
+      "aliases": [{"alias_type": "mpn", "text": "ST12000NE0008", "is_primary": true}]
+    }
+  ]
+}

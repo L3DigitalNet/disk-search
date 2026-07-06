@@ -1,0 +1,104 @@
+{
+  "schema": "hw-radar.refdata.seed/v1",
+  "manufacturer_name": "Western Digital",
+  "manufacturer_key": "western_digital",
+  "family_name": "Ultrastar DC HC550",
+  "provenance": {
+    "source_kind": "first_party_datasheet",
+    "sources": [
+      {
+        "url": "https://documents.westerndigital.com/content/dam/doc-library/en_us/assets/public/western-digital/product/data-center-drives/ultrastar-dc-hc500-series/data-sheet-ultrastar-dc-hc550.pdf",
+        "title": "WD Ultrastar DC HC550 datasheet",
+        "retrieved": "2026-07-05"
+      },
+      {
+        "url": "https://documents.westerndigital.com/content/dam/doc-library/en_us/assets/public/western-digital/product/data-center-drives/ultrastar-dc-hc500-series/product-manual-ultrastar-dc-hc550-sata-oem-spec.pdf",
+        "title": "WD Ultrastar DC HC550 SATA OEM product manual",
+        "retrieved": "2026-07-05"
+      },
+      {
+        "url": "https://documents.westerndigital.com/content/dam/doc-library/en_us/assets/public/western-digital/product/data-center-drives/ultrastar-dc-hc500-series/product-manual-ultrastar-dc-hc550-sas-oem-spec.pdf",
+        "title": "WD Ultrastar DC HC550 SAS OEM product manual",
+        "retrieved": "2026-07-05"
+      }
+    ]
+  },
+  "models": [
+    {
+      "model_number": "WUH721818ALE6L4",
+      "spec": {
+        "media_type": "hdd",
+        "interface": "SATA 6Gb/s",
+        "form_factor": "3.5",
+        "capacity_tb": "18",
+        "rpm": 7200,
+        "cache_mb": 512,
+        "sector_format": "512e",
+        "recording_tech": "cmr",
+        "workload_tb_year": 550,
+        "market_tier": "enterprise",
+        "model_family": "Ultrastar DC HC550"
+      },
+      "aliases": [
+        {"alias_type": "mpn", "text": "WUH721818ALE6L4", "is_primary": true},
+        {"alias_type": "retail_pn", "text": "0F38459"}
+      ]
+    },
+    {
+      "model_number": "WUH721818AL5201",
+      "spec": {
+        "media_type": "hdd",
+        "interface": "SAS 12Gb/s",
+        "form_factor": "3.5",
+        "capacity_tb": "18",
+        "rpm": 7200,
+        "cache_mb": 512,
+        "sector_format": "512e",
+        "recording_tech": "cmr",
+        "workload_tb_year": 550,
+        "market_tier": "enterprise",
+        "model_family": "Ultrastar DC HC550"
+      },
+      "aliases": [
+        {"alias_type": "mpn", "text": "WUH721818AL5201", "is_primary": true},
+        {"alias_type": "retail_pn", "text": "0F38352"}
+      ]
+    },
+    {
+      "model_number": "WUH721816ALE6L4",
+      "spec": {
+        "media_type": "hdd",
+        "interface": "SATA 6Gb/s",
+        "form_factor": "3.5",
+        "capacity_tb": "16",
+        "rpm": 7200,
+        "cache_mb": 512,
+        "sector_format": "512e",
+        "recording_tech": "cmr",
+        "workload_tb_year": 550,
+        "market_tier": "enterprise",
+        "model_family": "Ultrastar DC HC550"
+      },
+      "aliases": [{"alias_type": "mpn", "text": "WUH721816ALE6L4", "is_primary": true}]
+    },
+    {
+      "model_number": "WUH721816ALE604",
+      "spec": {
+        "media_type": "hdd",
+        "interface": "SATA 6Gb/s",
+        "form_factor": "3.5",
+        "capacity_tb": "16",
+        "rpm": 7200,
+        "cache_mb": 512,
+        "recording_tech": "cmr",
+        "workload_tb_year": 550,
+        "market_tier": "enterprise",
+        "model_family": "Ultrastar DC HC550",
+        "spec_json": {
+          "suffix_note": "ALE604 vs ALE6L4: distinct WD model numbers (power-disable pin / security position per HC550 SATA OEM manual); kept as separate product_model rows"
+        }
+      },
+      "aliases": [{"alias_type": "mpn", "text": "WUH721816ALE604", "is_primary": true}]
+    }
+  ]
+}

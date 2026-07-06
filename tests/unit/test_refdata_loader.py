@@ -23,3 +23,10 @@ def test_every_alias_is_normalize_alias_text_of_its_raw_form() -> None:
         for model in doc.models:
             for alias in model.aliases:
                 assert alias.normalized == normalize_alias_text(alias.text)
+
+
+def test_repo_seed_corpus_totals() -> None:
+    docs = load_seed_documents()
+    assert {d.manufacturer_key for d in docs} == {"seagate", "western_digital"}
+    assert sum(len(d.models) for d in docs) == 15
+    assert sum(len(m.aliases) for d in docs for m in d.models) == 17
