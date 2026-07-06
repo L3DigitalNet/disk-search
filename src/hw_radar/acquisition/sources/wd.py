@@ -166,7 +166,9 @@ class WdAdapter:
                 shipping_price=p.shipping_price,
                 http_status=200,
                 latency_ms=None,
-                endpoint=SEARCH_URL,
+                # the reading's data came from this variant's product response,
+                # not the search sweep — D1 writes this as the observation endpoint.
+                endpoint=p.raw_url,
             )
             for p in self.parse(batch)
         ]
