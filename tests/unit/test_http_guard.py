@@ -24,16 +24,27 @@ def clear_robots_cache() -> None:
 
 
 def _transport(
-    *, robots_status: int, robots_body: str = "", robots_raises: bool = False
+    *,
+    robots_status: int,
+    robots_body: str = "",
+    robots_raises: bool = False,
+    target_hits: dict[str, int] | None = None,
 ) -> httpx.MockTransport:
     """robots_status drives the /robots.txt response; a non-/robots.txt path
-    returns 200 {"ok": true}. robots_raises simulates a network transport error."""
+    returns 200 {"ok": true}. robots_raises simulates a network transport error.
+
+    target_hits, when given, is incremented on every non-/robots.txt request so
+    fail-closed tests can assert the target was never fetched (not merely that
+    get() raised) — a handler that always answers 200 can't otherwise
+    distinguish "target blocked" from "target errored"."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/robots.txt":
             if robots_raises:
                 raise httpx.ConnectError("robots unreachable")
             return httpx.Response(robots_status, text=robots_body)
+        if target_hits is not None:
+            target_hits["count"] = target_hits.get("count", 0) + 1
         return httpx.Response(200, json={"ok": True})
 
     return httpx.MockTransport(handler)
@@ -74,7 +85,8 @@ def test_robots_404_is_unrestricted() -> None:  # RFC 9309: 4xx => allow
 
 
 def test_robots_503_denies_and_does_not_fetch_target() -> None:  # RFC 9309: 5xx => deny
-    tr = _transport(robots_status=503)
+    target_hits: dict[str, int] = {}
+    tr = _transport(robots_status=503, target_hits=target_hits)
 
     async def drive() -> bool:
         async with httpx.AsyncClient(transport=tr) as c:
@@ -84,10 +96,12 @@ def test_robots_503_denies_and_does_not_fetch_target() -> None:  # RFC 9309: 5xx
 
     allowed = asyncio.run(drive())
     assert allowed is False
+    assert target_hits.get("count", 0) == 0
 
 
 def test_robots_network_error_denies() -> None:  # RFC 9309: unreachable => deny
-    tr = _transport(robots_status=200, robots_raises=True)
+    target_hits: dict[str, int] = {}
+    tr = _transport(robots_status=200, robots_raises=True, target_hits=target_hits)
 
     async def drive() -> None:
         async with httpx.AsyncClient(transport=tr) as c:
@@ -95,3 +109,4 @@ def test_robots_network_error_denies() -> None:  # RFC 9309: unreachable => deny
                 await get("https://serverpartdeals.com/x/products.json", client=c)
 
     asyncio.run(drive())
+    assert target_hits.get("count", 0) == 0
