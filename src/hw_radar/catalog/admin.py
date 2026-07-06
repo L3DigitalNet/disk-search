@@ -13,6 +13,8 @@ from hw_radar.catalog.models import (
     ProductFamily,
     ProductModel,
     ProductVariant,
+    RefdataConfig,
+    ReferenceFetchRequest,
     ScraperRun,
     Seller,
     SourceConfig,
@@ -103,3 +105,26 @@ class UnknownModelBackfillAdmin(
         self, request: HttpRequest, obj: UnknownModelBackfill | None = None
     ) -> bool:
         return False
+
+
+@admin.register(RefdataConfig)
+class RefdataConfigAdmin(
+    admin.ModelAdmin  # pyright: ignore[reportMissingTypeArgument]
+    # see ListingResolutionAdmin: runtime ModelAdmin isn't subscriptable
+):
+    list_display = ("pk", "enabled", "discovery_occurrence_threshold", "last_refresh_at")
+
+
+@admin.register(ReferenceFetchRequest)
+class ReferenceFetchRequestAdmin(
+    admin.ModelAdmin  # pyright: ignore[reportMissingTypeArgument]
+):
+    list_display = (
+        "hypothesis_key",
+        "vendor_hint",
+        "occurrences_at_enqueue",
+        "status",
+        "created_at",
+    )
+    list_filter = ("status", "vendor_hint")
+    search_fields = ("hypothesis_key", "mpn_hypothesis")
