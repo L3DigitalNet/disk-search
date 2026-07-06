@@ -25,6 +25,7 @@ Invariants:
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from decimal import Decimal
 
 from django.db import transaction
@@ -276,7 +277,7 @@ def _first_decode(candidates: list[MpnCandidate]) -> DecodeResult | None:
 
 
 def _run_ladder(
-    listing: Listing,
+    listing: Listing, *, reconsider: bool = False
 ) -> tuple[str, ExtractedAttributes, list[MpnCandidate], ladder.Verdict]:
     canonical = canonicalize_title(f"{listing.title_raw} {listing.condition_label_raw}".strip())
     extracted = vocab.extract(canonical)
@@ -285,16 +286,23 @@ def _run_ladder(
         structured_mpn=_structured_mpn(listing),
         source_key=listing.source_site.normalized_name,
     )
+    # reconsider (C.3.4 catalog-refresh re-run): prior=None bypasses rung 0 so
+    # rungs 1-2 get a shot at freshly seeded aliases — otherwise a family-grain
+    # listing re-accepts its prior forever and the catalog seed can never
+    # upgrade it. The veto still runs; unchanged outcomes write no edge.
+    prior = None if reconsider else _prior_from_listing(listing)
     verdict = ladder.decide(
         extracted,
         candidates,
-        _prior_from_listing(listing),
+        prior,
         _alias_hits(
             candidates,
             listing.source_site_id,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue] - django-types has no <field>_id shadow-attribute stubs
         ),
         _first_decode(candidates),
     )
+    if reconsider:
+        verdict = replace(verdict, evidence={**verdict.evidence, "reconsider": True})
     return canonical, extracted, candidates, verdict
 
 
@@ -404,6 +412,15 @@ def _product_model_id(obj: ListingResolution | ProductVariant | None) -> int | N
     return obj.product_model_id  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType, reportAttributeAccessIssue] - django-types has no <field>_id shadow-attribute stubs
 
 
+def _stamp_evaluated(current: ListingResolution) -> None:
+    current.last_evaluated_at = timezone.now()
+    current.save(update_fields=["last_evaluated_at"])
+
+
+def _edge_target_ids(edge: ListingResolution) -> tuple[int | None, int | None, int | None]:
+    return (edge.product_family_id, edge.product_model_id, edge.product_variant_id)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType, reportAttributeAccessIssue] - django-types has no <field>_id shadow-attribute stubs
+
+
 @transaction.atomic
 def _apply(
     listing: Listing,
@@ -442,6 +459,10 @@ def _apply(
     if unchanged_accept or unchanged_miss or unchanged_error:
         # Routine re-poll with an unchanged outcome: no edge spam
         # (append-only ≠ append-always). Distinct NEW errors DO append (CR-001).
+        # But freshness IS recorded (MS-1b carry-forward): a long-lived miss
+        # only looks re-examined when something actually re-ran the ladder.
+        if current is not None:
+            _stamp_evaluated(current)
         if canonical and locked.title_normalized != canonical:
             locked.title_normalized = canonical
             locked.save(update_fields=["title_normalized"])
@@ -453,6 +474,20 @@ def _apply(
         # Non-accept (incl. error) edges never materialize identity rows — this
         # also keeps the CR-001 fallback error-write free of _materialize.
         grain, family, model, variant, on_demand = ResolutionGrain.NONE, None, None, None, False
+    if accepted and current is not None and "error" not in current.evidence:
+        new_targets = (
+            family.pk if grain == ResolutionGrain.FAMILY and family is not None else None,
+            model.pk if grain == ResolutionGrain.MODEL and model is not None else None,
+            variant.pk if grain == ResolutionGrain.VARIANT and variant is not None else None,
+        )
+        if current.grain == grain and _edge_target_ids(current) == new_targets:
+            # Same accept, same target (a reconsider re-hit, or a rung-1 accept
+            # identical to the current edge): freshness only, no new edge.
+            _stamp_evaluated(current)
+            if canonical and locked.title_normalized != canonical:
+                locked.title_normalized = canonical
+                locked.save(update_fields=["title_normalized"])
+            return
     evidence: dict[str, object] = {**verdict.evidence, "outcome": verdict.outcome}
     if verdict.rung is not None:
         evidence["rung"] = verdict.rung
@@ -517,10 +552,10 @@ def _apply(
 class CatalogResolver:
     """The ADR-0019 resolver service. Stateless — safe to construct per call."""
 
-    def resolve_listing(self, listing_id: int) -> None:
+    def resolve_listing(self, listing_id: int, *, reconsider: bool = False) -> None:
         listing = Listing.objects.select_related("source_site").get(pk=listing_id)
         try:
-            canonical, extracted, candidates, verdict = _run_ladder(listing)
+            canonical, extracted, candidates, verdict = _run_ladder(listing, reconsider=reconsider)
         except Exception as exc:  # ladder failure → error verdict (C.3)
             logger.exception("matcher crashed for listing %s", listing_id)
             canonical, extracted, candidates = "", ExtractedAttributes(), []
