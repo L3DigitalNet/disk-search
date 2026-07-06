@@ -1,13 +1,14 @@
 # Handoff State
 
-Last updated: 2026-07-05
+Last updated: 2026-07-06
 
 ## Live State
 
 - Agent Handoff System v3 has been adopted in this repo. The old local-only
   `docs/handoff.md` model was split into tracked lifetime-scoped files under
   `docs/handoff/`, plus root `STATUS.md` and `TODO.md`.
-- MS-1c is implemented on `dev` (pending PR to `main`): refdata pipeline
+- MS-1c is MERGED to `main` (PR #11, 2026-07-06 UTC; CD deploy run was in
+  progress at session end): refdata pipeline
   (contracts/loader/persist/discovery/refresh), curated seed corpus (3
   families / 15 models / 17 aliases), C.3.4 discovery loop, monthly refresh
   with resolver reconsider mode, matcher 2026.07.3, and a UTC-pinned poller
