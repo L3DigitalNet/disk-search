@@ -70,6 +70,7 @@ def test_service_jobs_always_registered() -> None:
         "deadman-push",
         "bucket-checkpoint",
         "recovery-probes",
+        "refdata-refresh",
     ):
         assert scheduler.get_job(job_id) is not None, job_id
 

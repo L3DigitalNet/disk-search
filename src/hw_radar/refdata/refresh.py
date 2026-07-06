@@ -75,7 +75,11 @@ def run_refresh(seed_dir: Path | None = None) -> RefreshReport:
         grain_after = Listing.objects.values_list("resolution_grain", flat=True).get(pk=pk)
         if GRAIN_ORDER[Grain(grain_after)] > GRAIN_ORDER[Grain(grain_before)]:
             report.upgraded += 1
-    report.discovery_enqueued = scan_backfill_queue()
+    try:
+        report.discovery_enqueued = scan_backfill_queue()
+    except Exception:  # never lose the reconsider pass's report over a discovery failure
+        logger.exception("discovery scan failed")
+        report.errors += 1
     config.last_refresh_at = timezone.now()
     config.last_report_json = report.as_json()
     config.save(update_fields=["last_refresh_at", "last_report_json", "updated_at"])

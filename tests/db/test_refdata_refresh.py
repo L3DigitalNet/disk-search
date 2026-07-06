@@ -1,12 +1,15 @@
 """RefdataConfig settings row, ReferenceFetchRequest queue, and (later tasks)
 the reconsider/discovery/refresh loop."""
 
+from pathlib import Path
+
 import pytest
 from django.core.management import CommandError, call_command
 
 from hw_radar.catalog.models import (
     FetchRequestStatus,
     Listing,
+    ListingResolution,
     Manufacturer,
     ProductAlias,
     ProductModel,
@@ -162,6 +165,37 @@ def test_run_refresh_conflicted_import_still_reconsiders(site: SourceSite) -> No
 def test_import_refdata_command_imports_the_seeds(db: None) -> None:
     call_command("import_refdata")
     assert ProductModel.objects.count() == 15
+
+
+def test_scan_skips_overlength_hypotheses(site: SourceSite) -> None:
+    _unknown_decoded_listings(site, 3)  # normal decode, at threshold
+    for edge in ListingResolution.objects.filter(is_current=True):
+        evidence = dict(edge.evidence)
+        evidence["mpn_hypothesis"] = "x" * 250  # exceeds the 200-char column cap
+        edge.evidence = evidence
+        edge.save(update_fields=["evidence"])
+    assert scan_backfill_queue() == 0
+    assert ReferenceFetchRequest.objects.count() == 0
+
+
+def test_run_refresh_survives_discovery_failure(
+    site: SourceSite, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _boom() -> int:
+        raise RuntimeError("discovery exploded")
+
+    monkeypatch.setattr("hw_radar.refdata.refresh.scan_backfill_queue", _boom)
+    report = run_refresh()
+    assert report.ran is True
+    assert report.errors >= 1
+    assert report.discovery_enqueued == 0
+    config = RefdataConfig.current()
+    assert config.last_refresh_at is not None
+
+
+def test_import_refdata_command_no_seed_dir_raises_command_error(tmp_path: Path) -> None:
+    with pytest.raises(CommandError):
+        call_command("import_refdata", "--seed-dir", str(tmp_path))
 
 
 def test_import_refdata_command_fails_loudly_on_conflicts(db: None) -> None:

@@ -198,6 +198,10 @@ def _import_model(
             changed += ["retention_class", "expires_at"]
         if changed:
             model.save(update_fields=[*changed, "updated_at"])
+    # exclude_none means a re-import cannot RETRACT a typed spec value: if a
+    # later seed corrects a field to "unknown" (None), the stale prior value
+    # survives untouched. An explicit-clear mechanism is future work, only if
+    # a real correction ever needs one.
     spec_defaults: dict[str, object] = seed_model.spec.model_dump(exclude_none=True)
     spec_defaults["retention_class"] = RetentionClass.MANUFACTURER_REFERENCE
     spec_defaults["expires_at"] = None
@@ -250,7 +254,12 @@ def _import_alias(model: ProductModel, alias: SeedAlias, report: ImportReport) -
 
 def _unreconciled_families(manufacturer_keys: list[str]) -> list[str]:
     """Families under seeded manufacturers with no models and no aliases: rung-2
-    provisional rows the seed did not adopt. Reported for review, never touched."""
+    provisional rows the seed did not adopt. Reported for review, never touched.
+
+    Known artifact, not a bug: the WD grammar decodes to the broad family
+    'ultrastar', which seeds never adopt (seeds are per-HC-generation, e.g.
+    'Ultrastar DC HC550'). Once any WD listing family-resolves to 'ultrastar',
+    this list will PERMANENTLY include it on every future import."""
 
     return sorted(
         ProductFamily.objects.filter(manufacturer__normalized_name__in=manufacturer_keys)

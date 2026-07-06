@@ -17,6 +17,10 @@ Last updated: 2026-07-05
   ADR-0019 validation/ratification.
 - Local DB note: DB-backed tests need TimescaleDB. On this workstation, use
   `HW_RADAR_DB_PORT=5433` when the container is mapped to `127.0.0.1:5433`.
+- Known artifact (not a bug): the WD grammar decodes to the broad family
+  `ultrastar`, which seeds never adopt (seeds are per-HC-generation). Once any
+  WD listing family-resolves, `ImportReport.unreconciled_families` will
+  PERMANENTLY list `ultrastar` on every subsequent import.
 
 ## Active Incidents
 

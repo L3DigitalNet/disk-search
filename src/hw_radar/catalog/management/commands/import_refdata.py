@@ -26,12 +26,18 @@ class Command(BaseCommand):
     def handle(self, *args: Any, **options: Any) -> None:
         seed_dir: Path | None = options["seed_dir"]
         if options["refresh"]:
-            report = run_refresh(seed_dir)
+            try:
+                report = run_refresh(seed_dir)
+            except FileNotFoundError as exc:
+                raise CommandError(str(exc)) from exc
             self.stdout.write(json.dumps(report.as_json(), indent=2, default=str))
             if report.conflicts:
                 raise CommandError(f"{len(report.conflicts)} alias conflict(s) — see report")
             return
-        docs = load_seed_documents(seed_dir)
+        try:
+            docs = load_seed_documents(seed_dir)
+        except FileNotFoundError as exc:
+            raise CommandError(str(exc)) from exc
         try:
             report = import_documents(docs)
         except ImportConflictError as exc:
