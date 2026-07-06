@@ -47,6 +47,18 @@ none of it is checkable from this repo.
       not after.
 - [ ] The restore path for the dump above is documented (runbook §18.6) and
       has been read by whoever is about to flip the first source live.
+- [ ] **Bounded-retention TTL enforcement exists for the class being enabled.**
+      `expires_at` is stamped on bounded-class rows but nothing physically
+      deletes rows where `expires_at < now` today (pre-existing substrate
+      gap across all `RetentionGoverned` tables). The only physical purge is
+      TimescaleDB's 30-day chunk-retention policy on
+      `availability_heartbeat_observation`; the `availability_heartbeat_event`
+      table (365-day intent) and any per-source shorter TTL are **not**
+      swept. **This gates eBay specifically:** eBay heartbeat/listing rows
+      carry a 6h `expires_at` (DR-008), but that ≤6h bound is not physically
+      enforced until a sweeper (or a per-source hypertable retention policy)
+      lands. Do not flip eBay `enabled=True` until the sweeper exists — this
+      is in addition to the CR-004 delist-path block below.
 
 Do not flip any source's `enabled` to `True` until every box above is
 checked by an operator against the live system, not from this document.
