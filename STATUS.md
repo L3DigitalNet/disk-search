@@ -22,6 +22,7 @@ unfinished work stays in `TODO.md`.
 - 2026-07-05: Adopted Agent Handoff System v3 layout and replaced local-only handoff notes with tracked lifetime-scoped docs.
 - 2026-07-05: Added the MS-1c catalog seed input ledger covering Seagate Exos/IronWolf Pro, WD Ultrastar/Gold, and Toshiba MG seed candidates.
 - 2026-07-06: MS-1c catalog seed merged via PR #11 after a Codex-reviewed plan, per-task subagent reviews, and a final whole-branch review; scheduler now explicitly pinned to UTC.
+- 2026-07-06: Pre-MS-1d catch-up — backfilled recorded test debt (distinct consecutive resolver errors, error-edge recovery, rung-2 decoder-capacity veto, admin permission methods) and pinned the append-only listing delete-protection contract. Owner-confirmed the append-only ledger posture as **intentional** (hard delete never; eBay delete-on-delist per spec IR-002 becomes a future Listing-grain soft-delete path). Accepted the WD `ultrastar` unreconciled-families entry as a **known cosmetic artifact** (documented at `refdata/persist.py::_unreconciled_families`); no code change.
 
 ## Notes For The Builder
 

@@ -5,6 +5,7 @@ rule-1 normalizer PARITY test (the CI guard for the single-normalizer invariant)
 from decimal import Decimal
 
 import pytest
+from django.db.models.deletion import ProtectedError
 
 from hw_radar.catalog.models import (
     AliasSourceKind,
@@ -457,3 +458,27 @@ def test_rung2_decode_capacity_contradiction_vetoes_to_review(site: SourceSite) 
     assert edge.grain == ResolutionGrain.NONE  # not accepted as a provisional family
     assert edge.evidence.get("veto") == ["capacity"]
     assert "decoder_capacity" in edge.evidence  # the rung-2-specific veto payload
+
+
+def test_listing_delete_is_blocked_by_supersede_chain(
+    site: SourceSite, exos_16tb: ProductModel
+) -> None:
+    """Characterization of an INTENTIONAL posture (owner decision 2026-07-05): a
+    Listing whose resolution ledger contains a superseded edge cannot be
+    hard-deleted — the append-only edge table's `superseded_by` PROTECT (DR-010,
+    ADR-0019 rule 6) makes the cascade raise ProtectedError. The append-only
+    audit trail is deliberate; removing a listing is a future soft-delete /
+    terminal-state concern (eBay delete-on-delist, spec IR-002), never a hard
+    delete that would shred the trail. This test pins that guarantee so a future
+    on_delete relaxation is caught."""
+    listing = _listing(site, "del-1", "Seagate Exos 16TB ST16000NM001G Recertified")
+    resolver = CatalogResolver()
+    resolver.resolve_listing(listing.pk)  # accept → VARIANT (edge 1)
+    Listing.objects.filter(pk=listing.pk).update(
+        title_raw="Seagate Exos 14TB ST16000NM001G Recertified"
+    )
+    resolver.resolve_listing(listing.pk)  # veto-demote → old edge.superseded_by set
+    assert _edge_count(listing, superseded_by__isnull=False) == 1  # chain exists
+
+    with pytest.raises(ProtectedError):
+        listing.delete()  # cascade to a protected edge → blocked, by design
