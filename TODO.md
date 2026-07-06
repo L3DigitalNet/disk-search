@@ -9,20 +9,8 @@ Human-facing work queue. The project builder owns the first section; agents main
 - [ ] **SanDisk↔WD real-corpus alias verification:** run against seeded catalog aliases before the first WD/SanDisk SSD family seed (plan D7; brand-equivalence descriptor machinery landed at MS-1c).
 - [ ] **MS-1d connector must-dos:** enable sources deliberately, wire heartbeat adapters, keep fast-lane to WD/Seagate/eBay, pass `expires_at` through `run_source`, store per-item raw payload rows, revisit Scrapy diagnostics, and classify `httpx.TransportError` as transient before non-USD/API sources go live.
 - [ ] **ADR-0019 ratification:** hand-label a real listing corpus, require at least 99.5% precision on auto-accepted rungs 0-2, measure model-grain coverage, then update ADR-0019 and the spec qualifiers if the validation passes.
-- [ ] **Recorded test debt (residual):** distinct-consecutive-error dedup, error-edge
-  recovery, and admin permission methods are now covered (2026-07-06), along with one
-  resolver family branch (rung-2 decoder-capacity veto). Still open — the remaining
-  resolver prior/family branches: rung-1 OEM N:N family fan-out (`oem_fanout`),
-  the conflicting-targets and no-brand-evidence REVIEW paths, the family-agreement-set
-  veto, and the WD/HGST/SanDisk brand-equivalence gate. Add when touching those areas.
-- [ ] **eBay delete-on-delist soft-delete path (spec IR-002):** the append-only /
-  `PROTECT` ledger posture is owner-confirmed **intentional** (2026-07-05) —
-  `Listing.delete()` is deliberately blocked and pinned by
-  `test_listing_delete_is_blocked_by_supersede_chain`; hard delete is never the
-  path. When the eBay connector lands (MS-1d+), implement listing removal as a
-  Listing-grain soft-delete / terminal state (mirroring `RetentionGoverned` +
-  `is_current`) to satisfy the eBay delete-on-delist obligation, **without**
-  relaxing the resolution-edge `superseded_by` `PROTECT`.
+- [ ] **Recorded test debt (residual):** distinct-consecutive-error dedup, error-edge recovery, admin permission methods, rung-2 decoder-capacity veto, pure-ladder `oem_fanout`, conflicting-targets / no-brand-evidence REVIEW paths, and WD/HGST/SanDisk brand-equivalence coverage are now pinned. Still open — add a DB-level family-agreement-set veto regression when touching resolver family agreement inheritance.
+- [ ] **eBay delete-on-delist soft-delete path (spec IR-002):** the append-only / `PROTECT` ledger posture is owner-confirmed **intentional** (2026-07-05) — `Listing.delete()` is deliberately blocked and pinned by `test_listing_delete_is_blocked_by_supersede_chain`; hard delete is never the path. When the eBay connector lands (MS-1d+), implement listing removal as a Listing-grain soft-delete / terminal state (mirroring `RetentionGoverned` + `is_current`) to satisfy the eBay delete-on-delist obligation, **without** relaxing the resolution-edge `superseded_by` `PROTECT`.
 
 ## Maintenance Notes
 
