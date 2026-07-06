@@ -1,3 +1,4 @@
+import httpx
 import pytest
 
 from hw_radar.acquisition.classify import classify_exception, classify_response
@@ -81,6 +82,24 @@ def test_healthy_200_returns_none() -> None:
 def test_network_exceptions_are_transient() -> None:
     assert classify_exception(TimeoutError()) == RunFailureClass.TRANSIENT
     assert classify_exception(OSError("dns")) == RunFailureClass.TRANSIENT
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        # httpx.TransportError is the base for every transport-layer failure and
+        # derives from httpx.HTTPError(Exception), NOT OSError/ConnectionError —
+        # so without an explicit rule these would fall through to UNKNOWN and
+        # pause the source for manual review instead of backing off (CR-003).
+        httpx.ConnectError("refused"),
+        httpx.ReadTimeout("slow"),
+        httpx.ConnectTimeout("slow"),
+        httpx.PoolTimeout("pool"),
+        httpx.RemoteProtocolError("bad frame"),
+    ],
+)
+def test_httpx_transport_errors_are_transient(exc: httpx.TransportError) -> None:
+    assert classify_exception(exc) is RunFailureClass.TRANSIENT
 
 
 def test_unexpected_exception_is_unknown() -> None:
