@@ -4,9 +4,11 @@ from collections.abc import Callable
 
 from hw_radar.acquisition.contracts import SourceAdapter
 from hw_radar.acquisition.sources.demo import DemoAdapter
+from hw_radar.acquisition.sources.goharddrive import GoHardDriveAdapter
 from hw_radar.acquisition.sources.serverpartdeals import ServerPartDealsAdapter
 
 ADAPTERS: dict[str, Callable[[], SourceAdapter]] = {
     "demo": DemoAdapter,
+    "goharddrive": GoHardDriveAdapter,
     "serverpartdeals": ServerPartDealsAdapter,
 }
