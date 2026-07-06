@@ -7,7 +7,14 @@ from hw_radar.catalog.models.base import (
     TimeStamped,
     retention_constraints,
 )
-from hw_radar.catalog.models.evidence import RawPayload, SearchObservation, VerificationEvent
+from hw_radar.catalog.models.evidence import (
+    AvailabilityHeartbeatEvent,
+    AvailabilityHeartbeatObservation,
+    HeartbeatDecision,
+    RawPayload,
+    SearchObservation,
+    VerificationEvent,
+)
 from hw_radar.catalog.models.identity import (
     AliasSourceKind,
     AliasType,
@@ -61,6 +68,8 @@ __all__ = [
     "INDEFINITE_RETENTION_CLASSES",
     "AliasSourceKind",
     "AliasType",
+    "AvailabilityHeartbeatEvent",
+    "AvailabilityHeartbeatObservation",
     "Category",
     "CheapSignal",
     "Condition",
@@ -68,6 +77,7 @@ __all__ = [
     "DriveUnit",
     "FetchRequestStatus",
     "FxRateDaily",
+    "HeartbeatDecision",
     "LifecycleState",
     "Listing",
     "ListingResolution",

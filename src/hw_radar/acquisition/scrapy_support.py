@@ -48,16 +48,29 @@ def install_asyncio_reactor() -> None:
         raise RuntimeError("a non-asyncio Twisted reactor is already installed")
 
 
-async def run_spider(spider_cls: type, **spider_kwargs: object) -> list[dict[str, object]]:
+async def run_spider(
+    spider_cls: type,
+    *,
+    settings_override: dict[str, object] | None = None,
+    **spider_kwargs: object,
+) -> list[dict[str, object]]:
     """Run one spider on the current loop; return its scraped items as dicts.
 
     AsyncCrawlerRunner is the asyncio-native primitive the Scrapy docs prescribe
     (design §MS-1a / Codex SA-006). Documented fallback ONLY if the pinned Scrapy
     lacks it: CrawlerRunner + `runner.crawl(...).asFuture(asyncio.get_running_loop())`.
+
+    settings_override layers over BASE_SETTINGS at run scope, so production
+    callers pass nothing (C-007 guardrails intact, robots obeyed) while a test
+    driving a file:// fixture — which cannot serve /robots.txt — passes
+    {"ROBOTSTXT_OBEY": False}. This keeps that exception at the call site rather
+    than baking a permanent ROBOTSTXT_OBEY=False into any production spider.
     """
     install_asyncio_reactor()
     settings = Settings()
     settings.setdict(BASE_SETTINGS, priority="project")
+    if settings_override:
+        settings.setdict(settings_override, priority="cmdline")
     items: list[dict[str, object]] = []
 
     def collect(item: dict[str, object], response: object, spider: object) -> None:

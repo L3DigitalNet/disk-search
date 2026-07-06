@@ -157,18 +157,23 @@ def test_listing_is_international_defaults_false() -> None:
 
 def test_seeded_sources_exist_and_are_disabled() -> None:
     # Migration 0005 seeds the five MS-1 sources + demo, all disabled until
-    # their connector lands (MS-1d flips each on as it ships).
+    # their connector lands (MS-1d flips each on as it ships). Migration 0011
+    # flips heartbeat_enabled per-source as each connector's task lands (C1:
+    # serverpartdeals, C3: WD, C4: Seagate, C5: eBay); fast_lane stays False for
+    # sources that aren't drop_prone-eligible (FR-002). eBay is heartbeat-native:
+    # its Browse poll IS the heartbeat, so fast_lane=True (drop_prone ∩ ebay_browse).
     expected = {
-        "wd-recertified": SourceTier.T1_MANUFACTURER,
-        "seagate-recertified": SourceTier.T1_MANUFACTURER,
-        "serverpartdeals": SourceTier.T2_SPECIALIST,
-        "goharddrive": SourceTier.T2_SPECIALIST,
-        "ebay": SourceTier.T0_OFFICIAL_API,
-        "demo": SourceTier.T2_SPECIALIST,
+        # key: (tier, heartbeat_enabled, fast_lane)
+        "wd-recertified": (SourceTier.T1_MANUFACTURER, True, True),
+        "seagate-recertified": (SourceTier.T1_MANUFACTURER, True, True),
+        "serverpartdeals": (SourceTier.T2_SPECIALIST, True, False),
+        "goharddrive": (SourceTier.T2_SPECIALIST, False, False),
+        "ebay": (SourceTier.T0_OFFICIAL_API, True, True),
+        "demo": (SourceTier.T2_SPECIALIST, False, False),
     }
-    for key, tier in expected.items():
+    for key, (tier, heartbeat_enabled, fast_lane) in expected.items():
         config = SourceConfig.objects.get(source_site__normalized_name=key)
         assert config.tier == tier, key
         assert config.enabled is False, key
-        assert config.heartbeat_enabled is False, key  # flipped at MS-1d per the design matrix
-        assert config.fast_lane is False, key  # flipped at MS-1d (WD/Seagate/eBay only, FR-002)
+        assert config.heartbeat_enabled is heartbeat_enabled, key
+        assert config.fast_lane is fast_lane, key  # FR-002: drop_prone-only (WD flipped C3)

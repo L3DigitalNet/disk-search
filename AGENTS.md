@@ -33,6 +33,12 @@ design and plans under `docs/superpowers/`.
 - Current status: `STATUS.md`
 - Work queue: `TODO.md`
 
+## TODO Discipline
+
+When working on an item listed in `TODO.md`, update that item in the same change:
+remove completed work, narrow partially completed work, and add newly discovered
+follow-ups. Keep user-owned and agent-tracked sections separate.
+
 ## Commands
 
 ```bash

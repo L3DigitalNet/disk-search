@@ -5,6 +5,7 @@ rule-1 normalizer PARITY test (the CI guard for the single-normalizer invariant)
 from decimal import Decimal
 
 import pytest
+from django.db.models.deletion import ProtectedError
 
 from hw_radar.catalog.models import (
     AliasSourceKind,
@@ -279,6 +280,61 @@ def test_repeated_identical_crash_does_not_spam_error_edges(
     assert _edge_count(listing) == 1  # identical error: no spam (CR-001)
 
 
+def test_distinct_consecutive_crashes_each_append_an_error_edge(
+    site: SourceSite, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other half of the no-spam contract (resolver `unchanged_error`): the
+    skip is keyed on `repr(exc)`, so a DIFFERENT failure on the next poll is a
+    real state change and MUST append a new edge — a regressed matcher must not
+    hide behind a stale error the way an identical crash is deduped."""
+    listing = _listing(site, "l10b", "whatever 16TB")
+    resolver = CatalogResolver()
+
+    def boom_a(title: str) -> object:
+        raise RuntimeError("first distinct failure")
+
+    def boom_b(title: str) -> object:
+        raise ValueError("second, different failure")
+
+    monkeypatch.setattr(vocab, "extract", boom_a)
+    resolver.resolve_listing(listing.pk)
+    monkeypatch.setattr(vocab, "extract", boom_b)
+    resolver.resolve_listing(listing.pk)
+
+    assert _edge_count(listing) == 2  # distinct errors are NOT deduped
+    errors = {edge.evidence["error"] for edge in ListingResolution.objects.filter(listing=listing)}
+    assert len(errors) == 2  # two different repr(exc) payloads recorded
+
+
+def test_clean_poll_recovers_a_listing_stuck_on_an_error_edge(
+    site: SourceSite, exos_16tb: ProductModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The `unchanged_accept` carve-out (resolver): when the current edge is an
+    error edge, a clean re-resolution to the SAME target the denorm still holds
+    must NOT be treated as an unchanged-accept no-op — it must append a real
+    recovery edge that supersedes the error, or a transient crash would pin the
+    listing on the error edge forever."""
+    listing = _listing(site, "l10c", "Seagate Exos 16TB ST16000NM001G Recertified")
+    resolver = CatalogResolver()
+    resolver.resolve_listing(listing.pk)  # rung-1 accept → VARIANT (edge 1)
+
+    def boom(title: str) -> object:
+        raise RuntimeError("transient matcher bug")
+
+    with monkeypatch.context() as m:
+        m.setattr(vocab, "extract", boom)
+        resolver.resolve_listing(listing.pk)  # error edge, denorm preserved (edge 2)
+    assert _edge(listing, is_current=True).evidence.get("error") is not None
+
+    resolver.resolve_listing(listing.pk)  # vocab restored: clean recovery (edge 3)
+    listing.refresh_from_db()
+    recovered = _edge(listing, is_current=True)
+    assert "error" not in recovered.evidence  # back to a clean accept edge
+    assert recovered.grain == ResolutionGrain.VARIANT
+    assert listing.resolution_grain == ResolutionGrain.VARIANT
+    assert _edge_count(listing) == 3  # recovery appended, did not skip
+
+
 def test_apply_failure_falls_back_to_error_edge(
     site: SourceSite, exos_16tb: ProductModel, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -387,3 +443,42 @@ def test_reconsider_accept_rehit_same_target_stamps_without_new_edge(
     assert edge.last_evaluated_at > stamp_before  # freshness recorded
     listing.refresh_from_db()
     assert listing.resolution_grain == ResolutionGrain.MODEL  # denorm untouched
+
+
+def test_rung2_decode_capacity_contradiction_vetoes_to_review(site: SourceSite) -> None:
+    """Rung-2 family branch: WD20EFRX decodes to family 'red' at 2 TB
+    (community-corroborated). A title asserting a different capacity is a
+    decoder-vs-extracted contradiction, so the decode must NOT be adopted as a
+    provisional family — it vetoes to REVIEW (ADR-0019 rule 3: never guess
+    against contradicting evidence). This is the only rung where the veto
+    compares the DECODER's capacity, not a catalog spec's."""
+    listing = _listing(site, "cap-veto-1", "WD Red 8TB WD20EFRX SATA NAS Hard Drive")
+    CatalogResolver().resolve_listing(listing.pk)
+    edge = _edge(listing, is_current=True)
+    assert edge.grain == ResolutionGrain.NONE  # not accepted as a provisional family
+    assert edge.evidence.get("veto") == ["capacity"]
+    assert "decoder_capacity" in edge.evidence  # the rung-2-specific veto payload
+
+
+def test_listing_delete_is_blocked_by_supersede_chain(
+    site: SourceSite, exos_16tb: ProductModel
+) -> None:
+    """Characterization of an INTENTIONAL posture (owner decision 2026-07-05): a
+    Listing whose resolution ledger contains a superseded edge cannot be
+    hard-deleted — the append-only edge table's `superseded_by` PROTECT (DR-010,
+    ADR-0019 rule 6) makes the cascade raise ProtectedError. The append-only
+    audit trail is deliberate; removing a listing is a future soft-delete /
+    terminal-state concern (eBay delete-on-delist, spec IR-002), never a hard
+    delete that would shred the trail. This test pins that guarantee so a future
+    on_delete relaxation is caught."""
+    listing = _listing(site, "del-1", "Seagate Exos 16TB ST16000NM001G Recertified")
+    resolver = CatalogResolver()
+    resolver.resolve_listing(listing.pk)  # accept → VARIANT (edge 1)
+    Listing.objects.filter(pk=listing.pk).update(
+        title_raw="Seagate Exos 14TB ST16000NM001G Recertified"
+    )
+    resolver.resolve_listing(listing.pk)  # veto-demote → old edge.superseded_by set
+    assert _edge_count(listing, superseded_by__isnull=False) == 1  # chain exists
+
+    with pytest.raises(ProtectedError):
+        listing.delete()  # cascade to a protected edge → blocked, by design

@@ -78,6 +78,7 @@ class DemoAdapter:
                     stock_status=(
                         "in_stock" if "InStock" in str(offer.get("availability", "")) else "unknown"
                     ),
+                    raw_url=item.url,
                 )
             )
         return parsed

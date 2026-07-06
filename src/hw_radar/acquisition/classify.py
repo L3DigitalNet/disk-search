@@ -7,6 +7,8 @@ authentic page fails extraction, and degradation is computed from run metrics.
 
 from __future__ import annotations
 
+import httpx
+
 from hw_radar.catalog.models import RunFailureClass
 
 TRANSIENT_STATUSES = frozenset({408, 500, 502, 504})
@@ -23,7 +25,10 @@ SOFT_BLOCK_BODY_RATIO = 0.2  # EC-007 body-size outlier threshold
 
 
 def classify_exception(exc: Exception) -> RunFailureClass:
-    if isinstance(exc, TimeoutError | ConnectionError | OSError):
+    # httpx.TransportError (all transport subclasses inherit it) derives from
+    # httpx.HTTPError(Exception), not OSError — an API timeout/connect failure
+    # must back off as TRANSIENT, not escalate to UNKNOWN and pause the source.
+    if isinstance(exc, TimeoutError | ConnectionError | OSError | httpx.TransportError):
         return RunFailureClass.TRANSIENT
     return RunFailureClass.UNKNOWN
 

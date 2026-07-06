@@ -10,7 +10,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import statistics
-from datetime import date
+from collections.abc import Callable
+from datetime import date, datetime
 
 from asgiref.sync import sync_to_async
 from django.utils import timezone
@@ -29,6 +30,9 @@ from hw_radar.acquisition.persist import append_snapshot, store_raw, upsert_list
 from hw_radar.acquisition.scheduling.apply import RunOutcome
 from hw_radar.acquisition.scheduling.lifecycle import LifecycleEvent
 from hw_radar.catalog.models import (
+    Listing,
+    RawPayload,
+    ResolutionGrain,
     RetentionClass,
     RunFailureClass,
     RunKind,
@@ -97,12 +101,29 @@ def _persist_all(
     batch: RawBatch,
     normalized: list[NormalizedListing],
     retention_class: RetentionClass,
+    expires_at: datetime | None,
 ) -> tuple[list[int], int, int]:
-    raw = (
-        store_raw(batch.items[0], fetched_at=batch.fetched_at, retention_class=retention_class)
-        if batch.items
-        else None
-    )
+    # CR-002: every RawItem is stored, not just items[0] — multi-request
+    # connectors (e.g. WD's search sweep + per-product fetches) otherwise lose
+    # provenance for every item but the first. raws is a LIST (not a dict keyed
+    # by url) so duplicate source URLs each still get their own stored row.
+    raws = [
+        store_raw(
+            item,
+            fetched_at=batch.fetched_at,
+            retention_class=retention_class,
+            expires_at=expires_at,
+        )
+        for item in batch.items
+    ]
+    # url -> RawPayload for snapshot association; first raw per url wins when
+    # a batch has duplicate source URLs (rare, but must not drop a stored row).
+    by_url: dict[str, RawPayload] = {}
+    for item, raw in zip(batch.items, raws, strict=True):
+        by_url.setdefault(item.url, raw)
+    # Single-item batches have no meaningful raw_url to key on (adapters may
+    # leave it unset); fall back to the one raw payload that must be it.
+    sole = raws[0] if len(raws) == 1 else None
     listing_ids: list[int] = []
     upserted = 0
     appended = 0
@@ -112,12 +133,40 @@ def _persist_all(
     # faithfully.
     observed_at = batch.fetched_at
     for record in normalized:
-        listing, _created = upsert_listing(site, record, retention_class)
+        listing, _created = upsert_listing(site, record, retention_class, expires_at=expires_at)
+        # append_snapshot reads listing.expires_at (not the expires_at param
+        # directly) so a snapshot's TTL always matches its listing's current
+        # value, even if a future caller mutates the listing between calls.
+        raw = by_url.get(record.raw_url) or sole  # per-item; fallback to the sole raw
         append_snapshot(listing, record, observed_at=observed_at, raw=raw)
         listing_ids.append(listing.pk)
         upserted += 1
         appended += 1
     return listing_ids, upserted, appended
+
+
+def _grain_counts(listing_ids: list[int]) -> dict[str, int]:
+    # POST-resolution tally (SA-003): read after resolver.resolve_listing has
+    # run for every listing_id, so this reflects each listing's final grain
+    # for the run, not its pre-resolve default. Every persisted listing has a
+    # grain (default NONE), so counts always sum to records_valid.
+    #
+    # listing_ids can repeat a pk: two records in one batch sharing a
+    # source_listing_key both resolve to the same Listing via upsert_listing's
+    # (source_site, source_listing_key) key, so _persist_all appends that pk
+    # once per record, not once per distinct listing. A filter(...).count()-style
+    # tally over DISTINCT query rows would collapse the repeat and undercount
+    # (E1 review) — build a pk->grain map instead and iterate listing_ids
+    # (with duplicates) so sum(counts) == len(listing_ids) == records_valid
+    # unconditionally.
+    grain_by_pk: dict[int, str] = dict(
+        Listing.objects.filter(pk__in=listing_ids).values_list("pk", "resolution_grain")
+    )
+    counts: dict[str, int] = {str(choice): 0 for choice in ResolutionGrain.values}
+    for listing_id in listing_ids:
+        key = str(grain_by_pk[listing_id])
+        counts[key] = counts.get(key, 0) + 1
+    return counts
 
 
 async def _normalize(
@@ -138,6 +187,7 @@ async def run_source(
     resolver: ListingResolver,
     *,
     retention_class: RetentionClass = RetentionClass.MERCHANT_FACT,
+    expires_policy: Callable[[datetime], datetime | None] | None = None,
     run_kind: RunKind | None = None,
     fetch_timeout_s: float = FETCH_TIMEOUT_S,
 ) -> tuple[ScraperRun, RunOutcome]:
@@ -158,8 +208,12 @@ async def run_source(
         if batch.items and not parsed:
             raise FetchFailure(RunFailureClass.PARSER_ROT, "authentic fetch yielded 0 records")
         normalized = await _normalize(parsed, batch.fetched_at.date())
+        # expires_policy is a callable, not a fixed datetime, so bounded TTLs
+        # (e.g. eBay's DR-008 <=6h) stay relative to this batch's own fetch
+        # time rather than the moment run_source happened to be called.
+        expires_at = expires_policy(batch.fetched_at) if expires_policy else None
         listing_ids, upserted, appended = await sync_to_async(_persist_all)(
-            site, batch, normalized, retention_class
+            site, batch, normalized, retention_class, expires_at
         )
         resolver_errors = 0
         for listing_id in listing_ids:
@@ -168,6 +222,7 @@ async def run_source(
             except Exception:  # resolver failure never blocks ingestion (C.3)
                 logger.exception("resolver failed for listing %s", listing_id)
                 resolver_errors += 1
+        grain_counts = await sync_to_async(_grain_counts)(listing_ids)
         run.records_fetched = len(batch.items)
         run.records_valid = len(normalized)
         run.listings_upserted = upserted
@@ -175,6 +230,7 @@ async def run_source(
         run.detail_json = {
             "body_bytes": sum(len(item.payload_text or "") for item in batch.items),
             "resolver_errors": resolver_errors,
+            "grain_counts": grain_counts,
         }
         run.status = RunStatus.SUCCESS
         run.finished_at = timezone.now()

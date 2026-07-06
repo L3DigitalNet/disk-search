@@ -11,6 +11,8 @@ class RetentionClass(models.TextChoices):
     TRANSIENT_DISCOVERY = "transient_discovery", "Search-provider discovery"
     TAVILY_EXTRACT = "tavily_extract", "Tavily-extracted fact (indefinite)"
     MANUFACTURER_REFERENCE = "manufacturer_reference", "Manufacturer reference"
+    AVAILABILITY_HEARTBEAT = "availability_heartbeat", "Availability heartbeat (30d)"
+    AVAILABILITY_HEARTBEAT_EVENT = "availability_heartbeat_event", "Heartbeat event (365d)"
 
 
 INDEFINITE_RETENTION_CLASSES: tuple[RetentionClass, ...] = (
@@ -23,6 +25,8 @@ BOUNDED_RETENTION_CLASSES: tuple[RetentionClass, ...] = (
     RetentionClass.EBAY_LISTING_OBSERVATION,
     RetentionClass.AMAZON_EPHEMERAL,
     RetentionClass.TRANSIENT_DISCOVERY,
+    RetentionClass.AVAILABILITY_HEARTBEAT,
+    RetentionClass.AVAILABILITY_HEARTBEAT_EVENT,
 )
 
 
