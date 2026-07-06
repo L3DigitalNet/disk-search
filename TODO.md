@@ -9,7 +9,12 @@ Human-facing work queue. The project builder owns the first section; agents main
 - [ ] **SanDisk↔WD real-corpus alias verification:** run against seeded catalog aliases before the first WD/SanDisk SSD family seed (plan D7; brand-equivalence descriptor machinery landed at MS-1c).
 - [ ] **MS-1d connector must-dos:** enable sources deliberately, wire heartbeat adapters, keep fast-lane to WD/Seagate/eBay, pass `expires_at` through `run_source`, store per-item raw payload rows, revisit Scrapy diagnostics, and classify `httpx.TransportError` as transient before non-USD/API sources go live.
 - [ ] **ADR-0019 ratification:** hand-label a real listing corpus, require at least 99.5% precision on auto-accepted rungs 0-2, measure model-grain coverage, then update ADR-0019 and the spec qualifiers if the validation passes.
-- [ ] **Recorded test debt:** add coverage for distinct consecutive resolver errors, resolver prior/family branches, and admin permission methods when touching those areas.
+- [ ] **Recorded test debt (residual):** distinct-consecutive-error dedup, error-edge
+  recovery, and admin permission methods are now covered (2026-07-06), along with one
+  resolver family branch (rung-2 decoder-capacity veto). Still open — the remaining
+  resolver prior/family branches: rung-1 OEM N:N family fan-out (`oem_fanout`),
+  the conflicting-targets and no-brand-evidence REVIEW paths, the family-agreement-set
+  veto, and the WD/HGST/SanDisk brand-equivalence gate. Add when touching those areas.
 - [ ] **eBay delete-on-delist soft-delete path (spec IR-002):** the append-only /
   `PROTECT` ledger posture is owner-confirmed **intentional** (2026-07-05) —
   `Listing.delete()` is deliberately blocked and pinned by
