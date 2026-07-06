@@ -12,7 +12,33 @@ import pytest
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from hw_radar.acquisition.scheduling.buckets import BucketRegistry
+from hw_radar.catalog.models import CheapSignal, SourceConfig, SourceSite
 from hw_radar.poller.service import HEARTBEAT_SECONDS, build_scheduler, heartbeat, run
+
+
+def _mem_config(
+    key: str,
+    *,
+    heartbeat_enabled: bool,
+    cheap_signal: CheapSignal,
+    current_interval_s: int,
+    cadence_baseline_s: int,
+) -> SourceConfig:
+    # In-memory (never saved) config: build_scheduler is sync and only reads
+    # attributes + config.source_site.normalized_name, so no DB is touched.
+    config = SourceConfig()
+    site = SourceSite()
+    site.normalized_name = key
+    site.name = key
+    config.source_site = site
+    config.heartbeat_enabled = heartbeat_enabled
+    config.cheap_signal = cheap_signal
+    config.current_interval_s = current_interval_s
+    config.cadence_baseline_s = cadence_baseline_s
+    config.misfire_grace_s = 60
+    config.bucket_rate_per_min = 6.0
+    config.bucket_burst = 3
+    return config
 
 
 def test_poller_package_init_is_import_light() -> None:
@@ -99,6 +125,79 @@ def test_refdata_refresh_job_registered_on_utc_cron() -> None:
     # which defaults to LOCAL time — the *_UTC constants are only honest if the
     # scheduler is pinned to UTC.
     assert str(job.trigger.timezone) == "UTC"
+
+
+def test_heartbeat_sources_get_fast_and_slow_repair_jobs() -> None:
+    # CR-006: non-eBay heartbeat sources run TWO jobs — a fast heartbeat probe at
+    # current_interval_s AND a slow full-pipeline repair crawl at cadence_baseline_s.
+    configs = [
+        _mem_config(
+            "wd-recertified",
+            heartbeat_enabled=True,
+            cheap_signal=CheapSignal.OCC_JSON,
+            current_interval_s=300,
+            cadence_baseline_s=1800,
+        ),
+        _mem_config(
+            "seagate-recertified",
+            heartbeat_enabled=True,
+            cheap_signal=CheapSignal.BOOTSTRAP_JSON,
+            current_interval_s=300,
+            cadence_baseline_s=1800,
+        ),
+        _mem_config(
+            "serverpartdeals",
+            heartbeat_enabled=True,
+            cheap_signal=CheapSignal.SHOPIFY_PRODUCTS_JSON,
+            current_interval_s=900,
+            cadence_baseline_s=3600,
+        ),
+    ]
+    scheduler = build_scheduler(BucketRegistry(), configs)
+    for key, fast, slow in (
+        ("wd-recertified", 300, 1800),
+        ("seagate-recertified", 300, 1800),
+        ("serverpartdeals", 900, 3600),
+    ):
+        hb = scheduler.get_job(f"poll-heartbeat-{key}")
+        repair = scheduler.get_job(f"poll-{key}")
+        assert hb is not None, key
+        assert repair is not None, key
+        assert hb.trigger.interval.total_seconds() == fast
+        assert repair.trigger.interval.total_seconds() == slow
+        assert fast != slow  # distinct cadences, distinct job IDs
+
+
+def test_ebay_gets_single_heartbeat_job_only() -> None:
+    # eBay's Browse poll IS both heartbeat and full fetch (natively-both source),
+    # so a separate poll-ebay repair job would double-poll.
+    configs = [
+        _mem_config(
+            "ebay",
+            heartbeat_enabled=True,
+            cheap_signal=CheapSignal.EBAY_BROWSE,
+            current_interval_s=120,
+            cadence_baseline_s=600,
+        )
+    ]
+    scheduler = build_scheduler(BucketRegistry(), configs)
+    assert scheduler.get_job("poll-heartbeat-ebay") is not None
+    assert scheduler.get_job("poll-ebay") is None
+
+
+def test_heartbeat_disabled_source_gets_single_full_job() -> None:
+    configs = [
+        _mem_config(
+            "goharddrive",
+            heartbeat_enabled=False,
+            cheap_signal=CheapSignal.NONE,
+            current_interval_s=900,
+            cadence_baseline_s=3600,
+        )
+    ]
+    scheduler = build_scheduler(BucketRegistry(), configs)
+    assert scheduler.get_job("poll-goharddrive") is not None
+    assert scheduler.get_job("poll-heartbeat-goharddrive") is None
 
 
 def test_scheduler_is_pinned_to_utc() -> None:

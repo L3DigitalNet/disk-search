@@ -23,13 +23,14 @@ import random
 import signal
 import time
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 
 from hw_radar.acquisition import deadman, fx
+from hw_radar.acquisition.heartbeat import HeartbeatProbe, run_heartbeat
 from hw_radar.acquisition.pipeline import run_source
 from hw_radar.acquisition.scheduling.admission import check_admission
 from hw_radar.acquisition.scheduling.apply import apply_run_outcome
@@ -37,7 +38,7 @@ from hw_radar.acquisition.scheduling.buckets import BucketRegistry
 from hw_radar.acquisition.scheduling.checkpoint import load_buckets, save_buckets
 from hw_radar.acquisition.scrapy_support import install_asyncio_reactor
 from hw_radar.acquisition.sources import ADAPTERS
-from hw_radar.catalog.models import LifecycleState, RunKind, SourceConfig
+from hw_radar.catalog.models import CheapSignal, LifecycleState, RunKind, SourceConfig
 from hw_radar.matching.resolver import CatalogResolver
 from hw_radar.refdata import refresh as refdata_refresh
 
@@ -95,6 +96,58 @@ async def poll_source(site_key: str, registry: BucketRegistry, scheduler: AsyncI
             )
             logger.info(
                 "source %s rescheduled: %ss → %ss",
+                site_key,
+                interval_before,
+                config.current_interval_s,
+            )
+
+
+async def poll_heartbeat(
+    site_key: str, registry: BucketRegistry, scheduler: AsyncIOScheduler
+) -> None:
+    """ADR-0015 fast lane. Mirrors poll_source fully (CR-006 residual): the same
+    admission gate (run_kind=HEARTBEAT), apply_run_outcome, and in-place interval
+    reschedule — only the poll-HEARTBEAT job is retargeted, and run_heartbeat
+    (not run_source) fires the full pipeline solely on a detected transition."""
+    config = await sync_to_async(SourceConfig.objects.select_related("source_site").get)(
+        source_site__normalized_name=site_key
+    )
+    decision = check_admission(
+        enabled=config.enabled,
+        lifecycle_state=LifecycleState(config.lifecycle_state),
+        run_kind=RunKind.HEARTBEAT,
+        backoff_until=config.backoff_until,
+        now=timezone.now(),
+        registry=registry,
+        source_key=site_key,
+        domain=config.domain,
+        now_s=time.monotonic(),
+    )
+    if not decision.admitted:
+        logger.info("heartbeat %s not admitted: %s", site_key, decision.reason)
+        return
+    factory = ADAPTERS.get(site_key)
+    if factory is None:
+        logger.warning("source %s heartbeat-enabled but has no adapter registered", site_key)
+        return
+    # Only heartbeat_enabled sources ever schedule this job, so the adapter is a
+    # HeartbeatProbe; the ADAPTERS registry only knows the base SourceAdapter type.
+    adapter = cast("HeartbeatProbe", factory())
+    outcome = await run_heartbeat(adapter, config, CatalogResolver())
+    interval_before = config.current_interval_s
+    await sync_to_async(apply_run_outcome)(config, outcome, now=timezone.now(), rand=random.random)
+    if config.current_interval_s != interval_before:
+        job_id = f"poll-heartbeat-{site_key}"
+        job: Job | None = scheduler.get_job(job_id)
+        if job is not None:
+            scheduler.reschedule_job(
+                job_id,
+                trigger="interval",
+                seconds=config.current_interval_s,
+                jitter=max(1, config.current_interval_s // 10),
+            )
+            logger.info(
+                "heartbeat %s rescheduled: %ss → %ss",
                 site_key,
                 interval_before,
                 config.current_interval_s,
@@ -194,15 +247,42 @@ def build_scheduler(registry: BucketRegistry, configs: Sequence[SourceConfig]) -
             burst=config.bucket_burst,
             now_s=time.monotonic(),
         )
-        scheduler.add_job(
-            poll_source,
-            "interval",
-            seconds=config.current_interval_s,
-            jitter=max(1, config.current_interval_s // 10),
-            misfire_grace_time=config.misfire_grace_s,
-            id=f"poll-{key}",
-            args=[key, registry, scheduler],
-        )
+        if config.heartbeat_enabled:
+            # Fast lane: cheap probe at current_interval_s, gating the full pipeline.
+            scheduler.add_job(
+                poll_heartbeat,
+                "interval",
+                seconds=config.current_interval_s,
+                jitter=max(1, config.current_interval_s // 10),
+                misfire_grace_time=config.misfire_grace_s,
+                id=f"poll-heartbeat-{key}",
+                args=[key, registry, scheduler],
+            )
+            # CR-006: non-eBay heartbeat sources also need a slow full-pipeline
+            # repair crawl at cadence_baseline_s — CDN edge cache floors probe
+            # freshness, so the heartbeat alone can miss changes. eBay's Browse
+            # poll IS both heartbeat and full fetch (natively-both source), so a
+            # second poll-{key} job would just double-poll: it stays single-job.
+            if config.cheap_signal != CheapSignal.EBAY_BROWSE.value:  # .value: django-types quirk
+                scheduler.add_job(
+                    poll_source,
+                    "interval",
+                    seconds=config.cadence_baseline_s,
+                    jitter=max(1, config.cadence_baseline_s // 10),
+                    misfire_grace_time=config.misfire_grace_s,
+                    id=f"poll-{key}",
+                    args=[key, registry, scheduler],
+                )
+        else:
+            scheduler.add_job(
+                poll_source,
+                "interval",
+                seconds=config.current_interval_s,
+                jitter=max(1, config.current_interval_s // 10),
+                misfire_grace_time=config.misfire_grace_s,
+                id=f"poll-{key}",
+                args=[key, registry, scheduler],
+            )
     return scheduler
 
 
