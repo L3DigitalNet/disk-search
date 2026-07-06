@@ -27,7 +27,7 @@ These settle what the MS-1e sub-milestone left to plan time:
 | E-1 | **Build the deterministic evaluation harness + harvest tooling in this milestone; defer the live harvest, label drafts, owner audit, and ratification run to a scheduled owner-in-the-loop follow-up.** | MS-1e merges with the harness proven on a synthetic fixture and the real-corpus test skip-guarded. Ratification (ADR flip) happens later, out of this PR, when a real corpus has been harvested and audited. No fake green. |
 | E-2 | **Eval architecture = Approach A (full production path).** Each corpus entry is rebuilt into a `ParsedListing`, normalized + `upsert_listing`-ed, snapshotted (`OfferSnapshot.attrs_json` = the entry's `attrs`) into a rolled-back test-DB transaction, then run through the real `CatalogResolver().resolve_listing`; the harness reads back the denorm grain + target FK + resolution-edge rung. | The gate certifies exactly the code path that writes to price history, on the exact input surface the resolver consumes (title + `attrs_json["mpn"]` hook). No proxy/second-code-path drift (the ADR-0019 rule 1 hazard). |
 | E-2b | **The precision corpus measures rungs 1–2; rung 0 is covered by a required behavioral regression suite, not the corpus denominator (SA-001).** A corpus of distinct first-observed listings structurally cannot exercise rung 0 (re-observation via source-local alias) — on a first observation `prior = NONE`, so the resolver evaluates rungs 1–2. Rung 0's contract is *veto-on-re-observation* (relist/edit abuse), a behavior, not a precision sample. | Ratification exit therefore requires **both**: ≥ 99.5% on the rung-1/2 corpus **and** the rung-0 regression suite green (unchanged re-observation inherits with no edge spam; a re-observation whose hard attribute now contradicts is demoted to REVIEW, not silently re-inherited). The spec never claims the corpus denominator alone is full ADR-0019 coverage. |
-| E-3 | **`expected_target` is a grain-shaped natural key built from the *actual* catalog identity fields, never a catalog PK (SA-003).** Family grain: `manufacturer` + `normalized_family`. Model grain: adds `normalized_model_number`. Variant grain: adds the `ProductVariant` sellable-identity fields `condition` / `packaging` / `recert_channel` / `warranty_channel`. `none` grain: all null. | The committed corpus outlives any DB seed; the eval maps each *predicted* target PK back to these fields and compares. A "variant string" cannot represent `ProductVariant` identity, which is `(product_model, condition, packaging, recert_channel, warranty_channel)`. The fixture doubles as a durable post-`matcher_version`-bump regression asset. |
+| E-3 | **`expected_target` is a grain-shaped natural key of *display values*, loader-normalized to the actual catalog identity fields, never a catalog PK (SA-003).** Family grain: `manufacturer` + `family`. Model grain: adds `model_number`. Variant grain: adds the `ProductVariant` sellable-identity enums `condition` / `packaging` / `recert_channel` / `warranty_channel`. `none` grain: all null. | The committed corpus outlives any DB seed; the loader normalizes label display values through the production `canonicalize_title` / `normalize_alias_text` (one normalizer, both sides) and compares against the *predicted* target's stored normalized fields. A "variant string" cannot represent `ProductVariant` identity, which is `(product_model, condition, packaging, recert_channel, warranty_channel)`. The fixture doubles as a durable post-`matcher_version`-bump regression asset. |
 | E-4 | **The real labeled corpus is committed to this public repo** — `title` + the connector's *actual* `ParsedListing.attrs` keys + the persisted scalar fields (price, currency, condition, source_listing_key, url) only; **never** full raw payloads. | Titles + these fields are public marketplace data (repo-safe per AGENTS.md Public-Repo Rule); full payloads (seller handles/extra URLs) stay transient in the harvest staging file, uncommitted. |
 | E-5 | **Labeling per ingestion-design S-5**: Claude drafts every label; owner audits a random ~20% sample + **every** entry where the label disagrees with the matcher prediction. | Bounded owner time while keeping the ratification gate meaningfully independent. Audit status is tracked per entry. |
 
@@ -81,15 +81,15 @@ A JSONL corpus plus a sidecar manifest under `tests/fixtures/matching_corpus/`.
     "url": "https://…",
     "price": "199.00",
     "currency": "USD",
-    "condition": "recertified",
+    "condition_label": "Recertified",
     "attrs": { "sku": "…", "variant_title": "…" }
   },
   "label": {
     "expected_grain": "model",
     "expected_target": {
       "manufacturer": "Seagate",
-      "normalized_family": "exos-x18",
-      "normalized_model_number": "ST18000NM000J",
+      "family": "Exos X18",
+      "model_number": "ST18000NM000J",
       "variant": null
     },
     "oem_dual_label": false,
@@ -102,19 +102,24 @@ A JSONL corpus plus a sidecar manifest under `tests/fixtures/matching_corpus/`.
 - **`source`** ∈ the five real adapter-registry / `SourceSite.normalized_name` keys: `serverpartdeals`,
   `goharddrive`, `wd-recertified`, `seagate-recertified`, `ebay` (SA-002 — schema validation **rejects**
   any other key; no parallel short-name namespace).
-- **`listing`** mirrors the fields the pipeline persists from a `ParsedListing` — `source_listing_key`,
-  `url`, `price`, `currency`, `condition`, and **`attrs`** = the connector's *actual* `ParsedListing.attrs`
-  dict (e.g. ServerPartDeals `sku`/`variant_title`, WD `saleable`). The eval writes `attrs` verbatim into
-  `OfferSnapshot.attrs_json`, so the resolver's `_structured_mpn` hook (`attrs_json["mpn"]`, dormant for
-  today's connectors) and the title-driven extraction path both see production-identical input (SA-004).
-  MPN today comes from the **title**, not a structured field.
+- **`listing`** mirrors the exact `ParsedListing` fields the pipeline persists — `source_listing_key`,
+  `url`, `price`, `currency`, **`condition_label`** (the raw marketplace condition text; the field is
+  literally `ParsedListing.condition_label`, persisted as `condition_label_raw` — SA-NEW-001), and
+  **`attrs`** = the connector's *actual* `ParsedListing.attrs` dict (e.g. ServerPartDeals `sku`/
+  `variant_title`, WD `saleable`). The eval reconstructs a real `ParsedListing` from exactly these fields
+  (no invented keys) and writes `attrs` verbatim into `OfferSnapshot.attrs_json`, so the resolver's
+  `_structured_mpn` hook (`attrs_json["mpn"]`, dormant for today's connectors) and the title-driven
+  extraction path both see production-identical input (SA-004). MPN today comes from the **title**.
 - **`label.expected_grain`** ∈ `none | family | model | variant`.
-- **`label.expected_target`** is the grain-shaped natural key (E-3) built from real catalog fields:
-  `manufacturer`, `normalized_family`, `normalized_model_number`, and for variant grain a `variant`
-  object carrying `condition`/`packaging`/`recert_channel`/`warranty_channel`. Grain/key consistency is a
-  validated invariant: `variant` grain requires the `variant` object; `model` requires
-  `normalized_model_number`; `family` requires `normalized_family`; `none` requires all null (a listing
-  that *should not* auto-accept — genuinely unresolvable or a hard-attribute-contradiction case).
+- **`label.expected_target`** holds **human-readable display values** (E-3): `manufacturer`, `family`,
+  `model_number`, and for variant grain a `variant` object carrying `condition`/`packaging`/
+  `recert_channel`/`warranty_channel` as their `ProductVariant` **enum-choice values** (exact match, no
+  normalization). The owner audits readable labels, not pre-normalized keys. Grain/key consistency is a
+  validated invariant: `variant` grain requires the `variant` object; `model` requires `model_number`;
+  `family` requires `family`; `none` requires all null (a listing that *should not* auto-accept —
+  genuinely unresolvable or a hard-attribute-contradiction case). Note the deliberate split:
+  `listing.condition_label` is raw marketplace text (input side); `expected_target.variant.condition` is
+  the normalized `ProductVariant.condition` enum (label side).
 - **`label.oem_dual_label`** — the OEM-token-AND-MPN spot-check flag (ADR-0019 rule 7 / consequence);
   measured against ServerPartDeals + eBay listings.
 - **`label.audit_status`** ∈ `claude_draft | owner_confirmed | owner_corrected`.
@@ -122,10 +127,13 @@ A JSONL corpus plus a sidecar manifest under `tests/fixtures/matching_corpus/`.
 **`corpus.meta.json`** — `corpus_version` (string), `harvested_at` range, per-source counts,
 `matcher_version` at labeling time, and an audit rollup (counts by `audit_status`).
 
-Target-key normalization: `normalized_family` / `normalized_model_number` use the **same** normalizer the
-catalog applies at ingest (ADR-0019 rule 1's "one normalizer, both sides"), so label keys compare equal to
-the resolver's stored `ProductModel.normalized_model_number` / `ProductFamily.normalized_name` without a
-second casing/spacing convention.
+**Target-key comparison — one normalizer, both sides (ADR-0019 rule 1; SA-003).** The loader compares a
+label to the predicted target by running the **production** normalizers on both: `family` through
+`canonicalize_title()` (→ `"exos x18"` — casefold, dash-fold, noise-strip, space-kept) and `model_number`
+through `normalize_alias_text()` (→ `"st18000nm000j"` — casefold, strip every non-alphanumeric), then
+comparing against the resolver's stored `ProductFamily.normalized_name` / `ProductModel.normalized_model_number`.
+Labels therefore hold display values (`"Exos X18"`, `"ST18000NM000J"`); the loader — never a hand-authored
+second convention — produces the normalized keys. Variant enum fields compare as exact choice values.
 
 ## 4. Harvest command — `manage.py harvest_corpus`
 
@@ -163,7 +171,7 @@ it instantiates each connector adapter directly and calls `await adapter.fetch()
 For each corpus entry, the harness (Approach A, E-2) reproduces the production ingest path exactly:
 
 1. **Rebuild → persist.** Reconstruct a `ParsedListing` from the entry's `title` + `listing` fields
-   (`source_listing_key`, `url`, `price`, `currency`, `condition`, `attrs`), run it through the same
+   (`source_listing_key`, `url`, `price`, `currency`, `condition_label`, `attrs`), run it through the same
    normalize + `upsert_listing` + `append_snapshot` calls `run_source` uses — so an `OfferSnapshot` with
    `attrs_json = entry.listing.attrs` and an FX-stamped USD price exists before resolution, against the
    seeded catalog, all inside a rolled-back test-DB transaction. The corpus is US-priced (USD) in v1;
@@ -184,9 +192,18 @@ For each corpus entry, the harness (Approach A, E-2) reproduces the production i
 | **Per-source floor** (MS-1 gate) | every one of the 5 sources resolves ≥ 1 listing at family grain or better; a source stuck at `grain = none` fails MS-1 (surfaces a catalog/extraction gap) |
 | **OEM dual-label rate** (reported) | % of ServerPartDeals + eBay listings printing both an OEM token and an MPN |
 
-The `100` auto-accept floor is a named constant (Codex SA-003: the gate must not be passable on
-trivially few matches or `grain = none` rows). A corpus that resolves 12 lucky matches reports
-`INSUFFICIENT_CORPUS`, **never** `PASS`.
+The `100` auto-accept floor is a named constant (ingestion-design §MS-1e denominator rule: the gate must
+not be passable on trivially few matches or `grain = none` rows). A corpus that resolves 12 lucky matches
+reports `INSUFFICIENT_CORPUS`, **never** `PASS`.
+
+**Two distinct results, so precision can't masquerade as full readiness (SA-NEW-002).** `EvalReport`
+carries `precision_verdict` (the tri-state above — precision + denominator only) **and** a composite
+`ms1_ratification_gate`, which is `PASS` **only** when *all* of: `precision_verdict == PASS`; the
+per-source family floor is met (every one of the 5 sources resolves ≥ 1 listing at family grain or
+better); and the rung-0 regression suite (E-2b) is green. A precision `PASS` with one source stuck at
+`grain = none` yields `ms1_ratification_gate = FAIL` — the ADR flip and MS-1 close key off the composite
+gate, never bare precision. (If eBay is legitimately absent because access regressed, that is an
+owner-decided OQ per §8, not a silent floor pass.)
 
 ## 6. Ratification procedure (deferred, owner-in-the-loop)
 
@@ -197,14 +214,17 @@ Documented as a runbook; executed after MS-1e merges, not in its PR:
 2. Claude drafts `label` for every entry → labeled `corpus.jsonl` + `corpus.meta.json`.
 3. Owner audits a random ~20% sample **plus every entry where the label disagrees with the matcher
    prediction** (S-5); corrections set `audit_status = owner_corrected`.
-4. Run `tests/db/test_ratification_corpus.py` **and** the rung-0 regression suite (E-2b).
-5. **PASS** — corpus verdict `PASS` (≥ 99.5% on ≥ 100 rung-1/2 auto-accepts) **and** the rung-0 regression
-   suite green → flip ADR-0019 MADR status `proposed → accepted`, record the result in its
-   **Confirmation** section, drop the D-019 / C.3 "(proposed)" qualifiers in the master spec, update the
-   ADR-index row, and close the TODO ratification item.
+4. Run `tests/db/test_ratification_corpus.py` (which evaluates `ms1_ratification_gate`) **and** the rung-0
+   regression suite (E-2b).
+5. **PASS** — `ms1_ratification_gate == PASS` (precision `PASS` on ≥ 100 rung-1/2 auto-accepts **and** the
+   per-source family floor met across all 5 sources **and** the rung-0 regression suite green) → flip
+   ADR-0019 MADR status `proposed → accepted`, record the result in its **Confirmation** section, drop the
+   D-019 / C.3 "(proposed)" qualifiers in the master spec, update the ADR-index row, and close the TODO
+   ratification item.
 6. **INSUFFICIENT_CORPUS** (< 100 auto-accepts) → harvest more titles; **never** an ADR flip (SA-005).
-7. **FAIL** (< 99.5%, or a rung-0 regression failure) → veto-rule fix + `matcher_version` bump + re-run
-   (master-spec C.3.5 loop). **The gate is never loosened.**
+7. **FAIL** — `precision_verdict` FAIL (< 99.5%), a per-source floor miss, or a rung-0 regression failure →
+   veto-rule fix / catalog or extraction gap fix + `matcher_version` bump + re-run (master-spec C.3.5
+   loop). **The gate is never loosened.**
 
 MS-1 close additionally requires (ingestion-design §MS-1e): the FR-003 acceptance case green as a
 resolver-driven test (a recert + a new listing of the same drive → one `product_model`, two
@@ -232,10 +252,10 @@ resolver-driven test (a recert + a new listing of the same drive → one `produc
   `--allow-repo-output`** (SA-006).
 - **Ratification test** (`tests/db/test_ratification_corpus.py`): distinguishes **corpus absent** →
   `pytest.skip("corpus not yet harvested")` (pre-harvest CI stays green) from **corpus present** →
-  compute the verdict and **assert `PASS`**; a present-but-below-floor corpus asserts
-  `INSUFFICIENT_CORPUS` and **fails** (never a silent skip, SA-005). Covered by separate parametrized
-  fixtures for the absent / below-floor / failing-precision / passing cases. This *is* the executable
-  ratification gate.
+  compute `ms1_ratification_gate` and **assert `PASS`**; a present-but-below-floor corpus asserts
+  `INSUFFICIENT_CORPUS` and **fails** (never a silent skip, SA-005). Separate parametrized fixtures cover
+  absent / below-floor / failing-precision / **precision-passes-but-one-source-at-`grain=none`**
+  (composite gate must FAIL, SA-NEW-002) / fully-passing. This *is* the executable ratification gate.
 - **Full gate** (`uv run python -m scripts.check`) green at every commit: ruff format + check,
   basedpyright, pytest + coverage, pip-audit.
 
