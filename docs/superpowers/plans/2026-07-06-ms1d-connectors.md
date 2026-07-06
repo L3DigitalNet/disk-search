@@ -287,6 +287,8 @@ git commit -m "feat(heartbeat): add AvailabilityHeartbeatObservation/Event model
 Run: `HW_RADAR_DB_PORT=5433 uv run python manage.py makemigrations catalog --name heartbeat_models`
 Expected: creates `0009_heartbeat_models.py` with `CreateModel` for both tables incl. `retention_constraints`. Confirm it has `dependencies = [("catalog", "0008_refdata_seed")]`.
 
+**Autodetector fix required (Django ticket #23956/#27768 pattern):** makemigrations may emit the `source_site` FK as a **post-`CreateModel` `AddField`** rather than inline in `CreateModel`. That is fatal for `AvailabilityHeartbeatObservation` because its `CompositePrimaryKey("source_site_id", ...)` references `source_site_id`, which doesn't exist until the FK is added — `migrate` fails with `FieldDoesNotExist: no field named 'source_site_id'`. Hand-edit 0009 to **inline `source_site` into each model's `CreateModel` `fields=[...]`** (remove the separate `AddField`), and document the reason in-file. Re-run `makemigrations --check` to confirm no drift.
+
 - [ ] **Step 2: Write the failing DB test**
 
 ```python
@@ -386,7 +388,10 @@ GROUP BY source_site_id, day, decision
 WITH NO DATA;
 SELECT add_continuous_aggregate_policy(
     'availability_heartbeat_daily',
-    start_offset => INTERVAL '2 days', end_offset => INTERVAL '1 hour',
+    -- start_offset MUST span >= 2 bucket widths (48h for a 1-day bucket) or
+    -- TimescaleDB rejects the policy ("refresh window too small"). 3 days back
+    -- to 1 hour back = 71h window, comfortably inside the 30-day retention.
+    start_offset => INTERVAL '3 days', end_offset => INTERVAL '1 hour',
     schedule_interval => INTERVAL '1 hour'
 );
 """
