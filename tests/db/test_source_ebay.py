@@ -218,6 +218,9 @@ def test_ebay_parse_skips_malformed_summaries() -> None:
     # Defensive isinstance-narrowing: a non-list itemSummaries, a non-dict entry,
     # a summary without a price dict, and missing/mistyped shippingOptions /
     # itemLocation / seller must degrade to "skip" or a safe default, not raise.
+    # Also covers a summary with a price but missing the required `itemId`
+    # (PR #12 review: KeyError-on-malformed-body must degrade to "skip this
+    # entry", not crash the whole run).
     batch = RawBatch(
         source="ebay",
         fetched_at=datetime.now(UTC),
@@ -230,6 +233,7 @@ def test_ebay_parse_skips_malformed_summaries() -> None:
                         "not-a-dict",
                         {"itemId": "no-price"},  # missing price dict
                         {"itemId": "bad-price-type", "price": "oops"},
+                        {"title": "No itemId", "price": {"value": "9.99", "currency": "USD"}},
                         {
                             "itemId": "v1|minimal|0",
                             "title": "Minimal",

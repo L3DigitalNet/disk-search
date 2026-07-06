@@ -107,7 +107,10 @@ def test_probe_returns_saleable_stock_fingerprint(loop: asyncio.AbstractEventLoo
 
 def test_parse_skips_malformed_variants() -> None:
     # Defensive isinstance-narrowing: a non-list variantOptions, a non-dict
-    # variant, and a variant missing priceData must degrade to "skip", not raise.
+    # variant, and a variant missing priceData must degrade to "skip", not
+    # raise. Also covers a variant missing the required `code` (PR #12 review:
+    # KeyError-on-malformed-body must degrade to "skip this variant", not
+    # crash the whole run).
     batch = RawBatch(
         source="wd-recertified",
         fetched_at=datetime.now(UTC),
@@ -123,6 +126,7 @@ def test_parse_skips_malformed_variants() -> None:
                     "variantOptions": [
                         "not-a-dict",
                         {"code": "NO-PRICE"},  # missing priceData
+                        {"priceData": {"value": 9.99, "currency": "USD"}},  # missing `code`
                         PRODUCTS["WDBBGB0040HBK"]["variantOptions"][0],
                     ],
                 },

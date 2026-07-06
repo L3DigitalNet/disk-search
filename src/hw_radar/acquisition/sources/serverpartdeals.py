@@ -10,7 +10,7 @@ would reject fast_lane=True here).
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import cast
 
 import httpx
@@ -73,7 +73,12 @@ class ServerPartDealsAdapter:
                 if not isinstance(raw_product, dict):
                     continue
                 product = cast("dict[str, object]", raw_product)
-                handle = str(product["handle"])
+                # handle/title are required to build a listing; a Shopify entry
+                # missing either degrades to "skip this product", not a crash.
+                handle = product.get("handle")
+                title = product.get("title")
+                if not isinstance(handle, str) or not isinstance(title, str):
+                    continue
                 raw_variants = product.get("variants", [])
                 if not isinstance(raw_variants, list):
                     continue
@@ -82,12 +87,20 @@ class ServerPartDealsAdapter:
                     if not isinstance(raw_variant, dict):
                         continue
                     variant = cast("dict[str, object]", raw_variant)
+                    variant_id = variant.get("id")
+                    raw_price = variant.get("price")
+                    if variant_id is None or raw_price is None:
+                        continue
+                    try:
+                        price = Decimal(str(raw_price))
+                    except InvalidOperation:
+                        continue
                     out.append(
                         ParsedListing(
-                            source_listing_key=f"{handle}:{variant['id']}",
+                            source_listing_key=f"{handle}:{variant_id}",
                             url=f"https://serverpartdeals.com/products/{handle}",
-                            title=str(product["title"]),
-                            price=Decimal(str(variant["price"])),
+                            title=title,
+                            price=price,
                             stock_status=(
                                 "in_stock" if variant.get("available") else "out_of_stock"
                             ),

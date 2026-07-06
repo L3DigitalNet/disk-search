@@ -26,7 +26,7 @@ on the search) still needs enumerating and preferring.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import cast
 
 import httpx
@@ -136,18 +136,25 @@ class WdAdapter:
                 if not isinstance(raw_variant, dict):
                     continue
                 variant = cast("dict[str, object]", raw_variant)
+                code = variant.get("code")
+                if code is None:
+                    continue  # no code ⇒ can't key the listing; skip this variant
                 raw_price = variant.get("priceData")
                 if not isinstance(raw_price, dict):
                     continue  # no price ⇒ not a sellable variant; skip
                 value = cast("dict[str, object]", raw_price).get("value")
                 if value is None:
                     continue
+                try:
+                    price = Decimal(str(value))
+                except InvalidOperation:
+                    continue
                 out.append(
                     ParsedListing(
-                        source_listing_key=str(variant["code"]),
+                        source_listing_key=str(code),
                         url=_listing_url(variant, item.url),
                         title=title,
-                        price=Decimal(str(value)),
+                        price=price,
                         stock_status=_stock_status(variant),
                         raw_url=item.url,  # per-item raw-payload association (Task B4)
                         attrs={"saleable": bool(variant.get("saleable", False))},

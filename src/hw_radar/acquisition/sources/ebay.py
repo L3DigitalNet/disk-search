@@ -37,7 +37,7 @@ from __future__ import annotations
 import base64
 import os
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import cast
 
 import httpx
@@ -209,6 +209,9 @@ class EbayAdapter:
                 if not isinstance(raw_summary, dict):
                     continue
                 summary = cast("dict[str, object]", raw_summary)
+                item_id = summary.get("itemId")
+                if item_id is None:
+                    continue  # no itemId ⇒ can't key the listing; skip this entry
                 raw_price = summary.get("price")
                 if not isinstance(raw_price, dict):
                     continue
@@ -216,12 +219,16 @@ class EbayAdapter:
                 value = price.get("value")
                 if value is None:
                     continue
+                try:
+                    item_price = Decimal(str(value))
+                except InvalidOperation:
+                    continue
                 out.append(
                     ParsedListing(
-                        source_listing_key=str(summary["itemId"]),
+                        source_listing_key=str(item_id),
                         url=str(summary.get("itemWebUrl", "")),
                         title=str(summary.get("title", "")),
-                        price=Decimal(str(value)),
+                        price=item_price,
                         currency=str(price.get("currency", "USD")),
                         shipping_price=_shipping_cost(summary),
                         # Search returns only active, buyable listings; there is no

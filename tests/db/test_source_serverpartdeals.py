@@ -91,7 +91,9 @@ def test_parse_skips_malformed_products_and_variants() -> None:
     # Defensive isinstance-narrowing branches (a top-level `products` that
     # isn't a list, a non-dict product, a product missing/mistyped
     # `variants`, or a non-dict variant) must degrade to "skip that entry",
-    # not raise.
+    # not raise. Also covers required fields missing on an otherwise
+    # well-formed product/variant (PR #12 review: KeyError-on-malformed-body
+    # must degrade to "skip this entry", not crash the whole run).
     batch = RawBatch(
         source="serverpartdeals",
         fetched_at=datetime.now(UTC),
@@ -106,10 +108,17 @@ def test_parse_skips_malformed_products_and_variants() -> None:
                     "products": [
                         "not-a-product",
                         {"title": "No variants list", "handle": "no-variants", "variants": "oops"},
+                        {"handle": "no-title", "variants": []},  # missing required `title`
+                        {"title": "No handle", "variants": []},  # missing required `handle`
                         {
                             "title": "Good",
                             "handle": "exos-x20-20tb-recert",
-                            "variants": ["not-a-variant", SYNTHETIC["products"][0]["variants"][0]],
+                            "variants": [
+                                "not-a-variant",
+                                {"sku": "NO-ID", "price": "1.00"},  # missing required `id`
+                                {"id": 333, "sku": "NO-PRICE"},  # missing required `price`
+                                SYNTHETIC["products"][0]["variants"][0],
+                            ],
                         },
                     ]
                 },
