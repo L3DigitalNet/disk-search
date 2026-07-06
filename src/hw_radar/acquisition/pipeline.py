@@ -30,6 +30,7 @@ from hw_radar.acquisition.persist import append_snapshot, store_raw, upsert_list
 from hw_radar.acquisition.scheduling.apply import RunOutcome
 from hw_radar.acquisition.scheduling.lifecycle import LifecycleEvent
 from hw_radar.catalog.models import (
+    RawPayload,
     RetentionClass,
     RunFailureClass,
     RunKind,
@@ -100,16 +101,27 @@ def _persist_all(
     retention_class: RetentionClass,
     expires_at: datetime | None,
 ) -> tuple[list[int], int, int]:
-    raw = (
+    # CR-002: every RawItem is stored, not just items[0] — multi-request
+    # connectors (e.g. WD's search sweep + per-product fetches) otherwise lose
+    # provenance for every item but the first. raws is a LIST (not a dict keyed
+    # by url) so duplicate source URLs each still get their own stored row.
+    raws = [
         store_raw(
-            batch.items[0],
+            item,
             fetched_at=batch.fetched_at,
             retention_class=retention_class,
             expires_at=expires_at,
         )
-        if batch.items
-        else None
-    )
+        for item in batch.items
+    ]
+    # url -> RawPayload for snapshot association; first raw per url wins when
+    # a batch has duplicate source URLs (rare, but must not drop a stored row).
+    by_url: dict[str, RawPayload] = {}
+    for item, raw in zip(batch.items, raws, strict=True):
+        by_url.setdefault(item.url, raw)
+    # Single-item batches have no meaningful raw_url to key on (adapters may
+    # leave it unset); fall back to the one raw payload that must be it.
+    sole = raws[0] if len(raws) == 1 else None
     listing_ids: list[int] = []
     upserted = 0
     appended = 0
@@ -123,6 +135,7 @@ def _persist_all(
         # append_snapshot reads listing.expires_at (not the expires_at param
         # directly) so a snapshot's TTL always matches its listing's current
         # value, even if a future caller mutates the listing between calls.
+        raw = by_url.get(record.raw_url) or sole  # per-item; fallback to the sole raw
         append_snapshot(listing, record, observed_at=observed_at, raw=raw)
         listing_ids.append(listing.pk)
         upserted += 1

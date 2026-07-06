@@ -45,6 +45,7 @@ class ParsedListing(BaseModel):
     condition_label: str = ""
     ships_from_country: str = "US"
     attrs: dict[str, object] = Field(default_factory=dict)
+    raw_url: str = ""  # RawItem.url this listing was parsed from (per-item raw association)
 
 
 class NormalizedListing(ParsedListing):

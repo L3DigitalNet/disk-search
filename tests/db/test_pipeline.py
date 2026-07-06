@@ -54,16 +54,17 @@ class FakeAdapter:
         return self._parsed
 
 
-def ok_item() -> RawItem:
-    return RawItem(url="https://demo.invalid/a", payload_json={"sku": "a"})
+def ok_item(url: str = "https://demo.invalid/a") -> RawItem:
+    return RawItem(url=url, payload_json={"sku": "a"})
 
 
-def ok_parsed() -> ParsedListing:
+def ok_parsed(key: str = "sku-a", raw_url: str = "https://demo.invalid/a") -> ParsedListing:
     return ParsedListing(
-        source_listing_key="sku-a",
+        source_listing_key=key,
         url="https://demo.invalid/a",
         title="Demo 8TB",
         price=Decimal("99.99"),
+        raw_url=raw_url,
     )
 
 
@@ -78,6 +79,41 @@ def test_success_path_persists_and_reports() -> None:
     assert run.snapshots_appended == 1
     assert Listing.objects.filter(source_site__normalized_name="demo").count() == 1
     assert OfferSnapshot.objects.count() == 1
+
+
+def test_per_item_raw_payloads_are_stored_and_associated() -> None:
+    # CR-002: two RawItems, each producing one listing tagged with its own
+    # raw_url, must land as two RawPayload rows with correct snapshot->raw
+    # association (not the items[0]-only bug, where every snapshot pointed at
+    # a single stored row regardless of provenance).
+    items = [ok_item(url="https://x.test/a"), ok_item(url="https://x.test/b")]
+    parsed = [
+        ok_parsed(key="A", raw_url="https://x.test/a"),
+        ok_parsed(key="B", raw_url="https://x.test/b"),
+    ]
+    adapter = FakeAdapter(items, parsed)
+    asyncio.run(run_source(adapter, NullResolver()))
+    assert RawPayload.objects.count() == 2  # not 1 (items[0]-only bug is dead)
+    snap_a = OfferSnapshot.objects.get(listing__source_listing_key="A")
+    assert snap_a.raw_payload is not None
+    assert snap_a.raw_payload.endpoint == "https://x.test/a"
+    snap_b = OfferSnapshot.objects.get(listing__source_listing_key="B")
+    assert snap_b.raw_payload is not None
+    assert snap_b.raw_payload.endpoint == "https://x.test/b"
+
+
+def test_duplicate_raw_item_urls_are_not_collapsed() -> None:
+    # CR-002 residual (Codex round 2): the url->RawPayload map is only for
+    # snapshot association; storage itself must never collapse duplicate
+    # source URLs into one row, or an evidence row silently vanishes.
+    items = [ok_item(url="https://x.test/shared"), ok_item(url="https://x.test/shared")]
+    parsed = [
+        ok_parsed(key="C", raw_url="https://x.test/shared"),
+        ok_parsed(key="D", raw_url="https://x.test/shared"),
+    ]
+    adapter = FakeAdapter(items, parsed)
+    asyncio.run(run_source(adapter, NullResolver()))
+    assert RawPayload.objects.filter(endpoint="https://x.test/shared").count() == 2
 
 
 def test_bounded_retention_stamps_expires_at() -> None:
