@@ -37,9 +37,9 @@ Run a **workflow** to:
 
 ## References
 
-- [`hw-radar` Specification](docs/specs/hw-radar-master-spec.md)
-- [Resolved Questions](docs/resolved-questions.md)
-- [Open Questions](docs/open-questions.md)
-- [Architecture Decision Records](docs/adr)
-- [Research Reports](docs/research)
-- [Further Research Prompts](docs/further-research-needed-prompts.md)
+- [`hw-radar` Specification](../specs/hw-radar-master-spec.md)
+- [Resolved Questions](../resolved-questions.md)
+- [Open Questions](../open-questions.md)
+- [Architecture Decision Records](../adr)
+- [Research Reports](../research)
+- [Further Research Prompts](../further-research-needed-prompts.md)

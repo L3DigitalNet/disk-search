@@ -16,8 +16,8 @@ Perform a comprehensive gap analysis of the `hw-radar` project.
 
 ## Resources and References
 
-- [`hw-radar` Specification](docs/specs/hw-radar-master-spec.md)
-- [Open Questions](docs/open-questions.md)
-- [Further Research Prompts](docs/further-research-needed-prompts.md)
-- [Research Reports](docs/research)
-- [Architecture Decision Records](docs/adr)
+- [`hw-radar` Specification](../specs/hw-radar-master-spec.md)
+- [Open Questions](../open-questions.md)
+- [Further Research Prompts](../further-research-needed-prompts.md)
+- [Research Reports](../research)
+- [Architecture Decision Records](../adr)

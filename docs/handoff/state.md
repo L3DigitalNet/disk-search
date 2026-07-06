@@ -21,8 +21,11 @@ Last updated: 2026-07-06
 
 ## Active Incidents
 
-- None. (The prior `docs/prompts/*.md` dirty-links caveat is resolved — the
-  committed prompt links are repo-root-relative and correct.)
+- None. (The prior `docs/prompts/*.md` broken-relative-link caveat is now
+  FIXED in PR #12: the links used `](docs/…)` which GitHub resolved to
+  `docs/prompts/docs/…`; corrected to `](../…)`. Flagged by the PR's Copilot
+  reviewer — an earlier in-session assessment that called them "correct" was
+  wrong; GitHub renders relative links file-relative, not repo-root-relative.)
 
 ## Next Agent
 

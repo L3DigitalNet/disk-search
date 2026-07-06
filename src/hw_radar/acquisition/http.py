@@ -80,5 +80,7 @@ async def get(
             raise RobotsUnavailable(f"robots.txt unreachable for {url}")  # transient → backoff
         if not parser.can_fetch(user_agent, url):
             raise RobotsDisallowed(url)  # persistent disallow → never fetch this path
-    merged = {"User-Agent": user_agent, **(headers or {})}
+    # user_agent LAST so the honest UA always wins — a caller's headers must not
+    # be able to override the C-007 identifying User-Agent guardrail.
+    merged = {**(headers or {}), "User-Agent": user_agent}
     return await client.get(url, params=params, headers=merged)
