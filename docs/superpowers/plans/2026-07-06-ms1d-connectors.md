@@ -48,7 +48,9 @@ src/hw_radar/catalog/migrations/0009_heartbeat_models.py       # NEW: two tables
 src/hw_radar/catalog/migrations/0010_heartbeat_timescale.py    # NEW (atomic=False): hypertable, compression, retention, cagg
 src/hw_radar/catalog/migrations/0011_enable_heartbeat_flags.py # NEW: per-source heartbeat_enabled/fast_lane flips (data migration)
 
-src/hw_radar/acquisition/http.py               # NEW: httpx GET helper + robots-preflight guard (shared, C-007 for JSON paths)
+src/hw_radar/acquisition/classify.py           # MODIFY (B0): map httpx.TransportError → TRANSIENT
+src/hw_radar/acquisition/contracts.py          # MODIFY (B4): ParsedListing.raw_url (per-item raw association)
+src/hw_radar/acquisition/http.py               # NEW: httpx GET helper + robots-preflight guard (shared, C-007 for JSON paths; RFC-9309 fail-closed)
 src/hw_radar/acquisition/heartbeat.py          # NEW: fingerprint + decision logic + HeartbeatReading/HeartbeatProbe protocol + run_heartbeat
 src/hw_radar/acquisition/pipeline.py           # MODIFY: thread expires_at through run_source/_persist_all; per-grain resolution counts in detail_json
 src/hw_radar/acquisition/sources/serverpartdeals.py   # NEW
@@ -194,6 +196,12 @@ class AvailabilityHeartbeatObservation(RetentionGoverned):
     AvailabilityHeartbeatEvent (365d) by the poller (OQ17 split-table pattern —
     chunk-granular retention cannot keep two classes at two TTLs in one table)."""
 
+    # CR-001: TimescaleDB requires every unique index — including the PK — to
+    # contain the partitioning column (observed_at). Django's default `id` PK
+    # would make create_hypertable() FAIL. Mirror OfferSnapshot's
+    # CompositePrimaryKey (market.py:137). (source_site_id, source_sku,
+    # observed_at) is unique per probe — heartbeats are written serially per source.
+    pk = models.CompositePrimaryKey("source_site_id", "source_sku", "observed_at")
     source_site = models.ForeignKey(SourceSite, on_delete=models.PROTECT, related_name="heartbeats")
     source_sku = models.CharField(max_length=255)  # the source's variant/SKU key
     observed_at = models.DateTimeField()
@@ -406,7 +414,72 @@ git commit -m "feat(heartbeat): hypertable + daily cagg + 30d retention; event t
 
 ## Phase B — Shared connector infrastructure
 
-### Task B1: httpx robots-preflight guard
+### Task B0: Classify `httpx.TransportError` as transient (prerequisite for all httpx connectors)
+
+**Files:**
+- Modify: `src/hw_radar/acquisition/classify.py`
+- Test: `tests/unit/test_classify.py`
+
+**Interfaces:**
+- Produces: `classify_exception` maps `httpx.TransportError` (and its subclasses — `ConnectError`, `ReadTimeout`, `ConnectTimeout`, `PoolTimeout`, `ProtocolError`, …) to `RunFailureClass.TRANSIENT`.
+
+Rationale (CR-003): `httpx.TransportError` derives from `httpx.HTTPError(Exception)`, **not** from `OSError`/`ConnectionError`/`TimeoutError`, so the current `classify_exception` (`classify.py:25-28`) returns `UNKNOWN` for a routine API timeout — which pauses the source for manual intervention (`lifecycle.py:56-59`) instead of backing off. This is a prerequisite for C1/C3/C4/C5, and the open TODO "classify `httpx.TransportError` as transient before non-USD/API sources go live." Must land before any httpx connector.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# tests/unit/test_classify.py — add
+import httpx
+import pytest
+
+from hw_radar.acquisition.classify import classify_exception
+from hw_radar.catalog.models import RunFailureClass
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        httpx.ConnectError("refused"),
+        httpx.ReadTimeout("slow"),
+        httpx.ConnectTimeout("slow"),
+        httpx.PoolTimeout("pool"),
+        httpx.RemoteProtocolError("bad frame"),
+    ],
+)
+def test_httpx_transport_errors_are_transient(exc: httpx.TransportError) -> None:
+    assert classify_exception(exc) is RunFailureClass.TRANSIENT
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `uv run pytest tests/unit/test_classify.py -k transport -v`
+Expected: FAIL — currently returns `UNKNOWN`.
+
+- [ ] **Step 3: Implement**
+
+```python
+# classify.py — add httpx.TransportError to the transient branch. Keep the
+# existing built-in tuple; add the httpx base (all transport subclasses inherit).
+import httpx  # add to imports
+
+# inside classify_exception, extend the transient isinstance check:
+    if isinstance(exc, TimeoutError | ConnectionError | OSError | httpx.TransportError):
+        return RunFailureClass.TRANSIENT
+```
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `uv run pytest tests/unit/test_classify.py -v`
+Expected: PASS (existing cases unaffected).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/hw_radar/acquisition/classify.py tests/unit/test_classify.py
+git commit -m "fix(classify): map httpx.TransportError to TRANSIENT (CR-003; API connectors back off, not pause)"
+```
+
+### Task B1: httpx robots-preflight guard (fail-closed on unreachable robots)
 
 **Files:**
 - Create: `src/hw_radar/acquisition/http.py`
@@ -414,6 +487,7 @@ git commit -m "feat(heartbeat): hypertable + daily cagg + 30d retention; event t
 
 **Interfaces:**
 - Produces: `HONEST_UA` (reuse `scrapy_support.USER_AGENT`); `async def robots_allows(url: str, *, client: httpx.AsyncClient, user_agent: str = HONEST_UA) -> bool`; `class RobotsDisallowed(Exception)`; `async def get(url, *, client, params=None, headers=None, user_agent=HONEST_UA, check_robots=True) -> httpx.Response` (raises `RobotsDisallowed` if the path is not allowed). httpx bypasses Scrapy's `ROBOTSTXT_OBEY`, so this is the C-007 enforcement point for JSON paths.
+- **RFC 9309 fail-closed (CR-005):** robots fetch **2xx** → parse rules; **4xx** (incl. 404 = no robots) → *unrestricted*, allow; **5xx OR a transport error** → robots is *unreachable*, so **deny by default** (`robots_allows` returns `False` → `get` raises `RobotsDisallowed`). Never fetch the target when permission cannot be verified. The prior "fail-open on HTTPError / parse 5xx body as rules" behavior is wrong and must not ship.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -422,43 +496,73 @@ git commit -m "feat(heartbeat): hypertable + daily cagg + 30d retention; event t
 import httpx
 import pytest
 
-from hw_radar.acquisition.http import RobotsDisallowed, get, robots_allows
+from hw_radar.acquisition.http import (
+    RobotsDisallowed,
+    RobotsUnavailable,
+    get,
+    robots_allows,
+)
 
 DISALLOW_ALL = "User-agent: *\nDisallow: /\n"
 ALLOW = "User-agent: *\nDisallow: /admin\n"
 
 
-def _transport(robots_body: str, ok_json: dict[str, object]) -> httpx.MockTransport:
+def _transport(*, robots_status: int, robots_body: str = "", robots_raises: bool = False) -> httpx.MockTransport:
+    """robots_status drives the /robots.txt response; a non-/robots.txt path
+    returns 200 {"ok": true}. robots_raises simulates a network transport error."""
+
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/robots.txt":
-            return httpx.Response(200, text=robots_body)
-        return httpx.Response(200, json=ok_json)
+            if robots_raises:
+                raise httpx.ConnectError("robots unreachable")
+            return httpx.Response(robots_status, text=robots_body)
+        return httpx.Response(200, json={"ok": True})
 
     return httpx.MockTransport(handler)
 
 
 @pytest.mark.anyio
-async def test_disallowed_path_raises() -> None:
-    async with httpx.AsyncClient(transport=_transport(DISALLOW_ALL, {})) as c:
+async def test_explicit_disallow_raises() -> None:
+    tr = _transport(robots_status=200, robots_body=DISALLOW_ALL)
+    async with httpx.AsyncClient(transport=tr) as c:
         with pytest.raises(RobotsDisallowed):
             await get("https://store.seagate.com/graphql", client=c)
 
 
 @pytest.mark.anyio
 async def test_allowed_path_fetches() -> None:
-    async with httpx.AsyncClient(transport=_transport(ALLOW, {"ok": True})) as c:
+    tr = _transport(robots_status=200, robots_body=ALLOW)
+    async with httpx.AsyncClient(transport=tr) as c:
         resp = await get("https://serverpartdeals.com/collections/x/products.json", client=c)
-        assert resp.status_code == 200
-        assert resp.json() == {"ok": True}
+        assert resp.status_code == 200 and resp.json() == {"ok": True}
 
 
 @pytest.mark.anyio
-async def test_robots_allows_direct() -> None:
-    async with httpx.AsyncClient(transport=_transport(DISALLOW_ALL, {})) as c:
-        assert await robots_allows("https://store.seagate.com/x", client=c) is False
+async def test_robots_404_is_unrestricted() -> None:  # RFC 9309: 4xx ⇒ allow
+    tr = _transport(robots_status=404)
+    async with httpx.AsyncClient(transport=tr) as c:
+        resp = await get("https://api.westerndigital.com/x/products", client=c)
+        assert resp.status_code == 200
+
+
+@pytest.mark.anyio
+async def test_robots_503_denies_and_does_not_fetch_target() -> None:  # RFC 9309: 5xx ⇒ deny
+    tr = _transport(robots_status=503)
+    async with httpx.AsyncClient(transport=tr) as c:
+        with pytest.raises(RobotsUnavailable):
+            await get("https://serverpartdeals.com/x/products.json", client=c)
+        assert await robots_allows("https://serverpartdeals.com/x", client=c) is False
+
+
+@pytest.mark.anyio
+async def test_robots_network_error_denies() -> None:  # RFC 9309: unreachable ⇒ deny
+    tr = _transport(robots_status=200, robots_raises=True)
+    async with httpx.AsyncClient(transport=tr) as c:
+        with pytest.raises(RobotsUnavailable):
+            await get("https://serverpartdeals.com/x/products.json", client=c)
 ```
 
-(Use the project's existing async-test config. If `anyio`/`asyncio.run` — check `tests/db/test_fx_service.py` for the established async-drive idiom and match it; do not add a new async plugin dependency.)
+(Use the project's existing async-test idiom — check `tests/db/test_fx_service.py` and match it; do not add a new async plugin dependency. `RobotsUnavailable` subclasses `ConnectionError`, so `classify_exception` already maps it to `TRANSIENT` — an unreachable-robots run backs off rather than pausing; `RobotsDisallowed` stays `UNKNOWN` → pause, correct for a persistent disallow. Clear `_ROBOTS_CACHE` between tests via an autouse fixture since it is process-global.)
 
 - [ ] **Step 2: Run to verify it fails**
 
@@ -486,34 +590,52 @@ import httpx
 
 from hw_radar.acquisition.scrapy_support import USER_AGENT as HONEST_UA
 
+# Cache only SUCCESSFUL robots parses (keyed by origin). Unreachable robots
+# (5xx / transport error) is NOT cached — a transient outage must be re-checked
+# next call, not frozen into a permanent block for the process lifetime.
 _ROBOTS_CACHE: dict[str, RobotFileParser] = {}
 
 
 class RobotsDisallowed(Exception):
+    """robots.txt EXPLICITLY disallows the path (persistent). Classifies UNKNOWN
+    → pauses the source for human review — correct: we should not poll a path the
+    site forbids (e.g. store.seagate.com)."""
+
     def __init__(self, url: str) -> None:
         super().__init__(f"robots.txt disallows {url}")
 
 
-async def _robots_for(url: str, *, client: httpx.AsyncClient) -> RobotFileParser:
+class RobotsUnavailable(ConnectionError):
+    """robots.txt UNREACHABLE (5xx / network) — RFC 9309 requires complete
+    disallow. Subclasses ConnectionError so the existing classify_exception maps
+    it to TRANSIENT → the source backs off and retries, rather than fetching
+    without permission or pausing."""
+
+
+async def _robots_for(url: str, *, client: httpx.AsyncClient) -> RobotFileParser | None:
+    """Return a parser for the origin's robots rules, or None if UNREACHABLE."""
     parts = httpx.URL(url)
     origin = f"{parts.scheme}://{parts.host}"
     cached = _ROBOTS_CACHE.get(origin)
     if cached is not None:
         return cached
-    parser = RobotFileParser()
     try:
         resp = await client.get(f"{origin}/robots.txt")
-        # 4xx (incl. 404 = no robots) ⇒ unrestricted; 2xx ⇒ parse the rules.
-        parser.parse(resp.text.splitlines() if resp.status_code < 400 else [])
     except httpx.HTTPError:
-        parser.parse([])  # unreachable robots ⇒ do not fabricate a block; fetch guardrails still cap us
+        return None  # RFC 9309: network-unreachable ⇒ deny (not cached — retry next call)
+    if resp.status_code >= 500:
+        return None  # RFC 9309: server error ⇒ unreachable ⇒ deny (not cached)
+    parser = RobotFileParser()
+    # 4xx (incl. 404 = no robots) ⇒ unrestricted; 2xx ⇒ parse the rules.
+    parser.parse(resp.text.splitlines() if resp.status_code < 400 else [])
     _ROBOTS_CACHE[origin] = parser
     return parser
 
 
 async def robots_allows(url: str, *, client: httpx.AsyncClient, user_agent: str = HONEST_UA) -> bool:
+    """False when explicitly disallowed OR when robots is unreachable (fail-closed)."""
     parser = await _robots_for(url, client=client)
-    return parser.can_fetch(user_agent, url)
+    return parser is not None and parser.can_fetch(user_agent, url)
 
 
 async def get(
@@ -525,8 +647,12 @@ async def get(
     user_agent: str = HONEST_UA,
     check_robots: bool = True,
 ) -> httpx.Response:
-    if check_robots and not await robots_allows(url, client=client, user_agent=user_agent):
-        raise RobotsDisallowed(url)
+    if check_robots:
+        parser = await _robots_for(url, client=client)
+        if parser is None:
+            raise RobotsUnavailable(f"robots.txt unreachable for {url}")  # transient → backoff
+        if not parser.can_fetch(user_agent, url):
+            raise RobotsDisallowed(url)  # persistent disallow → never fetch this path
     merged = {"User-Agent": user_agent, **(headers or {})}
     return await client.get(url, params=params, headers=merged)
 ```
@@ -781,6 +907,87 @@ git add src/hw_radar/acquisition/pipeline.py tests/db/test_pipeline.py
 git commit -m "feat(pipeline): thread expires_at through run_source for bounded retention (eBay TTL)"
 ```
 
+### Task B4: Per-item raw payload persistence + snapshot→raw association
+
+**Files:**
+- Modify: `src/hw_radar/acquisition/contracts.py` (`ParsedListing` gains `raw_url`), `src/hw_radar/acquisition/pipeline.py` (`_persist_all`)
+- Test: `tests/db/test_pipeline.py`
+
+**Interfaces:**
+- Produces: `ParsedListing.raw_url: str = ""` — the `RawItem.url` this listing was parsed from. `_persist_all` now persists **every** `batch.items` entry as a `RawPayload` (not just `items[0]`) and links each `OfferSnapshot` to the raw payload matching its listing's `raw_url` (fallback: the sole raw when the batch has one item, else `None`).
+
+Rationale (CR-002): current `_persist_all` stores only `batch.items[0]` and links every snapshot to that one raw row (`pipeline.py:101-105`). For WD (search sweep + per-product fetches → many `RawItem`s) that silently drops provenance and mis-associates evidence. TODO.md must-do: "store per-item raw payload rows." A count-only test would pass while provenance is wrong — so the test asserts row identity, not just counts.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# tests/db/test_pipeline.py — add
+def test_per_item_raw_payloads_are_stored_and_associated() -> None:
+    # two RawItems, each producing one listing tagged with its own raw_url
+    items = [ok_item(url="https://x.test/a"), ok_item(url="https://x.test/b")]
+    parsed = [ok_parsed(key="A", raw_url="https://x.test/a"),
+              ok_parsed(key="B", raw_url="https://x.test/b")]
+    adapter = FakeAdapter(items, parsed)
+    asyncio.run(run_source(adapter, NullResolver()))
+    assert RawPayload.objects.count() == 2  # not 1 (items[0]-only bug is dead)
+    snap_a = OfferSnapshot.objects.get(listing__source_listing_key="A")
+    assert snap_a.raw_payload is not None and snap_a.raw_payload.endpoint == "https://x.test/a"
+    snap_b = OfferSnapshot.objects.get(listing__source_listing_key="B")
+    assert snap_b.raw_payload.endpoint == "https://x.test/b"
+```
+
+(Extend the test module's `ok_item`/`ok_parsed` helpers with the `url`/`key`/`raw_url` kwargs.)
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `HW_RADAR_DB_PORT=5433 uv run pytest tests/db/test_pipeline.py::test_per_item_raw_payloads_are_stored_and_associated -v`
+Expected: FAIL — `RawPayload.objects.count() == 1`.
+
+- [ ] **Step 3: Implement**
+
+```python
+# contracts.py — ParsedListing: add (backward-compatible default)
+    raw_url: str = ""  # RawItem.url this listing was parsed from (per-item raw association)
+
+# pipeline.py — _persist_all: persist EVERY item (a list, so duplicate URLs are
+# NOT collapsed — CR-002), then build a url→raw map for association (first raw
+# per url wins; duplicate source URLs are rare but must not drop a stored row).
+def _persist_all(site, batch, normalized, retention_class, expires_at):
+    raws = [
+        store_raw(item, fetched_at=batch.fetched_at,
+                  retention_class=retention_class, expires_at=expires_at)
+        for item in batch.items
+    ]  # len(raws) == len(batch.items) — every RawItem persisted
+    by_url: dict[str, RawPayload] = {}
+    for item, raw in zip(batch.items, raws, strict=True):
+        by_url.setdefault(item.url, raw)
+    sole = raws[0] if len(raws) == 1 else None
+    listing_ids, upserted, appended = [], 0, 0
+    observed_at = batch.fetched_at
+    for record in normalized:
+        listing, _created = upsert_listing(site, record, retention_class, expires_at=expires_at)
+        raw = by_url.get(record.raw_url) or sole  # per-item; fallback to the sole raw
+        append_snapshot(listing, record, observed_at=observed_at, raw=raw)
+        listing_ids.append(listing.pk); upserted += 1; appended += 1
+    return listing_ids, upserted, appended
+```
+
+Also add a test case asserting a batch with **two RawItems sharing a URL** persists two `RawPayload` rows (no collapse) — pins the CR-002-residual fix.
+
+Note: `NormalizedListing` extends `ParsedListing`, so `record.raw_url` is available on the normalized record. Adapters set `raw_url` in `parse()` (add to C1/C3/C4/C5 — WD is the load-bearing multi-item case).
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `HW_RADAR_DB_PORT=5433 uv run pytest tests/db/test_pipeline.py -v`
+Expected: PASS (single-item connectors keep working via the `sole` fallback).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/hw_radar/acquisition/contracts.py src/hw_radar/acquisition/pipeline.py tests/db/test_pipeline.py
+git commit -m "fix(pipeline): persist every raw item + associate snapshot→raw by url (CR-002)"
+```
+
 ---
 
 ## Phase C — Connectors (design build order)
@@ -929,6 +1136,7 @@ class ServerPartDealsAdapter:
                             title=str(product["title"]),
                             price=Decimal(str(variant["price"])),
                             stock_status="in_stock" if variant.get("available") else "out_of_stock",
+                            raw_url=item.url,  # per-item raw-payload association (Task B4)
                             attrs={"sku": variant.get("sku", ""), "variant_title": variant.get("title", "")},
                         )
                     )
@@ -1051,9 +1259,12 @@ git commit -m "feat(connector): ServerPartDeals Shopify products.json adapter + 
 - `site_key = "ebay"`, `expects_json = True`, `run_kind = RunKind.FULL`. Config: `heartbeat_enabled=True`, `fast_lane=True` (the Browse poll IS the heartbeat — no separate tier). Sequenced last to harden the contract before OAuth.
 - OAuth2 client-credentials: `POST {base}/identity/v1/oauth2/token` (Basic `b64(client_id:client_secret)`, `grant_type=client_credentials`, `scope=https://api.ebay.com/oauth/api_scope`) → cache token until `expires_in`; then `GET {base}/buy/browse/v1/item_summary/search?q=...&limit=...` with `Authorization: Bearer …` + `X-EBAY-C-MARKETPLACE-ID: EBAY_US`. Creds from env: `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, base `EBAY_API_BASE` (default `https://api.ebay.com`) — OpenBao-injected at runtime; **never logged, never in the repo**. Verified live 2026-07-06 (token 7200 s; search HTTP 200).
 - Parse `itemSummaries[]` → `ParsedListing` (`source_listing_key = itemId`, `price = price.value`, `currency = price.currency`, `shipping_price` from `shippingOptions[0].shippingCost.value` when present, `ships_from_country` from `itemLocation.country`, `seller_name` from `seller.username`).
-- **Retention (DR-008):** the eBay run calls `run_source(adapter, resolver, retention_class=RetentionClass.EBAY_LISTING_OBSERVATION, expires_policy=lambda observed: observed + timedelta(hours=6))` — the Task B3 path. Non-USD listings are FX-stamped by the pipeline and flagged international by `fx.stamp`. Bypass the B1 robots guard for `api.ebay.com` (an authorized API, not a crawl — `check_robots=False`), but keep the honest UA.
+- **Retention TTL (partial DR-008):** the eBay run calls `run_source(adapter, resolver, retention_class=RetentionClass.EBAY_LISTING_OBSERVATION, expires_policy=lambda observed: observed + timedelta(hours=6))` — the Task B3 `expires_policy` path (B4 per-item raw applies too). This bounds observation *staleness* to ≤6 h but **does NOT by itself satisfy the eBay delete-on-delist obligation** (see the delist gate below). Non-USD listings are FX-stamped by the pipeline and flagged international by `fx.stamp`. Bypass the B1 robots guard for `api.ebay.com` (an authorized API, not a crawl — `check_robots=False`), but keep the honest UA.
+- **Token cache robustness (CR-007 note):** cache the token with a **safety skew** (treat it as expired `expires_in - 300 s` early) and on a **401** from the search call, invalidate the cache and re-mint once before failing. eBay rate-limits the token endpoint, so do not mint per request.
 
-- [ ] **Steps:** failing test (MockTransport: `/identity/v1/oauth2/token` → synthetic token JSON `{"access_token":"SYNTH","expires_in":7200,"token_type":"Application Access Token"}`; `/buy/browse/v1/item_summary/search` → synthetic `itemSummaries`; assert a non-USD item gets `is_international=True` + `usd_item_price` set, and that the listing's `retention_class == ebay_listing_observation` with non-null `expires_at`; assert no token string appears in `caplog`) → fail → implement adapter (token cache; `probe()` reuses the search response — the Browse poll doubles as the heartbeat) → register → flip flags → run PASS → commit `feat(connector): eBay Browse API adapter (OAuth2, ≤6h retention, heartbeat-native)`.
+- [ ] **Steps:** failing test (MockTransport: `/identity/v1/oauth2/token` → synthetic token JSON `{"access_token":"SYNTH","expires_in":7200,"token_type":"Application Access Token"}`; `/buy/browse/v1/item_summary/search` → synthetic `itemSummaries`; a first-call `401` then success proves the re-mint path; assert a non-USD item gets `is_international=True` + `usd_item_price` set, and that the listing's `retention_class == ebay_listing_observation` with non-null `expires_at`; assert no token string appears in `caplog`) → fail → implement adapter (token cache with skew + 401 re-mint; `probe()` reuses the search response — the Browse poll doubles as the heartbeat) → register → flip flags → run PASS → commit `feat(connector): eBay Browse API adapter (OAuth2, ≤6h retention, heartbeat-native)`.
+
+**CR-004 — eBay delete-on-delist gate (does NOT ship as auto-enable in MS-1d):** the ≤6 h TTL bounds staleness but is not the delete-on-delist path. Per owner decision (STATUS.md 2026-07-05, TODO.md IR-002): hard delete is never the path; delist must become a **Listing-grain soft-delete / terminal state** (mirroring `RetentionGoverned` + an `is_current` flag) that does **not** relax the resolution-edge `superseded_by` `PROTECT`. That is a schema addition (`Listing` has no soft-delete field today) beyond MS-1d's adapter scope. **Decision:** MS-1d ships the eBay *connector* (fetch/parse/persist/heartbeat) but eBay **`enabled=True` go-live stays BLOCKED** until a separate Listing-grain soft-delete plan lands. Record this block in Task E3's runbook (eBay is the one source whose operational enable is gated on more than the SA-004 checklist), and do not claim DR-008 is fully satisfied. A follow-up TODO carries the soft-delete plan.
 
 ---
 
@@ -1066,8 +1277,16 @@ git commit -m "feat(connector): ServerPartDeals Shopify products.json adapter + 
 - Test: `tests/db/test_poller_heartbeat.py`, `tests/unit/test_poller.py` (job registration)
 
 **Interfaces:**
-- Produces: `async def run_heartbeat(adapter: HeartbeatProbe, config: SourceConfig, resolver: ListingResolver) -> None` — probes, loads each SKU's last observation, `decide()`s, writes an `AvailabilityHeartbeatObservation` (retention `availability_heartbeat`, `expires_at = observed + 30d`; eBay carve-out: `ebay_listing_observation`, `expires_at = observed + 6h`), dual-writes an `AvailabilityHeartbeatEvent` (365d) for non-`unchanged`, and fires `run_source(adapter, resolver, run_kind=RunKind.HEARTBEAT→FULL)` once when ANY SKU is `transition_detected`/`ambiguous`. `poll_heartbeat(site_key, registry, scheduler)` mirrors `poll_source` (admission gate with `run_kind=RunKind.HEARTBEAT`).
-- `build_scheduler`: for each config with `heartbeat_enabled=True`, add a `poll-heartbeat-{key}` interval job at `current_interval_s` (fast-lane cadence); the full-pipeline `poll-{key}` job stays for non-heartbeat or repair crawls. eBay's Browse poll doubles as heartbeat — schedule only the heartbeat job for eBay to avoid double-polling.
+- Produces: `async def run_heartbeat(adapter: HeartbeatProbe, config: SourceConfig, resolver: ListingResolver) -> None` — probes, loads each SKU's last observation, `decide()`s, writes an `AvailabilityHeartbeatObservation`, dual-writes an `AvailabilityHeartbeatEvent` for non-`unchanged`, and fires `run_source(adapter, resolver, run_kind=RunKind.HEARTBEAT→FULL)` once when ANY SKU is `transition_detected`/`ambiguous`.
+- **Retention per source (CR-NEW-001 — the eBay carve-out covers BOTH heartbeat tables, not just observations):**
+  - non-eBay: observation → `availability_heartbeat` / `expires_at = observed + 30d`; event → `availability_heartbeat_event` / `expires_at = observed + 365d`.
+  - **eBay:** BOTH the observation AND the event row carry `retention_class = ebay_listing_observation` / `expires_at = observed + 6h` (ADR-0015 rule-6 source-restricted class caps the blanket heartbeat TTLs; design §108-109). A source-restricted retention helper (`heartbeat_retention_for(config) -> (RetentionClass, timedelta)`) centralizes this so no eBay heartbeat row ever lands on a 365-day path. Test: a synthetic eBay heartbeat transition asserts both rows carry `ebay_listing_observation` with a ≤6 h `expires_at`.
+- `poll_heartbeat(site_key, registry, scheduler)` mirrors `poll_source` **fully** (CR-006 residual): admission gate with `run_kind=RunKind.HEARTBEAT`, `apply_run_outcome` on the returned `RunOutcome`, and interval reschedule when `current_interval_s` changes — not just admission.
+- `build_scheduler` job model (CR-006 — ADR-0015 requires a slow repair crawl for *every* source, since CDN edge cache floors achievable freshness regardless of poll rate):
+  - **heartbeat-enabled, non-eBay** (WD, Seagate, ServerPartDeals): TWO jobs — a fast `poll-heartbeat-{key}` at `current_interval_s` (the fast-lane/heartbeat cadence) **and** a slow repair `poll-{key}` at `cadence_baseline_s` (the slow end — full pipeline regardless of heartbeat, catching edge-cache-masked changes). Distinct cadences, distinct job IDs.
+  - **eBay**: ONE job — `poll-heartbeat-ebay` only. The Browse poll IS both the heartbeat and the full fetch (natively-both source), so a separate repair `poll-ebay` would double-poll; document this as the intentional single-job exception.
+  - **heartbeat-disabled** (goHardDrive): unchanged — one `poll-{key}` full-pipeline job at `current_interval_s`.
+- Test `build_scheduler` asserts: WD/Seagate/SPD each have BOTH `poll-heartbeat-{key}` and `poll-{key}` at distinct intervals; eBay has ONLY `poll-heartbeat-ebay`; goHardDrive has ONLY `poll-goharddrive`.
 
 - [ ] **Steps:** failing DB test (two probes with an OOS→in_stock transition ⇒ exactly one `offer_snapshot` written and one `AvailabilityHeartbeatEvent`; a run of identical probes ⇒ zero snapshots — the ADR-0015 Confirmation criterion) → fail → implement `run_heartbeat` + poller wiring → run PASS (incl. `tests/unit/test_poller.py` asserting heartbeat jobs are registered for `heartbeat_enabled` sources) → commit `feat(poller): heartbeat scheduling — fire full pipeline only on transition (ADR-0015)`.
 
@@ -1099,8 +1318,9 @@ git commit -m "feat(connector): ServerPartDeals Shopify products.json adapter + 
 2. **FX stamping (FR-004):** a synthetic non-USD eBay item carries `fx_rate`, `fx_pair`, `fx_rate_date`, `usd_item_price`; USD items stamp identity (rate 1.0). `is_international` set for non-US `ships_from_country`.
 3. **Append-not-duplicate (DR-005):** running the same source twice appends a second `OfferSnapshot` and leaves `Listing.count()` unchanged.
 4. **Per-grain counts present:** each run's `detail_json["grain_counts"]` sums to `records_valid`.
+5. **Live-resolver integration (CR-007 — guards against a NullResolver-only false positive):** at least one representative connector (ServerPartDeals) runs through the real `CatalogResolver()` — not `NullResolver`. **The product catalog is NOT seeded by a migration** — `0008_refdata_seed` only creates `RefdataConfig` (Codex CR-007). Seed the reference corpus **inside the test** the way the existing refdata tests do (`import_refdata` / `refdata.refresh.run_refresh()`, cf. `tests/db/test_refdata_refresh.py:165`), then feed a synthetic listing whose MPN/alias **matches a seeded alias** (e.g. a seeded Seagate Exos or WD Ultrastar SKU from the MS-1c corpus). Assert the run succeeds AND `detail_json["grain_counts"]` shows **≥1 non-`none` grain** (family or better) — proving the adapter→`CatalogResolver`→grain path resolves, not merely executes. Optionally drive it through `poll_source` (wires `CatalogResolver` + admission) after setting the seed row `enabled=True` in-test to also exercise scheduler admission.
 
-- [ ] **Steps:** write the four assertions as parametrized cases → run (they should pass on the connectors from Phase C — this task is the integration gate, not new product code; fix any adapter gaps surfaced here) → commit `test(ms1): per-source acceptance — ≥1 listing, FX stamp, append-not-duplicate, grain counts`.
+- [ ] **Steps:** write the five assertions as parametrized cases; for case 5, seed refdata in-test and use an alias-matching synthetic listing → run (cases 1–4 pass on the Phase C connectors; case 5 exercises `CatalogResolver` with a real catalog hit — fix any adapter gaps surfaced here) → commit `test(ms1): per-source acceptance + live-resolver integration (≥1 listing, FX, append-not-dup, grain counts, CatalogResolver non-none grain)`.
 
 ### Task E3: Operational gate (SA-004) + enable runbook
 
@@ -1109,8 +1329,9 @@ git commit -m "feat(connector): ServerPartDeals Shopify products.json adapter + 
 - No code — this is the pre-real-data gate that must pass **before the first `enabled=True` flip**.
 
 - [ ] **Step 1:** Verify (don't assume — handoff says "wired 2026-07-05c"): (1) hourly **TimescaleDB-aware** logical dumps cover `availability_heartbeat_observation`, `availability_heartbeat_event`, and `raw_payload`; (2) the CT-116 disk-space alert is active (raw payloads grow); (3) raw payloads are DB-resident in this design (no disk-path payload stage ships in MS-1d — if one is added, the CT-116 subvol must enter restic `BACKUP_PATHS` first); (4) the restore path is documented (runbook §18.6). Record the verification result (pass/fail per item) in `deployed.md`.
-- [ ] **Step 2:** Document the operational enable procedure in `deployed.md`: after the gate passes, flip `enabled=True` one source at a time via SQL UPDATE (ADR-0016), watch `scraper_runs` for the first successful run + non-`grain=none` resolution, then proceed to the next. Order: ServerPartDeals → goHardDrive → WD → Seagate → eBay (mirrors build order; hardens simple sources first).
-- [ ] **Step 3: Commit** `docs(deployed): MS-1d operational gate checklist + per-source enable runbook (SA-004)`.
+- [ ] **Step 2:** Document the operational enable procedure in `deployed.md`: after the gate passes, flip `enabled=True` one source at a time via SQL UPDATE (ADR-0016), watch `scraper_runs` for the first successful run + non-`grain=none` resolution, then proceed to the next. Order: ServerPartDeals → goHardDrive → WD → Seagate → **eBay (BLOCKED)**.
+- [ ] **Step 3 (CR-004):** Record the **eBay go-live block** explicitly in `deployed.md`: eBay's connector ships in MS-1d but its `enabled=True` flip is gated on a *separate* Listing-grain soft-delete/terminal-state plan satisfying the delete-on-delist obligation (TODO IR-002) — not just the SA-004 checklist. The other four sources gate only on SA-004.
+- [ ] **Step 4: Commit** `docs(deployed): MS-1d operational gate + enable runbook; eBay go-live blocked pending delist plan (SA-004, CR-004)`.
 
 ### Task E4: Full gate + dev→main PR
 
@@ -1140,7 +1361,24 @@ Expected: all green; coverage ≥ 85% branch; pip-audit clean.
 - Endpoint re-verification at plan time → **done 2026-07-06** (recorded above), carried into C2/C3/C4. ✅
 - Exit criteria (5/5 ≥1 listing, FX stamps, append-not-duplicate, per-grain counts, resolution evidence SA-003) → Tasks E1–E2. ✅
 - `expires_at` through `run_source` (open TODO) → Task B3. ✅
-- Transient classification of `httpx.TransportError` before non-USD/API sources (TODO) → verify `classify_exception` maps `httpx.TransportError`→TRANSIENT in Task C5; if not, add it there (one-line classifier change + test).
+- Transient classification of `httpx.TransportError` before API sources (TODO) → **Task B0** (concrete TDD task before all httpx connectors). ✅
+- Per-item raw payload rows (TODO) → **Task B4** (persist every `RawItem`, associate snapshot→raw by url). ✅
+- eBay delete-on-delist (TODO IR-002) → **Task C5 delist gate + E3**: connector ships, but eBay `enabled=True` is BLOCKED pending a separate Listing-grain soft-delete plan; DR-008 is not claimed satisfied by TTL alone. ✅
+
+**Codex round-1 findings (CR-001..CR-007) — all confirmed against the repo and resolved:**
+- CR-001 (hypertable PK) → Task A2 `CompositePrimaryKey("source_site_id","source_sku","observed_at")`.
+- CR-002 (first-item-only raw) → Task B4.
+- CR-003 (`httpx.TransportError`→UNKNOWN) → Task B0.
+- CR-004 (eBay delist absent) → C5 delist gate + E3 go-live block.
+- CR-005 (robots fail-open) → Task B1 RFC-9309 fail-closed (`RobotsUnavailable(ConnectionError)`→TRANSIENT; 5xx/network deny).
+- CR-006 (repair-crawl path) → Task D1 two-job model (fast heartbeat + slow repair; eBay single-job exception).
+- CR-007 (NullResolver-only acceptance) → E2 case 5 (live `CatalogResolver` integration) + C5 token skew/401 re-mint.
+
+**Codex round-2 residuals (verdict: minor correction) — resolved:**
+- CR-002 residual (dict-comprehension collapsed duplicate raw URLs) → B4 now stores every `RawItem` as a list, then maps by url (first-wins) + a duplicate-URL test.
+- CR-007 residual (false "migration-0008 seeds catalog" claim — 0008 seeds only `RefdataConfig`) → E2 case 5 now seeds refdata in-test via `import_refdata`/`run_refresh()`, uses an alias-matching listing, and asserts ≥1 non-`none` grain.
+- CR-NEW-001 (eBay heartbeat *event* rows on the 365d path) → D1 eBay carve-out now covers BOTH heartbeat tables (`ebay_listing_observation`/≤6h) via a `heartbeat_retention_for(config)` helper + test.
+- CR-006 residual → D1 `poll_heartbeat` mirrors `poll_source` fully (outcome application + reschedule, not just admission).
 
 **Deviations flagged for owner/reviewer (Appendix B process):**
 - **MockTransport instead of vcrpy cassettes** for httpx connectors. Rationale: cassettes are synthetic-only (OQ8) and never recorded live, so vcrpy's record-replay adds machinery without benefit; `httpx.MockTransport` is the established pattern (`test_fx_service.py`) and keeps synthetic bodies inline and reviewable. `syrupy` snapshots of normalized output are still used. vcrpy remains available if a reviewer prefers it.
@@ -1148,4 +1386,4 @@ Expected: all green; coverage ≥ 85% branch; pip-audit clean.
 
 **Placeholder scan:** no TBD/TODO-in-code; every code step shows real code; C2/C3/C4/C5 compress *repeated harness* prose but each adapter's distinct fetch/parse is shown or fully specified with exact endpoints, keys, and field maps. Before implementing C2–C5, an executor should expand each to the same 6-step TDD shape as C1 (the harness is identical; only the parse logic and synthetic bodies differ).
 
-**Type consistency:** `site_key` values match migration-0005 `normalized_name`s exactly; `HeartbeatReading`/`HeartbeatDecision`/`decide` signatures are consistent A2↔B2↔D1; `expires_policy` callable signature is consistent B3↔C5.
+**Type consistency:** `site_key` values match migration-0005 `normalized_name`s exactly; `HeartbeatReading`/`HeartbeatDecision`/`decide` signatures are consistent A2↔B2↔D1; `expires_policy` callable signature is consistent B3↔C5; `ParsedListing.raw_url` is consistent B4↔C1–C5. Phase B task order: **B0** (classify) → **B1** (robots) → **B2** (heartbeat logic) → **B3** (expires_at) → **B4** (per-item raw), all before Phase C connectors.
