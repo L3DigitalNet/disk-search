@@ -181,3 +181,25 @@ class SchedulerCheckpoint(TimeStamped):
 
     class Meta:
         db_table = "scheduler_checkpoint"
+
+
+class RefdataConfig(TimeStamped):
+    """ADR-0016 settings row for ADR-0018 reference ingest: the C.3.4 discovery
+    occurrence threshold and the refresh kill-switch, changed by UPDATE not
+    deploy. Single row (pk=1) via current(); refdata.refresh stamps the last
+    run's report here (no ScraperRun row — reference ingest has no SourceSite)."""
+
+    enabled = models.BooleanField(default=True)
+    discovery_occurrence_threshold = models.PositiveIntegerField(default=3)
+    last_refresh_at = models.DateTimeField(null=True, blank=True)
+    last_report_json: models.JSONField[dict[str, object]] = models.JSONField(
+        default=dict, blank=True
+    )
+
+    class Meta:
+        db_table = "refdata_config"
+
+    @classmethod
+    def current(cls) -> RefdataConfig:
+        row, _ = cls.objects.get_or_create(pk=1)
+        return row

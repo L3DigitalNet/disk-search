@@ -1,5 +1,6 @@
-# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportPrivateUsage=false
+# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportPrivateUsage=false, reportUnknownArgumentType=false
 # APScheduler 3.x is untyped, and the ADR-0012 job-defaults contract is only exposed on _job_defaults.
+# job.trigger.timezone (cron trigger's tz) is likewise untyped, hence reportUnknownArgumentType.
 import asyncio
 import logging
 import os
@@ -69,6 +70,7 @@ def test_service_jobs_always_registered() -> None:
         "deadman-push",
         "bucket-checkpoint",
         "recovery-probes",
+        "refdata-refresh",
     ):
         assert scheduler.get_job(job_id) is not None, job_id
 
@@ -87,3 +89,21 @@ def test_run_shuts_down_cleanly_on_sigterm(caplog: pytest.LogCaptureFixture) -> 
         asyncio.run(drive())
     assert "poller started" in caplog.text
     assert "poller stopped" in caplog.text
+
+
+def test_refdata_refresh_job_registered_on_utc_cron() -> None:
+    scheduler = build_scheduler(BucketRegistry(), [])
+    job = scheduler.get_job("refdata-refresh")
+    assert job is not None
+    # Codex CR-003: APScheduler cron triggers default to the SCHEDULER timezone,
+    # which defaults to LOCAL time — the *_UTC constants are only honest if the
+    # scheduler is pinned to UTC.
+    assert str(job.trigger.timezone) == "UTC"
+
+
+def test_scheduler_is_pinned_to_utc() -> None:
+    scheduler = build_scheduler(BucketRegistry(), [])
+    assert str(scheduler.timezone) == "UTC"
+    fx = scheduler.get_job("fx-refresh")
+    assert fx is not None
+    assert str(fx.trigger.timezone) == "UTC"  # FX_REFRESH_HOUR_UTC now truthful

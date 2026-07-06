@@ -39,6 +39,7 @@ from hw_radar.acquisition.scrapy_support import install_asyncio_reactor
 from hw_radar.acquisition.sources import ADAPTERS
 from hw_radar.catalog.models import LifecycleState, RunKind, SourceConfig
 from hw_radar.matching.resolver import CatalogResolver
+from hw_radar.refdata import refresh as refdata_refresh
 
 if TYPE_CHECKING:
     from apscheduler.job import Job
@@ -50,6 +51,8 @@ DEADMAN_SECONDS = 60
 CHECKPOINT_SECONDS = 60
 FX_REFRESH_HOUR_UTC = 6
 RECOVERY_PROBE_SECONDS = 86_400  # ADR-0017: daily recovery probe for paused sources
+REFDATA_REFRESH_DAY = 1  # monthly-order cadence, its own axis (ADR-0018 rule 3)
+REFDATA_REFRESH_HOUR_UTC = 7  # after the 06:00 FX refresh
 
 
 def heartbeat() -> None:
@@ -146,8 +149,19 @@ async def recovery_probe_job(registry: BucketRegistry) -> None:
         logger.info("recovery probe for %s → %s", key, config.lifecycle_state)
 
 
+async def refdata_refresh_job() -> None:
+    """ADR-0018 monthly reference refresh — slow path, never heartbeat/fast-lane."""
+    report = await sync_to_async(refdata_refresh.run_refresh)()
+    logger.info("refdata refresh: %s", report.as_json())
+
+
 def build_scheduler(registry: BucketRegistry, configs: Sequence[SourceConfig]) -> AsyncIOScheduler:
-    scheduler = AsyncIOScheduler(job_defaults={"max_instances": 1, "coalesce": True})
+    # Codex CR-003: APScheduler defaults to LOCAL time, so the *_UTC constants
+    # above were only aspirational until the scheduler itself is pinned — cron
+    # triggers inherit the scheduler's timezone, not UTC, unless told to.
+    scheduler = AsyncIOScheduler(
+        job_defaults={"max_instances": 1, "coalesce": True}, timezone="UTC"
+    )
     scheduler.add_job(heartbeat, "interval", seconds=HEARTBEAT_SECONDS, id="poller-heartbeat")
     scheduler.add_job(refresh_fx_job, "cron", hour=FX_REFRESH_HOUR_UTC, id="fx-refresh")
     scheduler.add_job(deadman_job, "interval", seconds=DEADMAN_SECONDS, id="deadman-push")
@@ -164,6 +178,13 @@ def build_scheduler(registry: BucketRegistry, configs: Sequence[SourceConfig]) -
         seconds=RECOVERY_PROBE_SECONDS,
         id="recovery-probes",
         args=[registry],
+    )
+    scheduler.add_job(
+        refdata_refresh_job,
+        "cron",
+        day=REFDATA_REFRESH_DAY,
+        hour=REFDATA_REFRESH_HOUR_UTC,
+        id="refdata-refresh",
     )
     for config in configs:
         key = config.source_site.normalized_name

@@ -17,7 +17,7 @@ from typing import ClassVar
 from django.db import models
 from django.utils import timezone
 
-from hw_radar.catalog.models.base import ResolutionGrain
+from hw_radar.catalog.models.base import ResolutionGrain, TimeStamped
 from hw_radar.catalog.models.identity import ProductFamily, ProductModel, ProductVariant
 from hw_radar.catalog.models.market import Listing
 
@@ -53,6 +53,13 @@ class ListingResolution(models.Model):
     matcher_version = models.CharField(max_length=20)
     evidence: models.JSONField[dict[str, object]] = models.JSONField(default=dict, blank=True)
     resolved_at = models.DateTimeField(default=timezone.now)
+    # Mutable freshness stamp (MS-1b carry-forward: unchanged_miss evidence
+    # freshness). Updated in place whenever the resolver re-evaluates the
+    # listing and writes NO new edge — the deliberate exception, alongside
+    # is_current/superseded_by, to the append-only rule. Deliberately NOT in
+    # the evidence JSON: evidence describes the verdict, this describes when
+    # the verdict was last reconfirmed.
+    last_evaluated_at = models.DateTimeField(default=timezone.now)
     # is_current is the STATE flag (exactly one per listing, DB-enforced below);
     # superseded_by is the audit POINTER. They are split because a partial unique
     # constraint cannot be deferred in PostgreSQL and superseded_by points at the
@@ -143,3 +150,29 @@ class UnknownModelBackfill(models.Model):
     class Meta:
         managed = False
         db_table = "unknown_model_backfill"
+
+
+class FetchRequestStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    DONE = "done", "Done"
+    DISMISSED = "dismissed", "Dismissed"
+
+
+class ReferenceFetchRequest(TimeStamped):
+    """C.3.4 discovery loop, made concrete: a decoded-but-unknown MPN whose
+    occurrence count crossed RefdataConfig.discovery_occurrence_threshold.
+    Worked manually (Django admin) in MS-1c — 'targeted reference fetch' means
+    a human/agent authors the missing seed document; rows are the queue, not
+    an automated fetcher."""
+
+    hypothesis_key = models.CharField(max_length=300, unique=True)
+    mpn_hypothesis = models.CharField(max_length=200)
+    vendor_hint = models.CharField(max_length=50, blank=True, default="")
+    occurrences_at_enqueue = models.PositiveIntegerField()
+    status = models.CharField(
+        max_length=10, choices=FetchRequestStatus.choices, default=FetchRequestStatus.PENDING
+    )
+    notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "reference_fetch_request"

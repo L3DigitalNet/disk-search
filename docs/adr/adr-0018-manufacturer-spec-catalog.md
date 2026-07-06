@@ -6,7 +6,7 @@ description: 'Promote the ADR-0010 "reference/seed" table group to a first-class
 doc_type: 'adr'
 status: 'active'
 created: '2026-07-04'
-updated: '2026-07-04'
+updated: '2026-07-05'
 reviewed: null
 owner: ''
 consumer: 'mix'
@@ -92,6 +92,8 @@ Chosen option: **Option 2**, with a bounded **bootstrap** allowance from Option 
 ### Confirmation
 
 Implementation confirmation (milestone: catalog seed precedes the entity-resolver hardening, ~MS-1–MS-2): the reference pipeline ingests a vendor's datasheet set and produces `product_model` + `drive_spec` + `product_alias` rows carrying `retention_class = manufacturer_reference` with no `offer_snapshot`/score/alert side effects; a single enterprise family (e.g. an Exos or Ultrastar line) lands as one `product_family` with its full set of per-MPN `product_variant`/alias rows; a listing whose MPN matches an alias inherits the authoritative `drive_spec`; a listing with no match is persisted and enqueued for backfill rather than dropped; a model discontinued upstream on a later refresh is retained, not deleted.
+
+Confirmed implemented 2026-07-05 at MS-1c: confirmation criteria above are covered by the acceptance suite in `tests/db/test_refdata_acceptance.py` plus `tests/db/test_refdata_import.py` — full-fan-out family, per-MPN variant/alias landing, alias→spec inheritance, backfill-not-dropped (existing MS-1b tests), and discontinued-model retention on refresh. Exos recertified (`ST16000NM002C`…`ST28000NM000C`, six SKUs) is the acceptance family confirmed as full first-party datasheet fan-out per plan D2a; Ultrastar DC HC550 is a deliberate bounded starter subset, not full fan-out.
 
 ## More Information
 

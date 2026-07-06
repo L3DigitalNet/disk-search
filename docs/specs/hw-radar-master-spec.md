@@ -757,7 +757,7 @@ The implementer fills this in as completion evidence (Appendix B.3). MS-0 rows â
 | FR-003 (schema shape) | `tests/db/test_identity.py::test_recert_and_new_are_one_model_two_variants` | Verified (resolver-driven since MS-1b) |
 | DR-001 (as amended by DEV-002) | Schema constraints: `tests/db/test_market.py::test_retention_class_is_mandatory`, `test_indefinite_class_rejects_expiry`, `test_bounded_class_requires_expiry`; per-class TTL stamping/sweep land MS-1 | Partially verified (schema constraints) |
 | DR-003 | `tests/db/test_market.py::test_no_binary_columns_anywhere` | Verified |
-| DR-009 (schema prep) | `tests/db/test_identity.py::test_reference_tables_carry_retention_columns`; catalog ingest stamps `manufacturer_reference` at MS-1 | Verified (columns) |
+| DR-009 (schema prep) | `tests/db/test_identity.py::test_reference_tables_carry_retention_columns`; catalog ingest stamps `manufacturer_reference` at MS-1; retention-class stamping and discontinued-model retention exercised end-to-end by `tests/db/test_refdata_acceptance.py` and `tests/db/test_refdata_import.py::test_discontinued_model_is_retained_on_refresh` | Verified (columns + acceptance suite, MS-1c) |
 | DR-010 (alias shape) | `tests/db/test_identity.py::test_alias_supports_variant_grain` and `test_alias_is_marketplace_local`; `listing_resolution` implemented MS-1b (append-only edges, resolver-driven); learned-alias revocation cascade remains future work | Verified (schema + resolver, MS-1b) |
 | IR-006 (persistence boundary) | `tests/db/test_market.py::test_search_observation_stores_no_provider_content` | Verified (schema guard) |
 | DR-005 (schema shape) | `tests/db/test_market.py::test_snapshots_append_not_duplicate` | Verified (pipeline MS-1) |

@@ -2,6 +2,8 @@
 on demand, provisional families, lazy aliases, error path, and the ADR-0019
 rule-1 normalizer PARITY test (the CI guard for the single-normalizer invariant)."""
 
+from decimal import Decimal
+
 import pytest
 
 from hw_radar.catalog.models import (
@@ -67,6 +69,40 @@ def _listing(site: SourceSite, key: str, title: str) -> Listing:
         title_raw=title,
         retention_class=RetentionClass.MERCHANT_FACT,
     )
+
+
+def _seed_alias_for(model_number: str) -> ProductModel:
+    """Catalog-authoritative alias + model + spec, as the Task-4 importer writes them."""
+    seagate, _ = Manufacturer.objects.get_or_create(
+        normalized_name="seagate", defaults={"name": "Seagate"}
+    )
+    model, _ = ProductModel.objects.get_or_create(
+        manufacturer=seagate,
+        normalized_model_number=normalize_alias_text(model_number),
+        defaults={
+            "model_number": model_number,
+            "retention_class": RetentionClass.MANUFACTURER_REFERENCE,
+        },
+    )
+    DriveSpec.objects.update_or_create(
+        product_model=model,
+        defaults={
+            "media_type": MediaType.HDD,
+            "capacity_tb": Decimal("16"),
+            "retention_class": RetentionClass.MANUFACTURER_REFERENCE,
+        },
+    )
+    ProductAlias.objects.get_or_create(
+        alias_type=AliasType.MPN,
+        normalized_alias_text=normalize_alias_text(model_number),
+        source_site=None,
+        defaults={
+            "product_model": model,
+            "source_kind": AliasSourceKind.CATALOG_AUTHORITATIVE,
+            "retention_class": RetentionClass.MANUFACTURER_REFERENCE,
+        },
+    )
+    return model
 
 
 # django-types has no stub for the `resolutions` reverse-FK related manager
@@ -281,3 +317,73 @@ def test_veto_on_reobservation_demotes_and_keeps_one_current(
     assert _edge_count(listing, is_current=True) == 1
     current = _edge(listing, is_current=True)
     assert current.evidence["outcome"] == "review"
+
+
+def test_rung0_prior_blocks_upgrade_without_reconsider(site: SourceSite) -> None:
+    """The trap this task exists for: family-grain prior short-circuits rung 1."""
+    listing = _listing(site, "up-1", "seagate exos st16000nm002c 16tb sata")
+    CatalogResolver().resolve_listing(listing.pk)  # rung 2 → provisional family
+    listing.refresh_from_db()
+    assert listing.resolution_grain == ResolutionGrain.FAMILY
+    _seed_alias_for("ST16000NM002C")  # helper below: catalog alias + model + spec
+    CatalogResolver().resolve_listing(listing.pk)  # normal poll: rung 0 sticks
+    listing.refresh_from_db()
+    assert listing.resolution_grain == ResolutionGrain.FAMILY
+
+
+def test_reconsider_upgrades_family_grain_via_seeded_alias(site: SourceSite) -> None:
+    listing = _listing(site, "up-2", "seagate exos st16000nm002c 16tb sata")
+    CatalogResolver().resolve_listing(listing.pk)
+    _seed_alias_for("ST16000NM002C")
+    CatalogResolver().resolve_listing(listing.pk, reconsider=True)
+    listing.refresh_from_db()
+    assert listing.resolution_grain == ResolutionGrain.MODEL
+    edge = _edge(listing, is_current=True)
+    assert edge.method == "exact_alias"
+    assert edge.evidence.get("reconsider") is True
+
+
+def test_reconsider_same_outcome_stamps_freshness_without_new_edge(
+    site: SourceSite,
+) -> None:
+    listing = _listing(site, "fresh-1", "mystery drive with no tokens at all")
+    CatalogResolver().resolve_listing(listing.pk)  # grain none edge
+    edge = _edge(listing, is_current=True)
+    stamp_before = edge.last_evaluated_at
+    edges_before = _edge_count(listing)
+    CatalogResolver().resolve_listing(listing.pk, reconsider=True)
+    edge.refresh_from_db()
+    assert _edge_count(listing) == edges_before  # no edge spam
+    assert edge.last_evaluated_at > stamp_before  # but freshness recorded
+
+
+def test_unchanged_rung0_accept_stamps_freshness(site: SourceSite) -> None:
+    listing = _listing(site, "fresh-2", "seagate exos st16000nm002c 16tb sata")
+    CatalogResolver().resolve_listing(listing.pk)
+    edge = _edge(listing, is_current=True)
+    stamp_before = edge.last_evaluated_at
+    CatalogResolver().resolve_listing(listing.pk)  # rung-0 unchanged re-poll
+    edge.refresh_from_db()
+    assert edge.last_evaluated_at > stamp_before
+
+
+def test_reconsider_accept_rehit_same_target_stamps_without_new_edge(
+    site: SourceSite,
+) -> None:
+    """The (d) unchanged-target skip: a reconsider that re-accepts the SAME
+    grain+target writes no new edge (no edge spam per monthly refresh) but
+    advances the freshness stamp."""
+    _seed_alias_for("ST16000NM002C")
+    listing = _listing(site, "rehit-1", "seagate exos st16000nm002c 16tb sata")
+    CatalogResolver().resolve_listing(listing.pk)  # rung 1 -> MODEL grain
+    listing.refresh_from_db()
+    assert listing.resolution_grain == ResolutionGrain.MODEL
+    edge = _edge(listing, is_current=True)
+    stamp_before = edge.last_evaluated_at
+    edges_before = _edge_count(listing)
+    CatalogResolver().resolve_listing(listing.pk, reconsider=True)  # same target re-hit
+    edge.refresh_from_db()
+    assert _edge_count(listing) == edges_before  # (d) branch: no new edge
+    assert edge.last_evaluated_at > stamp_before  # freshness recorded
+    listing.refresh_from_db()
+    assert listing.resolution_grain == ResolutionGrain.MODEL  # denorm untouched

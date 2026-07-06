@@ -38,6 +38,7 @@ from hw_radar.catalog.models.ops import (
     CheapSignal,
     FxRateDaily,
     LifecycleState,
+    RefdataConfig,
     RunFailureClass,
     RunKind,
     RunStatus,
@@ -48,7 +49,9 @@ from hw_radar.catalog.models.ops import (
     VolatilityProfile,
 )
 from hw_radar.catalog.models.resolution import (
+    FetchRequestStatus,
     ListingResolution,
+    ReferenceFetchRequest,
     ResolutionMethod,
     UnknownModelBackfill,
 )
@@ -63,6 +66,7 @@ __all__ = [
     "Condition",
     "DriveSpec",
     "DriveUnit",
+    "FetchRequestStatus",
     "FxRateDaily",
     "LifecycleState",
     "Listing",
@@ -78,6 +82,8 @@ __all__ = [
     "RawPayload",
     "RecertChannel",
     "RecordingTech",
+    "RefdataConfig",
+    "ReferenceFetchRequest",
     "ResolutionGrain",
     "ResolutionMethod",
     "RetentionClass",
