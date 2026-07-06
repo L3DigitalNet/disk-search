@@ -2,6 +2,7 @@
 the reconsider/discovery/refresh loop."""
 
 import pytest
+from django.core.management import CommandError, call_command
 
 from hw_radar.catalog.models import (
     FetchRequestStatus,
@@ -156,3 +157,26 @@ def test_run_refresh_conflicted_import_still_reconsiders(site: SourceSite) -> No
     assert report.upgraded >= 1
     listing.refresh_from_db()
     assert listing.resolution_grain in (ResolutionGrain.MODEL, ResolutionGrain.VARIANT)
+
+
+def test_import_refdata_command_imports_the_seeds(db: None) -> None:
+    call_command("import_refdata")
+    assert ProductModel.objects.count() == 15
+
+
+def test_import_refdata_command_fails_loudly_on_conflicts(db: None) -> None:
+    samsung = Manufacturer.objects.create(name="Samsung", normalized_name="samsung")
+    stranger = ProductModel.objects.create(
+        manufacturer=samsung,
+        model_number="XYZ-2",
+        normalized_model_number="xyz2",
+        retention_class=RetentionClass.MANUFACTURER_REFERENCE,
+    )
+    ProductAlias.objects.create(
+        alias_type="mpn",
+        normalized_alias_text="st16000nm002c",
+        product_model=stranger,
+        source_kind="listing_derived",
+    )
+    with pytest.raises(CommandError):
+        call_command("import_refdata")
