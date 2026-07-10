@@ -4,7 +4,7 @@ This is the cross-agent entry point for the repository. Keep it small: durable
 project rules live in `docs/handoff/conventions.md`, and live state is injected
 by the SessionStart hook.
 
-Session state: `docs/handoff/state.md`
+Session state: Agent Handoff injects `docs/handoff/state.md`; do not reread it when injected.
 Full conventions reference: `docs/handoff/conventions.md`
 Detailed review workflows: `docs/handoff/specs-plans.md`
 
@@ -30,12 +30,12 @@ design and plans under `docs/superpowers/`.
 - Settled decisions: `docs/resolved-questions.md`
 - ADRs: `docs/adr/`
 - Research reports: `docs/research/`
-- Current status: `STATUS.md`
-- Work queue: `TODO.md`
+- Current status: `docs/STATUS.md`
+- Work queue: `docs/TODO.md`
 
 ## TODO Discipline
 
-When working on an item listed in `TODO.md`, update that item in the same change:
+When working on an item listed in `docs/TODO.md`, update that item in the same change:
 remove completed work, narrow partially completed work, and add newly discovered
 follow-ups. Keep user-owned and agent-tracked sections separate.
 
@@ -75,3 +75,10 @@ hand-edit `uv.lock`.
 Work on `dev` unless the user asks for a feature branch. `main` is protected and
 advances by PR from `dev` with a merge commit after CI passes. Use conventional,
 GPG-signed commits.
+
+<!-- BEGIN agent-handoff managed instructions -->
+Use the repo-local `$agent-handoff` skill at startup and closeout.
+Do not reread `docs/handoff/state.md` when SessionStart already injected it.
+Keep current status and tasks in `docs/STATUS.md` and `docs/TODO.md`; route durable facts through `docs/handoff/`.
+At closeout, update only changed facts, preserve user-authored work, store credential references only, and run relevant validation.
+<!-- END agent-handoff managed instructions -->
